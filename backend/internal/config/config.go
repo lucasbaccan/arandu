@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	Host              string
 	Port              string
 	JWTSecret         string
 	SessionHours      int
@@ -13,10 +14,13 @@ type Config struct {
 	DatabasePath      string
 	CookieSecure      bool
 	SnowflakeNode     int
+	ViteDevURL        string
+	FrontendDir       string
 }
 
 func Load() Config {
 	return Config{
+		Host:              getEnv("HOST", "0.0.0.0"),
 		Port:              getEnv("PORT", "8080"),
 		JWTSecret:         getEnv("JWT_SECRET", "dev-secret-change-me"),
 		SessionHours:      getEnvInt("SESSION_HOURS", 24),
@@ -24,6 +28,8 @@ func Load() Config {
 		DatabasePath:      getEnv("DATABASE_PATH", "./data/app.db"),
 		CookieSecure:      getEnvBool("COOKIE_SECURE", false),
 		SnowflakeNode:     getEnvInt("SNOWFLAKE_NODE", 0),
+		ViteDevURL:        getEnv("VITE_DEV_URL", ""),
+		FrontendDir:       getEnv("FRONTEND_DIR", ""),
 	}
 }
 

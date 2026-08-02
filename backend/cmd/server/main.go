@@ -36,7 +36,7 @@ func main() {
 	app := api.New(cfg, store.New(db), gen)
 
 	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
+		Addr:         cfg.Host + ":" + cfg.Port,
 		Handler:      app.Handler(),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -46,7 +46,7 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("DevOps Conecta rodando em http://localhost:%s", cfg.Port)
+		log.Printf("DevOps Conecta rodando em http://%s:%s", cfg.Host, cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("main: servidor: %v", err)
 		}

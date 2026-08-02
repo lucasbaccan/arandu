@@ -61,13 +61,24 @@ describe('App (guardas de rota)', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 
-  it('redireciona para a home na tela de login sem sessão', async () => {
+  it('mantém a tela de login quando não logado (regressão: botão Entrar)', async () => {
     route.set('/login');
     render(App);
 
     authReady.set(true);
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('redireciona para o dashboard ao abrir login/registro já logado', async () => {
+    route.set('/login');
+    render(App);
+
+    user.set({ id: '1', name: 'Ana' });
+    authReady.set(true);
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
   });
 
   it('redireciona para a home em /events/new sem sessão', async () => {

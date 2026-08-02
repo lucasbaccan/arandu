@@ -1,4 +1,5 @@
 .env
+data/
 backend/bin/
 backend/tmp/
 backend/data/

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -335,5 +336,101 @@ func TestSpaServesIndex(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), "DevOps Conecta") {
 			t.Errorf("%s: resposta deveria conter o app", path)
 		}
+	}
+}
+
+func TestServesFrontendFromDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("FS-FRONT-PAGE"), 0o644); err != nil {
+		t.Fatalf("criar index.html: %v", err)
+	}
+
+	cfg := config.Config{
+		JWTSecret:         "test-secret",
+		SessionHours:      24,
+		MinPasswordLength: 3,
+		FrontendDir:       dir,
+	}
+	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	h := app.Handler()
+
+	for _, path := range []string{"/", "/login"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Body.String() != "FS-FRONT-PAGE" {
+			t.Errorf("%s: esperado página do filesystem, got %q", path, rec.Body.String())
+		}
+	}
+}
+
+func TestDevProxyForwardsFrontend(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte("VITE-LIVE-PAGE"))
+	}))
+	defer upstream.Close()
+
+	cfg := config.Config{
+		JWTSecret:         "test-secret",
+		SessionHours:      24,
+		MinPasswordLength: 3,
+		ViteDevURL:        upstream.URL,
+	}
+	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	h := app.Handler()
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Body.String() != "VITE-LIVE-PAGE" {
+		t.Errorf("esperado página do Vite, got %q", rec.Body.String())
+	}
+}
+
+func TestDevProxyFallsBackToNextUpstream(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("FALLBACK-UP"))
+	}))
+	defer upstream.Close()
+
+	// primeiro upstream aponta para uma porta sem ninguém escutando
+	dead := "http://127.0.0.1:1"
+
+	cfg := config.Config{
+		JWTSecret:         "test-secret",
+		SessionHours:      24,
+		MinPasswordLength: 3,
+		ViteDevURL:        dead + "," + upstream.URL,
+	}
+	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	h := app.Handler()
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Body.String() != "FALLBACK-UP" {
+		t.Errorf("esperado resposta do segundo upstream, got %q", rec.Body.String())
+	}
+}
+
+func TestDevProxyAllDown(t *testing.T) {
+	cfg := config.Config{
+		JWTSecret:         "test-secret",
+		SessionHours:      24,
+		MinPasswordLength: 3,
+		ViteDevURL:        "http://127.0.0.1:1",
+	}
+	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	h := app.Handler()
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadGateway {
+		t.Errorf("status esperado 502, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "make frontend-dev") {
+		t.Errorf("mensagem amigável esperada, got %q", rec.Body.String())
 	}
 }

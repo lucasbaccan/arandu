@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -68,8 +69,13 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/events", a.requireAuth(a.handleListEvents))
 	mux.HandleFunc("/api/", a.handleAPI404)
 
-	spa := a.spa()
-	if spa != nil {
+	if a.cfg.ViteDevURL != "" {
+		if p := devProxy(a.cfg.ViteDevURL); p != nil {
+			mux.Handle("/", p)
+		}
+	} else if a.cfg.FrontendDir != "" {
+		mux.Handle("/", spaHandler(os.DirFS(a.cfg.FrontendDir)))
+	} else if spa := a.spa(); spa != nil {
 		mux.Handle("/", spa)
 	}
 
