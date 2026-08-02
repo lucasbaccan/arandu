@@ -1,0 +1,8 @@
+.env
+backend/bin/
+backend/tmp/
+backend/data/
+frontend/node_modules/
+backend/web/dist/*
+!backend/web/dist/PLACEHOLDER
+*.log
