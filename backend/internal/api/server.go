@@ -64,6 +64,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/auth/logout", a.handleLogout)
 	mux.HandleFunc("GET /api/auth/me", a.requireAuth(a.handleMe))
 	mux.HandleFunc("GET /api/auth/config", a.handleConfig)
+	mux.HandleFunc("POST /api/events", a.requireAuth(a.handleCreateEvent))
+	mux.HandleFunc("GET /api/events", a.requireAuth(a.handleListEvents))
 	mux.HandleFunc("/api/", a.handleAPI404)
 
 	spa := a.spa()

@@ -3,6 +3,7 @@ import { api } from './api.js';
 
 export const user = writable(null);
 export const authConfig = writable({ minPasswordLength: 3 });
+export const authReady = writable(false);
 
 export async function initAuth() {
   try {
@@ -16,6 +17,7 @@ export async function initAuth() {
   } catch {
     // mantém defaults
   }
+  authReady.set(true);
 }
 
 export async function login(email, password) {

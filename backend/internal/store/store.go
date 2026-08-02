@@ -46,6 +46,19 @@ func Migrate(db *sql.DB) error {
 			auth_provider TEXT    NOT NULL DEFAULT 'email',
 			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
+
+		CREATE TABLE IF NOT EXISTS events (
+			id                  INTEGER PRIMARY KEY,
+			owner_id            INTEGER NOT NULL REFERENCES users(id),
+			title               TEXT    NOT NULL,
+			pin_code            TEXT    NOT NULL,
+			status              TEXT    NOT NULL DEFAULT 'PREPARATION',
+			config_show_ranking BOOLEAN NOT NULL DEFAULT 0,
+			created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_events_pin_active
+			ON events(pin_code) WHERE status != 'FINISHED';
 	`)
 	if err != nil {
 		return fmt.Errorf("store: migração: %w", err)

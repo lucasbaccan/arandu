@@ -38,5 +38,9 @@ export const api = {
   me: () => request('/api/auth/me'),
   register: (body) => request('/api/auth/register', { method: 'POST', body }),
   login: (body) => request('/api/auth/login', { method: 'POST', body }),
-  logout: () => request('/api/auth/logout', { method: 'POST' })
+  logout: () => request('/api/auth/logout', { method: 'POST' }),
+  events: {
+    create: (body) => request('/api/events', { method: 'POST', body }),
+    list: () => request('/api/events')
+  }
 };
