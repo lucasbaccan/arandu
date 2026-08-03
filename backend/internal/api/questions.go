@@ -13,6 +13,7 @@ import (
 const (
 	questionTypeGroup      = "GROUP"
 	questionTypeIndividual = "INDIVIDUAL"
+	questionTypeOpenText   = "OPEN_TEXT"
 	defaultLayoutView      = "TIMELINE"
 
 	maxQuestionTitleLength = 300
@@ -112,8 +113,8 @@ func (a *API) handleCreateQuestion(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Pergunta muito longa (máximo "+strconv.Itoa(maxQuestionTitleLength)+" caracteres).")
 		return
 	}
-	if req.Type != questionTypeGroup && req.Type != questionTypeIndividual {
-		writeError(w, http.StatusBadRequest, "Tipo de pergunta inválido. Use GROUP ou INDIVIDUAL.")
+	if req.Type != questionTypeGroup && req.Type != questionTypeIndividual && req.Type != questionTypeOpenText {
+		writeError(w, http.StatusBadRequest, "Tipo de pergunta inválido. Use GROUP, INDIVIDUAL ou OPEN_TEXT.")
 		return
 	}
 	if req.LayoutView == "" {
@@ -204,12 +205,6 @@ func (a *API) handleUpdateQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	options, msg := normalizeOptions(req.Options, questionTypeGroup)
-	if msg != "" {
-		writeError(w, http.StatusBadRequest, msg)
-		return
-	}
-
 	existing, err := a.store.ListQuestionsByEvent(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: buscar pergunta para editar: %v", err)
@@ -225,6 +220,12 @@ func (a *API) handleUpdateQuestion(w http.ResponseWriter, r *http.Request) {
 	}
 	if current == nil {
 		writeError(w, http.StatusNotFound, "Pergunta não encontrada.")
+		return
+	}
+
+	options, msg := normalizeOptions(req.Options, current.Type)
+	if msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
 
@@ -338,7 +339,11 @@ func (a *API) resolveEventOwner(w http.ResponseWriter, r *http.Request) (int64, 
 }
 
 // normalizeOptions valida e limpa as opções, exigindo mínimo por tipo de pergunta.
+// Perguntas de resposta aberta (OPEN_TEXT) não têm opções.
 func normalizeOptions(options []string, qType string) ([]string, string) {
+	if qType == questionTypeOpenText {
+		return []string{}, ""
+	}
 	if len(options) < minOptions || len(options) > maxOptions {
 		return nil, "Informe entre 1 e " + strconv.Itoa(maxOptions) + " opções."
 	}

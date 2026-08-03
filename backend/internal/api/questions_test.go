@@ -101,6 +101,52 @@ func TestCreateQuestionValidation(t *testing.T) {
 	}
 }
 
+func TestCreateQuestionOpenText(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventForQuestions(t, h, cookie)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+		"title": "Qual sua comida favorita?", "type": "OPEN_TEXT",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status esperado 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Question.Type != "OPEN_TEXT" {
+		t.Errorf("tipo divergente: %+v", resp.Question)
+	}
+	if len(resp.Question.Options) != 0 {
+		t.Errorf("pergunta de resposta aberta não deveria ter opções: %+v", resp.Question.Options)
+	}
+}
+
+func TestCreateQuestionOpenTextIgnoresOptions(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventForQuestions(t, h, cookie)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+		"title": "Comentário livre", "type": "OPEN_TEXT", "options": []string{"Ignorada"},
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status esperado 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Question questionDTO `json:"question"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Question.Options) != 0 {
+		t.Errorf("opções enviadas para OPEN_TEXT deveriam ser ignoradas: %+v", resp.Question.Options)
+	}
+}
+
 func TestCreateQuestionOwnership(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookieAna := registerUser(t, h)
@@ -311,6 +357,38 @@ func TestUpdateQuestion(t *testing.T) {
 	got := listQuestionTitles(t, h, cookie, id)
 	if len(got) != 1 || got[0] != "Depois" {
 		t.Errorf("alteração não persistida: %v", got)
+	}
+}
+
+func TestUpdateQuestionOpenText(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventForQuestions(t, h, cookie)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+		"title": "Antes", "type": "OPEN_TEXT",
+	}, []*http.Cookie{cookie})
+	var created struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id+"/questions/"+created.Question.ID, map[string]any{
+		"title": "Depois",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Question.Title != "Depois" || resp.Question.Type != "OPEN_TEXT" || len(resp.Question.Options) != 0 {
+		t.Errorf("pergunta atualizada divergente: %+v", resp.Question)
 	}
 }
 
