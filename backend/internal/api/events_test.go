@@ -265,6 +265,61 @@ func TestUpdateEventKeepsPINWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestUpdateEventTogglesStatus(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventAndGetID(t, h, cookie, "Evento")
+
+	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+		"title": "Evento", "status": "OPEN_FOR_ANSWERS",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Event eventDTO `json:"event"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Event.Status != "OPEN_FOR_ANSWERS" {
+		t.Errorf("status esperado OPEN_FOR_ANSWERS, got %s", resp.Event.Status)
+	}
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+		"title": "Evento", "status": "CLOSED_FOR_ANSWERS",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Event.Status != "CLOSED_FOR_ANSWERS" {
+		t.Errorf("status esperado CLOSED_FOR_ANSWERS, got %s", resp.Event.Status)
+	}
+
+	// omitir status preserva o valor atual
+	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+		"title": "Evento",
+	}, []*http.Cookie{cookie})
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Event.Status != "CLOSED_FOR_ANSWERS" {
+		t.Errorf("status deveria ser preservado quando omitido, got %s", resp.Event.Status)
+	}
+}
+
+func TestUpdateEventRejectsInvalidStatus(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventAndGetID(t, h, cookie, "Evento")
+
+	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+		"title": "Evento", "status": "FINISHED",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status inválido via update: esperado 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestUpdateEventErrors(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie := registerUser(t, h)

@@ -79,10 +79,10 @@ func (s *Store) FindEventByIDAndOwner(ctx context.Context, id, ownerID int64) (E
 func (s *Store) UpdateEvent(ctx context.Context, e Event) (Event, error) {
 	var createdAt string
 	err := s.db.QueryRowContext(ctx,
-		`UPDATE events SET title = ?, pin_code = ?, config_show_ranking = ?
+		`UPDATE events SET title = ?, pin_code = ?, status = ?, config_show_ranking = ?
 		 WHERE id = ? AND owner_id = ?
 		 RETURNING created_at`,
-		e.Title, e.PINCode, e.ShowRanking, e.ID, e.OwnerID,
+		e.Title, e.PINCode, e.Status, e.ShowRanking, e.ID, e.OwnerID,
 	).Scan(&createdAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Event{}, ErrNotFound

@@ -14,9 +14,11 @@ import (
 )
 
 const (
-	eventStatusPreparation = "PREPARATION"
-	maxEventTitleLength    = 120
-	autoPINRetries         = 5
+	eventStatusPreparation      = "PREPARATION"
+	eventStatusOpenForAnswers   = "OPEN_FOR_ANSWERS"
+	eventStatusClosedForAnswers = "CLOSED_FOR_ANSWERS"
+	maxEventTitleLength         = 120
+	autoPINRetries              = 5
 )
 
 var pinRe = regexp.MustCompile(`^[a-zA-Z0-9_\-]{1,25}$`)
@@ -146,6 +148,7 @@ func (a *API) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 type updateEventRequest struct {
 	Title       string `json:"title"`
 	PINCode     string `json:"pinCode"`
+	Status      string `json:"status"`
 	ShowRanking bool   `json:"configShowRanking"`
 }
 
@@ -177,6 +180,10 @@ func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "O PIN deve ter 1 a 25 caracteres: letras, números, _ ou -.")
 		return
 	}
+	if req.Status != "" && req.Status != eventStatusOpenForAnswers && req.Status != eventStatusClosedForAnswers {
+		writeError(w, http.StatusBadRequest, "Status inválido.")
+		return
+	}
 
 	current, err := a.store.FindEventByIDAndOwner(r.Context(), id, ownerID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -193,13 +200,17 @@ func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 	if req.PINCode != "" {
 		pin = req.PINCode
 	}
+	status := current.Status
+	if req.Status != "" {
+		status = req.Status
+	}
 
 	ev, err := a.store.UpdateEvent(r.Context(), store.Event{
 		ID:          id,
 		OwnerID:     ownerID,
 		Title:       req.Title,
 		PINCode:     pin,
-		Status:      current.Status,
+		Status:      status,
 		ShowRanking: req.ShowRanking,
 	})
 	if errors.Is(err, store.ErrPinTaken) {
