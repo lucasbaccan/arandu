@@ -7,6 +7,7 @@
   import Button from '../components/Button.svelte';
   import Input from '../components/Input.svelte';
   import CopyButton from '../components/CopyButton.svelte';
+  import Switch from '../components/Switch.svelte';
   import QuestionForm, { MIN_OPTIONS, MAX_OPTIONS } from '../components/QuestionForm.svelte';
 
   const statusLabels = {
@@ -96,6 +97,27 @@
       error = e.message;
     } finally {
       submitting = false;
+    }
+  }
+
+  let statusBusy = false;
+
+  async function toggleAnswersOpen() {
+    const nextStatus = status === 'OPEN_FOR_ANSWERS' ? 'CLOSED_FOR_ANSWERS' : 'OPEN_FOR_ANSWERS';
+    statusBusy = true;
+    try {
+      const { event } = await api.events.update(id, {
+        title: title.trim(),
+        pinCode: '',
+        configShowRanking: showRanking,
+        status: nextStatus
+      });
+      status = event.status;
+      showToast(status === 'OPEN_FOR_ANSWERS' ? 'Respostas abertas!' : 'Respostas encerradas.');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      statusBusy = false;
     }
   }
 
@@ -301,6 +323,22 @@
       <div class="edit-layout">
         <div class="card panel settings-panel">
           <h2>Configurações do evento</h2>
+          <p class="text-muted questions-count">
+            {questions.length} pergunta{questions.length === 1 ? '' : 's'} adicionada{questions.length === 1 ? '' : 's'}
+          </p>
+
+          <div class="answers-switch">
+            <div>
+              <strong>Respostas {status === 'OPEN_FOR_ANSWERS' ? 'abertas' : 'fechadas'}</strong>
+              <p class="text-muted">Participantes só respondem enquanto estiver aberto.</p>
+            </div>
+            <Switch
+              checked={status === 'OPEN_FOR_ANSWERS'}
+              disabled={statusBusy}
+              on:change={toggleAnswersOpen}
+            />
+          </div>
+
           <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
             <Input
               label="Título"
@@ -551,6 +589,31 @@
 
   .questions-head p {
     margin: -8px 0 0;
+  }
+
+  .questions-count {
+    margin: -10px 0 0;
+    font-size: 0.85rem;
+  }
+
+  .answers-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .answers-switch strong {
+    font-size: 0.9rem;
+  }
+
+  .answers-switch p {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
   }
 
   .empty-note {
