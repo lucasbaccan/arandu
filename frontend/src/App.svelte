@@ -29,7 +29,7 @@
 <div class="app-view">
   {#if !$authReady}
     <main class="page">
-      <h1 class="home-logo">DevOps Conecta</h1>
+      <img class="loading-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
       <p class="home-tagline">Carregando…</p>
     </main>
   {:else if $route === '/'}

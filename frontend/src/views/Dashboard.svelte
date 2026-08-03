@@ -56,9 +56,12 @@
 
 <main class="page page-wide">
   <div class="dash-head">
-    <div>
-      <h1 class="dash-title">Meus eventos</h1>
-      <p class="dash-user">Olá, {($user && $user.name) || '…'}</p>
+    <div class="dash-brand">
+      <img class="dash-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
+      <div>
+        <h1 class="dash-title">Meus eventos</h1>
+        <p class="dash-user">Olá, {($user && $user.name) || '…'}</p>
+      </div>
     </div>
     <div class="dash-actions">
       <Button on:click={goCreate}>Novo evento</Button>

@@ -5,7 +5,7 @@
 
 <main class="home">
   <div class="home-content">
-    <h1 class="home-logo">DevOps Conecta</h1>
+    <img class="home-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
     <p class="home-tagline">Dinâmicas de grupo ao vivo</p>
     <div class="home-actions">
       <Button on:click={() => navigate('/login')}>Entrar</Button>
@@ -33,6 +33,11 @@
     flex-direction: column;
     align-items: center;
     gap: 12px;
+  }
+
+  .home-logo {
+    width: min(460px, 85vw);
+    height: auto;
   }
 
   .home-actions {
