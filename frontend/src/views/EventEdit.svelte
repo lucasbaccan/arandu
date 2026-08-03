@@ -1,6 +1,7 @@
 <script>
   export let id = '';
 
+  import { flip } from 'svelte/animate';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { showToast } from '../lib/toastStore.js';
@@ -9,6 +10,7 @@
   import CopyButton from '../components/CopyButton.svelte';
   import Switch from '../components/Switch.svelte';
   import QuestionForm, { MIN_OPTIONS, MAX_OPTIONS } from '../components/QuestionForm.svelte';
+  import ResponsesPanel from '../components/ResponsesPanel.svelte';
 
   const statusLabels = {
     PREPARATION: 'Em preparação',
@@ -21,6 +23,7 @@
   let loading = true;
   let error = '';
   let notFound = false;
+  let activeTab = 'questions'; // questions | responses
 
   $: answerLink = `${window.location.origin}/answer/${id}`;
 
@@ -254,13 +257,18 @@
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = 'move';
     }
-    const items = e.currentTarget.querySelectorAll(':scope > li.question-item');
-    let target = items.length;
+    const items = e.currentTarget.querySelectorAll(':scope > li.question-slot');
+    // Direction-aware: dragging past an item's midpoint swaps with it
+    // immediately, instead of requiring an overshoot into the next item.
+    let target = dragIndex;
     for (let k = 0; k < items.length; k++) {
+      if (k === dragIndex) continue;
       const rect = items[k].getBoundingClientRect();
-      if (e.clientY < rect.top + rect.height / 2) {
-        target = k;
-        break;
+      const midpoint = rect.top + rect.height / 2;
+      if (k > dragIndex && e.clientY >= midpoint) {
+        target = Math.max(target, k);
+      } else if (k < dragIndex && e.clientY <= midpoint) {
+        target = Math.min(target, k);
       }
     }
     dropIndex = target;
@@ -269,9 +277,7 @@
   function onDrop(e) {
     if (dragIndex === null) return;
     e.preventDefault();
-    let to = dropIndex;
-    if (to === null) to = questions.length;
-    if (dragIndex < to) to -= 1;
+    const to = dropIndex === null ? dragIndex : dropIndex;
     moveQuestion(dragIndex, to);
     dragIndex = null;
     dropIndex = null;
@@ -382,12 +388,32 @@
         </div>
 
         <div class="card panel questions-panel">
-          <div class="questions-head">
-            <h2>Perguntas da dinâmica</h2>
-            <p class="text-muted">Arraste para reordenar ou clique em "+" para inserir uma pergunta em qualquer posição.</p>
+          <div class="tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              class="tab"
+              class:active={activeTab === 'questions'}
+              aria-selected={activeTab === 'questions'}
+              on:click={() => (activeTab = 'questions')}
+            >
+              Perguntas
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="tab"
+              class:active={activeTab === 'responses'}
+              aria-selected={activeTab === 'responses'}
+              on:click={() => (activeTab = 'responses')}
+            >
+              Respostas
+            </button>
           </div>
 
-          {#if questionsLoading}
+          {#if activeTab === 'responses'}
+            <ResponsesPanel eventId={id} {questions} />
+          {:else if questionsLoading}
             <p class="text-muted">Carregando perguntas…</p>
           {:else if questions.length === 0}
             <div class="empty-note">
@@ -414,7 +440,15 @@
               on:dragover={onDragOver}
               on:drop={onDrop}
             >
-              <li class="insert-slot" class:active={insertAt === 0}>
+              <!--
+                The question rows and the "insert here" dividers are rendered as two
+                separate sibling each-blocks (Svelte's animate:flip requires the
+                animated element to be the each-block's immediate, sole child — it
+                can't share an iteration with the divider li). Visual interleaving
+                is done purely with the CSS `order` property below: divider "after
+                position p" gets order 2p, question i gets order 2i+1.
+              -->
+              <li class="insert-slot" style="order: 0" class:active={insertAt === 0}>
                 {#if insertAt === 0}
                   <QuestionForm
                     heading="Adicionar pergunta"
@@ -436,104 +470,142 @@
               </li>
 
               {#each questions as q, i (q.id)}
-                {#if editingId === q.id}
-                  <li class="insert-slot active">
-                    <QuestionForm
-                      heading="Editar pergunta"
-                      submitLabel="Salvar pergunta"
-                      showCancel
-                      initialTitle={q.title}
-                      initialOptions={q.options.map((o) => o.text)}
-                      error={formError}
-                      submitting={formBusy}
-                      on:submit={(e) => handleUpdate(e.detail, q.id)}
-                      on:cancel={closeForms}
-                    />
-                  </li>
-                {:else}
-                  <li
-                    class="question-item"
-                    class:dragging={dragIndex === i}
-                    class:drop-top={dragIndex !== null && dropIndex === i && dragIndex !== i}
-                    draggable={editingId === null && insertAt === null}
-                    on:dragstart={(e) => onDragStart(e, i)}
-                    on:dragend={onDragEnd}
-                  >
-                    <span class="drag-handle" title="Arraste para reordenar">⠿</span>
-                    <div class="question-info">
-                      <div class="question-title-row">
-                        <strong class="question-title">{q.title}</strong>
-                        {#if q.type !== 'GROUP'}
-                          <span class="badge badge-individual">Individual</span>
+                <li class="question-slot" style="order: {2 * i + 1}" animate:flip={{ duration: 220 }}>
+                  {#if editingId === q.id}
+                    <div class="insert-slot active">
+                      <QuestionForm
+                        heading="Editar pergunta"
+                        submitLabel="Salvar pergunta"
+                        showCancel
+                        initialTitle={q.title}
+                        initialOptions={q.options.map((o) => o.text)}
+                        initialType={q.type}
+                        typeEditable={false}
+                        error={formError}
+                        submitting={formBusy}
+                        on:submit={(e) => handleUpdate(e.detail, q.id)}
+                        on:cancel={closeForms}
+                      />
+                    </div>
+                  {:else}
+                    <div
+                      class="question-item"
+                      role="listitem"
+                      class:dragging={dragIndex === i}
+                      class:drop-top={dragIndex !== null && dropIndex === i && dragIndex !== i}
+                      draggable={editingId === null && insertAt === null}
+                      on:dragstart={(e) => onDragStart(e, i)}
+                      on:dragend={onDragEnd}
+                    >
+                      <span class="drag-handle" title="Arraste para reordenar">⠿</span>
+                      <div class="question-info">
+                        <div class="question-title-row">
+                          <strong class="question-title">{q.title}</strong>
+                          {#if q.type === 'OPEN_TEXT'}
+                            <span class="badge badge-open-text">Resposta aberta</span>
+                          {:else if q.type !== 'GROUP'}
+                            <span class="badge badge-individual">Individual</span>
+                          {/if}
+                        </div>
+                        {#if q.options.length > 0}
+                          <ul class="option-chips">
+                            {#each q.options as opt (opt.id)}
+                              <li class="option-chip">{opt.text}</li>
+                            {/each}
+                          </ul>
                         {/if}
                       </div>
-                      {#if q.options.length > 0}
-                        <ul class="option-chips">
-                          {#each q.options as opt (opt.id)}
-                            <li class="option-chip">{opt.text}</li>
-                          {/each}
-                        </ul>
-                      {/if}
+                      <div class="question-actions">
+                        <button
+                          type="button"
+                          class="icon-btn"
+                          title="Mover para cima"
+                          aria-label="Mover pergunta para cima"
+                          disabled={i === 0}
+                          on:click={() => moveQuestion(i, i - 1)}
+                        >↑</button>
+                        <button
+                          type="button"
+                          class="icon-btn"
+                          title="Mover para baixo"
+                          aria-label="Mover pergunta para baixo"
+                          disabled={i === questions.length - 1}
+                          on:click={() => moveQuestion(i, i + 1)}
+                        >↓</button>
+                        <button
+                          type="button"
+                          class="icon-btn"
+                          title="Editar pergunta"
+                          aria-label={`Editar pergunta ${q.title}`}
+                          on:click={() => startEdit(q)}
+                        >✎</button>
+                        <button
+                          type="button"
+                          class="icon-btn danger"
+                          title="Remover pergunta"
+                          aria-label={`Remover pergunta ${q.title}`}
+                          on:click={() => removeQuestion(q)}
+                        >×</button>
+                      </div>
                     </div>
-                    <div class="question-actions">
-                      <button
-                        type="button"
-                        class="icon-btn"
-                        title="Mover para cima"
-                        aria-label="Mover pergunta para cima"
-                        disabled={i === 0}
-                        on:click={() => moveQuestion(i, i - 1)}
-                      >↑</button>
-                      <button
-                        type="button"
-                        class="icon-btn"
-                        title="Mover para baixo"
-                        aria-label="Mover pergunta para baixo"
-                        disabled={i === questions.length - 1}
-                        on:click={() => moveQuestion(i, i + 1)}
-                      >↓</button>
-                      <button
-                        type="button"
-                        class="icon-btn"
-                        title="Editar pergunta"
-                        aria-label={`Editar pergunta ${q.title}`}
-                        on:click={() => startEdit(q)}
-                      >✎</button>
-                      <button
-                        type="button"
-                        class="icon-btn danger"
-                        title="Remover pergunta"
-                        aria-label={`Remover pergunta ${q.title}`}
-                        on:click={() => removeQuestion(q)}
-                      >×</button>
-                    </div>
-                  </li>
-                {/if}
-
-                <li class="insert-slot" class:active={insertAt === i + 1}>
-                  {#if insertAt === i + 1}
-                    <QuestionForm
-                      heading="Adicionar pergunta"
-                      submitLabel="Adicionar"
-                      showCancel
-                      error={formError}
-                      submitting={formBusy}
-                      on:submit={(e) => handleInsert(e.detail, i + 1)}
-                      on:cancel={closeForms}
-                    />
-                  {:else}
-                    <button
-                      type="button"
-                      class="insert-btn"
-                      aria-label={`Adicionar pergunta após "${q.title}"`}
-                      on:click={() => openInsertAt(i + 1)}
-                    >+ Adicionar pergunta aqui</button>
                   {/if}
                 </li>
               {/each}
-              {#if dragIndex !== null && dropIndex === questions.length}
-                <li class="drop-end" aria-hidden="true"></li>
-              {/if}
+
+              {#each questions as q, i (q.id)}
+                {#if i < questions.length - 1}
+                  <li
+                    class="insert-slot"
+                    style="order: {2 * (i + 1)}"
+                    class:active={insertAt === i + 1}
+                  >
+                    {#if insertAt === i + 1}
+                      <QuestionForm
+                        heading="Adicionar pergunta"
+                        submitLabel="Adicionar"
+                        showCancel
+                        error={formError}
+                        submitting={formBusy}
+                        on:submit={(e) => handleInsert(e.detail, i + 1)}
+                        on:cancel={closeForms}
+                      />
+                    {:else}
+                      <button
+                        type="button"
+                        class="insert-btn"
+                        aria-label={`Adicionar pergunta após "${q.title}"`}
+                        on:click={() => openInsertAt(i + 1)}
+                      >+ Adicionar pergunta aqui</button>
+                    {/if}
+                  </li>
+                {/if}
+              {/each}
+
+              <li
+                class="insert-slot insert-slot-end"
+                style="order: {2 * questions.length}"
+                class:active={insertAt === questions.length}
+              >
+                {#if insertAt === questions.length}
+                  <QuestionForm
+                    heading="Adicionar pergunta"
+                    submitLabel="Adicionar"
+                    showCancel
+                    error={formError}
+                    submitting={formBusy}
+                    on:submit={(e) => handleInsert(e.detail, questions.length)}
+                    on:cancel={closeForms}
+                  />
+                {:else}
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    on:click={() => openInsertAt(questions.length)}
+                  >
+                    + Adicionar pergunta
+                  </Button>
+                {/if}
+              </li>
             </ul>
           {/if}
         </div>
@@ -556,6 +628,33 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab {
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .tab:hover {
+    color: var(--text);
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
   }
 
   .edit-layout {
@@ -587,10 +686,6 @@
 
   .questions-panel {
     gap: 16px;
-  }
-
-  .questions-head p {
-    margin: -8px 0 0;
   }
 
   .questions-count {
@@ -661,19 +756,18 @@
     border-color: var(--accent);
   }
 
-  .drop-end {
-    height: 2px;
-    background: var(--accent);
-    border-radius: 2px;
-    margin-top: -2px;
-  }
-
   .insert-slot {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .insert-slot.active {
     margin: 6px 0;
+  }
+
+  .insert-slot-end {
+    margin-top: 8px;
   }
 
   .insert-btn {

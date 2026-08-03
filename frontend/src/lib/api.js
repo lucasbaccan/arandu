@@ -56,6 +56,14 @@ export const api = {
         }),
       remove: (id, questionId) =>
         request(`/api/events/${id}/questions/${questionId}`, { method: 'DELETE' })
+    },
+    responses: {
+      list: (id) => request(`/api/events/${id}/responses`),
+      updateAnswer: (id, participantId, questionId, body) =>
+        request(`/api/events/${id}/responses/${participantId}/answers/${questionId}`, {
+          method: 'PATCH',
+          body
+        })
     }
   },
   public: {
