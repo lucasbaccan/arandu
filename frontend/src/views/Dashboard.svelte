@@ -2,6 +2,7 @@
   import { user, logout } from '../lib/authStore.js';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
+  import { formatDate } from '../lib/formatDate.js';
   import Button from '../components/Button.svelte';
   import Card from '../components/Card.svelte';
 
@@ -44,13 +45,6 @@
 
   function statusLabel(status) {
     return statusLabels[status] || status;
-  }
-
-  function formatDate(iso) {
-    const d = new Date(iso);
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    return `${dd}/${mm}/${d.getFullYear()}`;
   }
 </script>
 

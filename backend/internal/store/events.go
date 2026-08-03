@@ -27,7 +27,7 @@ func (s *Store) CreateEvent(ctx context.Context, e Event) (Event, error) {
 		`INSERT INTO events (id, owner_id, title, pin_code, status, config_show_ranking, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		e.ID, e.OwnerID, e.Title, e.PINCode, e.Status, e.ShowRanking,
-		e.CreatedAt.Format("2006-01-02 15:04:05"),
+		e.CreatedAt.Format(time.RFC3339),
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -77,23 +77,25 @@ func (s *Store) FindEventByIDAndOwner(ctx context.Context, id, ownerID int64) (E
 }
 
 func (s *Store) UpdateEvent(ctx context.Context, e Event) (Event, error) {
-	res, err := s.db.ExecContext(ctx,
+	var createdAt string
+	err := s.db.QueryRowContext(ctx,
 		`UPDATE events SET title = ?, pin_code = ?, config_show_ranking = ?
-		 WHERE id = ? AND owner_id = ?`,
+		 WHERE id = ? AND owner_id = ?
+		 RETURNING created_at`,
 		e.Title, e.PINCode, e.ShowRanking, e.ID, e.OwnerID,
-	)
+	).Scan(&createdAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Event{}, ErrNotFound
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return Event{}, ErrPinTaken
 		}
 		return Event{}, fmt.Errorf("store: atualizar evento: %w", err)
 	}
-	n, err := res.RowsAffected()
+	e.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
 	if err != nil {
-		return Event{}, fmt.Errorf("store: atualizar evento: %w", err)
-	}
-	if n == 0 {
-		return Event{}, ErrNotFound
+		return Event{}, fmt.Errorf("store: parse created_at: %w", err)
 	}
 	return e, nil
 }
@@ -105,6 +107,9 @@ func scanEvent(row scanner) (Event, error) {
 	if err != nil {
 		return Event{}, err
 	}
-	e.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+	e.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return Event{}, fmt.Errorf("store: parse created_at: %w", err)
+	}
 	return e, nil
 }

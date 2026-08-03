@@ -30,7 +30,7 @@ func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
 	u.CreatedAt = time.Now()
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO users (id, email, name, password_hash, auth_provider, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Email, u.Name, u.PasswordHash, u.AuthProvider, u.CreatedAt.Format("2006-01-02 15:04:05"),
+		u.ID, u.Email, u.Name, u.PasswordHash, u.AuthProvider, u.CreatedAt.Format(time.RFC3339),
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -72,7 +72,10 @@ func scanUser(row scanner) (User, error) {
 	if err != nil {
 		return User{}, fmt.Errorf("store: ler usuário: %w", err)
 	}
-	u.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+	u.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return User{}, fmt.Errorf("store: parse created_at: %w", err)
+	}
 	return u, nil
 }
 
