@@ -52,8 +52,8 @@ func TestCreateEventCustomPIN(t *testing.T) {
 		Event eventDTO `json:"event"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	if resp.Event.PINCode != "meu-pin_1" {
-		t.Errorf("PIN customizado não preservado, got %q", resp.Event.PINCode)
+	if resp.Event.PINCode != "MEU-PIN_1" {
+		t.Errorf("PIN customizado deveria ser normalizado para maiúsculas, got %q", resp.Event.PINCode)
 	}
 }
 
@@ -102,6 +102,21 @@ func TestCreateEventCustomPINTaken(t *testing.T) {
 	rec = createEvent(t, h, cookie, map[string]string{"title": "B", "pinCode": "ocupado"})
 	if rec.Code != http.StatusConflict {
 		t.Errorf("PIN duplicado: status esperado 409, got %d", rec.Code)
+	}
+}
+
+func TestCreateEventCustomPINTakenCaseInsensitive(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+
+	rec := createEvent(t, h, cookie, map[string]string{"title": "A", "pinCode": "dev"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("primeiro evento deveria ser criado, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = createEvent(t, h, cookie, map[string]string{"title": "B", "pinCode": "DEV"})
+	if rec.Code != http.StatusConflict {
+		t.Errorf("PIN duplicado (case-insensitive): status esperado 409, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -225,7 +240,7 @@ func TestUpdateEvent(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if resp.Event.Title != "Depois" || resp.Event.PINCode != "novo-pin" || !resp.Event.ShowRanking {
+	if resp.Event.Title != "Depois" || resp.Event.PINCode != "NOVO-PIN" || !resp.Event.ShowRanking {
 		t.Errorf("evento atualizado divergente: %+v", resp.Event)
 	}
 }

@@ -56,7 +56,7 @@ func (a *API) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Title = strings.TrimSpace(req.Title)
-	req.PINCode = strings.TrimSpace(req.PINCode)
+	req.PINCode = strings.ToUpper(strings.TrimSpace(req.PINCode))
 
 	if req.Title == "" {
 		writeError(w, http.StatusBadRequest, "Informe o título do evento.")
@@ -163,7 +163,7 @@ func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Title = strings.TrimSpace(req.Title)
-	req.PINCode = strings.TrimSpace(req.PINCode)
+	req.PINCode = strings.ToUpper(strings.TrimSpace(req.PINCode))
 
 	if req.Title == "" {
 		writeError(w, http.StatusBadRequest, "Informe o título do evento.")
