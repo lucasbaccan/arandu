@@ -121,9 +121,10 @@
     }
   }
 
-  function validateQuestion(qTitle, qOptions) {
+  function validateQuestion(qTitle, qOptions, qType) {
     if (!qTitle.trim()) return 'Informe o texto da pergunta.';
     if (qTitle.trim().length > 300) return 'Pergunta muito longa (máximo 300 caracteres).';
+    if (qType === 'OPEN_TEXT') return '';
     const opts = qOptions.map((o) => o.trim()).filter(Boolean);
     if (opts.length < MIN_OPTIONS) return `Informe pelo menos ${MIN_OPTIONS} opções.`;
     if (opts.length > MAX_OPTIONS) return `Máximo de ${MAX_OPTIONS} opções.`;
@@ -151,15 +152,16 @@
   }
 
   async function handleInsert(detail, pos) {
-    formError = validateQuestion(detail.title, detail.options);
+    formError = validateQuestion(detail.title, detail.options, detail.type);
     if (formError) return;
     formBusy = true;
     try {
       const body = {
         title: detail.title.trim(),
-        options: detail.options.map((o) => o.trim()).filter(Boolean)
+        type: detail.type,
+        options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean)
       };
-      const { question } = await api.events.questions.create(id, { ...body, type: 'GROUP' });
+      const { question } = await api.events.questions.create(id, body);
       const next = [...questions];
       next.splice(pos, 0, question);
       questions = next;
@@ -177,13 +179,13 @@
   }
 
   async function handleUpdate(detail, questionId) {
-    formError = validateQuestion(detail.title, detail.options);
+    formError = validateQuestion(detail.title, detail.options, detail.type);
     if (formError) return;
     formBusy = true;
     try {
       const body = {
         title: detail.title.trim(),
-        options: detail.options.map((o) => o.trim()).filter(Boolean)
+        options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean)
       };
       const { question } = await api.events.questions.update(id, questionId, body);
       questions = questions.map((x) => (x.id === questionId ? question : x));
@@ -735,6 +737,13 @@
     color: var(--text-muted);
     border-color: var(--border);
     background: rgba(139, 152, 165, 0.12);
+    flex-shrink: 0;
+  }
+
+  .badge-open-text {
+    color: #f5a623;
+    border-color: #f5a623;
+    background: rgba(245, 166, 35, 0.12);
     flex-shrink: 0;
   }
 
