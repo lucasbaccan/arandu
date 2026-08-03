@@ -6,6 +6,8 @@
   import { showToast } from '../lib/toastStore.js';
   import { formatDate } from '../lib/formatDate.js';
   import Button from './Button.svelte';
+  import CopyButton from './CopyButton.svelte';
+  import AvatarCropper from './AvatarCropper.svelte';
 
   let loading = true;
   let error = '';
@@ -16,6 +18,11 @@
   let editValue = '';
   let saving = false;
   let saveError = '';
+
+  let editingPhotoFor = null;
+  let photoDraft = '';
+  let savingPhoto = false;
+  let photoSaveError = '';
 
   async function load() {
     loading = true;
@@ -72,6 +79,41 @@
       saving = false;
     }
   }
+
+  function startEditPhoto(p) {
+    expandedId = p.id;
+    editingPhotoFor = p.id;
+    photoDraft = p.photo;
+    photoSaveError = '';
+  }
+
+  function cancelEditPhoto() {
+    editingPhotoFor = null;
+    photoSaveError = '';
+  }
+
+  function onPhotoDraftChange(e) {
+    photoDraft = e.detail;
+  }
+
+  async function savePhoto(p) {
+    savingPhoto = true;
+    photoSaveError = '';
+    try {
+      await api.events.responses.updatePhoto(eventId, p.id, { photo: photoDraft });
+      showToast('Foto atualizada!');
+      editingPhotoFor = null;
+      await load();
+    } catch (e) {
+      photoSaveError = e.message;
+    } finally {
+      savingPhoto = false;
+    }
+  }
+
+  function editLink(p) {
+    return `${window.location.origin}/answer/${eventId}?edit=${p.editToken}`;
+  }
 </script>
 
 <div class="responses-body">
@@ -91,26 +133,64 @@
       <ul class="participant-list">
         {#each participants as p (p.id)}
           <li class="participant">
-            <button
-              type="button"
-              class="participant-head"
-              on:click={() => toggleExpand(p.id)}
-              aria-expanded={expandedId === p.id}
-            >
-              {#if p.photo}
-                <img class="avatar" src={p.photo} alt="" />
-              {:else}
-                <span class="avatar avatar-placeholder">{p.email[0].toUpperCase()}</span>
-              {/if}
-              <span class="participant-info">
-                <strong>{p.email}</strong>
-                <span class="text-muted">{formatDate(p.createdAt)}</span>
-              </span>
-              <span class="chevron" class:open={expandedId === p.id} aria-hidden="true">›</span>
-            </button>
+            <div class="participant-head">
+              <button
+                type="button"
+                class="participant-head-main"
+                on:click={() => toggleExpand(p.id)}
+                aria-expanded={expandedId === p.id}
+              >
+                <span class="avatar-wrap">
+                  {#if p.photo}
+                    <img class="avatar" src={p.photo} alt="" />
+                  {:else}
+                    <span class="avatar avatar-placeholder">{p.email[0].toUpperCase()}</span>
+                  {/if}
+                </span>
+                <span class="participant-info">
+                  <strong>{p.email}</strong>
+                  <span class="text-muted">{formatDate(p.createdAt)}</span>
+                </span>
+                <span class="chevron" class:open={expandedId === p.id} aria-hidden="true">›</span>
+              </button>
+              <button
+                type="button"
+                class="icon-btn photo-edit-btn"
+                title="Editar foto"
+                aria-label={`Editar foto de ${p.email}`}
+                on:click={() => startEditPhoto(p)}
+              >✎</button>
+            </div>
 
             {#if expandedId === p.id}
               <div class="answers">
+                <div class="edit-link-row">
+                  <span class="text-muted">Link de edição:</span>
+                  <CopyButton text={editLink(p)} label="Copiar link de edição" />
+                </div>
+
+                {#if editingPhotoFor === p.id}
+                  <div class="photo-editor">
+                    <AvatarCropper on:change={onPhotoDraftChange} />
+                    {#if photoSaveError}
+                      <p class="form-error">{photoSaveError}</p>
+                    {/if}
+                    <div class="answer-edit-actions">
+                      <Button type="button" disabled={savingPhoto} on:click={() => savePhoto(p)}>
+                        {savingPhoto ? 'Salvando…' : 'Salvar foto'}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        type="button"
+                        disabled={savingPhoto}
+                        on:click={cancelEditPhoto}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                {/if}
+
                 {#each p.answers as a (a.questionId)}
                   <div class="answer-row">
                     <span class="answer-question">{a.questionTitle}</span>
@@ -196,13 +276,39 @@
     width: 100%;
     display: flex;
     align-items: center;
+    gap: 4px;
+    padding: 6px 8px 6px 12px;
+  }
+
+  .participant-head-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
     gap: 10px;
-    padding: 10px 12px;
+    padding: 4px 0;
     background: transparent;
     border: none;
     cursor: pointer;
     text-align: left;
     color: var(--text);
+  }
+
+  .avatar-wrap {
+    flex-shrink: 0;
+  }
+
+  .photo-edit-btn {
+    flex-shrink: 0;
+    color: #f5a623;
+    border-color: rgba(245, 166, 35, 0.35);
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .photo-edit-btn:hover:not(:disabled) {
+    background: #f5a623;
+    color: #1c1200;
+    border-color: #f5a623;
   }
 
   .avatar {
@@ -247,6 +353,24 @@
     flex-direction: column;
     gap: 10px;
     padding: 4px 14px 14px;
+  }
+
+  .edit-link-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+
+  .photo-editor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
   }
 
   .answer-row {

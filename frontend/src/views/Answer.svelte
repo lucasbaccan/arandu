@@ -6,6 +6,7 @@
   import Card from '../components/Card.svelte';
   import Input from '../components/Input.svelte';
   import AvatarCropper from '../components/AvatarCropper.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
 
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,11 +29,18 @@
   let email = '';
   let photo = '';
   let emailError = '';
+  let photoWarning = false;
 
   let currentIndex = 0;
   let questionError = '';
   let submitting = false;
   let submitError = '';
+
+  const requestedEditToken = new URLSearchParams(window.location.search).get('edit') || '';
+  let isEditMode = false;
+  let editToken = '';
+  let editLink = '';
+  let editLinkNotice = '';
 
   load();
 
@@ -50,6 +58,10 @@
         initial[q.id] = { optionId: '', text: '' };
       }
       answers = initial;
+
+      if (requestedEditToken) {
+        await loadForEdit(requestedEditToken);
+      }
     } catch (e) {
       if (e.status === 404) {
         notFound = true;
@@ -58,6 +70,25 @@
       }
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadForEdit(token) {
+    try {
+      const { participant } = await api.public.events.getParticipant(id, token);
+      email = participant.email;
+      photo = participant.photo;
+      editToken = token;
+      isEditMode = true;
+      const next = { ...answers };
+      for (const a of participant.answers) {
+        next[a.questionId] = { optionId: a.optionId, text: a.text };
+      }
+      answers = next;
+      step = 'questions';
+      currentIndex = 0;
+    } catch (e) {
+      editLinkNotice = 'Link de edição inválido ou expirado. Você pode responder normalmente abaixo.';
     }
   }
 
@@ -71,12 +102,17 @@
   function startQuestions() {
     emailError = validateEmail();
     if (emailError) return;
+    if (!photo && !photoWarning) {
+      photoWarning = true;
+      return;
+    }
     step = 'questions';
     currentIndex = 0;
   }
 
   function onPhotoChange(e) {
     photo = e.detail;
+    if (photo) photoWarning = false;
   }
 
   $: currentQuestion = questions[currentIndex];
@@ -124,15 +160,20 @@
     submitting = true;
     submitError = '';
     try {
-      await api.public.events.submit(id, {
+      const { editToken: returnedToken } = await api.public.events.submit(id, {
         email: email.trim(),
         photo,
+        editToken,
         answers: questions.map((q) => ({
           questionId: q.id,
           optionId: answers[q.id].optionId,
           text: answers[q.id].text.trim()
         }))
       });
+      editToken = returnedToken || editToken;
+      if (editToken) {
+        editLink = `${window.location.origin}/answer/${id}?edit=${editToken}`;
+      }
       step = 'done';
     } catch (e) {
       submitError = e.message;
@@ -158,16 +199,37 @@
       <p class="subtitle">As respostas não estão abertas para este evento no momento.</p>
     </Card>
   {:else if step === 'done'}
-    <Card title="Respostas enviadas!">
+    <Card title="Respostas enviadas!" wide>
       <p class="subtitle">Obrigado por participar, {email}.</p>
+      {#if editLink}
+        <div class="edit-link-box">
+          <p class="edit-link-label">
+            Guarde este link para editar ou atualizar suas respostas depois:
+          </p>
+          <div class="edit-link-row">
+            <input class="edit-link-input" type="text" readonly value={editLink} />
+            <CopyButton text={editLink} label="Copiar link de edição" />
+          </div>
+          <p class="text-muted edit-link-hint">
+            Perdeu o link? Você pode solicitá-lo ao responsável pelo evento.
+          </p>
+        </div>
+      {/if}
     </Card>
   {:else if questions.length === 0}
     <Card title={event.title}>
       <p class="subtitle">Este evento ainda não tem perguntas.</p>
     </Card>
   {:else if step === 'identify'}
-    <Card title={event.title} subtitle="Para responder, se identifique abaixo.">
+    <Card title={event.title} subtitle="Para responder, se identifique abaixo." wide>
       <form class="form" novalidate on:submit|preventDefault={startQuestions}>
+        {#if editLinkNotice}
+          <p class="form-warning">{editLinkNotice}</p>
+        {/if}
+        <p class="invite-text">
+          Você foi convidado(a) para responder {event.title}. Adicione sua foto para deixar mais
+          legal a dinâmica.
+        </p>
         <AvatarCropper on:change={onPhotoChange} />
         <Input
           label="E-mail"
@@ -178,11 +240,19 @@
           autocomplete="email"
           required
         />
-        <Button type="submit" block>Começar</Button>
+        {#if photoWarning}
+          <p class="form-warning">A dinâmica não será a mesma sem sua foto.</p>
+        {/if}
+        <Button type="submit" block>
+          {photoWarning ? 'Continuar mesmo assim' : 'Começar'}
+        </Button>
       </form>
     </Card>
   {:else if step === 'questions'}
-    <Card title={event.title}>
+    <Card title={event.title} wide>
+      {#if isEditMode}
+        <p class="text-muted progress-label">Editando suas respostas anteriores</p>
+      {/if}
       <p class="text-muted progress-label">Pergunta {currentIndex + 1} de {questions.length}</p>
 
       <div class="stepper">
@@ -257,6 +327,51 @@
 </main>
 
 <style>
+  .invite-text {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .edit-link-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .edit-link-label {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  .edit-link-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .edit-link-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+
+  .edit-link-hint {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+  }
+
   .progress-label {
     margin: 0 0 10px;
   }

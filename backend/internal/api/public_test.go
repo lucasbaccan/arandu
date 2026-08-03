@@ -242,6 +242,190 @@ func TestSubmitAnswersReusesParticipant(t *testing.T) {
 	}
 }
 
+func TestSubmitAnswersReturnsEditToken(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		OK        bool   `json:"ok"`
+		EditToken string `json:"editToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.EditToken == "" {
+		t.Error("editToken não deveria vir vazio no envio inicial")
+	}
+}
+
+func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
+	app := newTestAPI(t)
+	h := app.Handler()
+	_, eventID, groupQID, openQID, optAID, optBID := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	var first struct {
+		EditToken string `json:"editToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	id, err := strconv.ParseInt(eventID, 10, 64)
+	if err != nil {
+		t.Fatalf("parse eventID: %v", err)
+	}
+	before, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	if err != nil {
+		t.Fatalf("participante não encontrado: %v", err)
+	}
+
+	// reenvio via token, sem informar e-mail: deve atualizar o mesmo participante.
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"editToken": first.EditToken,
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optBID},
+			{"questionId": openQID, "text": "Sushi"},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reenvio via token: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	after, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	if err != nil {
+		t.Fatalf("participante não encontrado após reenvio: %v", err)
+	}
+	if before.ID != after.ID {
+		t.Errorf("reenvio via token deveria reaproveitar o mesmo participante, got %d e %d", before.ID, after.ID)
+	}
+
+	answers, err := app.store.ListAnswersByParticipant(context.Background(), after.ID)
+	if err != nil {
+		t.Fatalf("listar respostas: %v", err)
+	}
+	optB, _ := strconv.ParseInt(optBID, 10, 64)
+	found := false
+	for _, a := range answers {
+		if strconv.FormatInt(a.QuestionID, 10) == groupQID {
+			found = true
+			if a.OptionID != optB {
+				t.Errorf("resposta não atualizada pelo reenvio via token: %+v", a)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("resposta de grupo não encontrada após reenvio via token")
+	}
+}
+
+func TestSubmitAnswersWithInvalidEditToken(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"editToken": "token-que-nao-existe",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status esperado 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPublicGetParticipantByToken(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"photo": "data:image/jpeg;base64,Zm9vCg==",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	var submitResp struct {
+		EditToken string `json:"editToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &submitResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID+"/participant?token="+submitResp.EditToken, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Participant publicParticipantDTO `json:"participant"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Participant.Email != "ana@exemplo.com" {
+		t.Errorf("email divergente: %+v", resp.Participant)
+	}
+	if resp.Participant.Photo != "data:image/jpeg;base64,Zm9vCg==" {
+		t.Errorf("foto divergente: %+v", resp.Participant)
+	}
+	if len(resp.Participant.Answers) != 2 {
+		t.Fatalf("esperado 2 respostas, got %+v", resp.Participant.Answers)
+	}
+}
+
+func TestPublicGetParticipantInvalidToken(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, _, _, _, _ := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID+"/participant?token=inexistente", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status esperado 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPublicGetParticipantWrongEvent(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID1, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+	eventID2 := createEventAndGetID(t, h, cookie, "Segundo evento")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID1+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	var submitResp struct {
+		EditToken string `json:"editToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &submitResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID2+"/participant?token="+submitResp.EditToken, nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("token de outro evento deveria ser 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestSubmitAnswersValidation(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)

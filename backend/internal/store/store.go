@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -84,6 +85,7 @@ func Migrate(db *sql.DB) error {
 			event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
 			email      TEXT    NOT NULL,
 			photo      TEXT    NOT NULL DEFAULT '',
+			edit_token TEXT    NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(event_id, email)
 		);
@@ -105,5 +107,22 @@ func Migrate(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("store: migração: %w", err)
 	}
+
+	// Bancos criados antes da coluna edit_token existir: adiciona sem quebrar
+	// dados existentes (CREATE TABLE IF NOT EXISTS acima não altera tabelas já
+	// criadas).
+	if _, err := db.Exec(`ALTER TABLE participants ADD COLUMN edit_token TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("store: migração (edit_token): %w", err)
+		}
+	}
+
+	if _, err := db.Exec(`
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_participants_edit_token
+			ON participants(edit_token) WHERE edit_token != '';
+	`); err != nil {
+		return fmt.Errorf("store: migração (índice edit_token): %w", err)
+	}
+
 	return nil
 }

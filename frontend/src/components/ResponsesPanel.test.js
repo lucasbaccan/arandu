@@ -9,7 +9,8 @@ vi.mock('../lib/api.js', () => ({
     events: {
       responses: {
         list: vi.fn(),
-        updateAnswer: vi.fn()
+        updateAnswer: vi.fn(),
+        updatePhoto: vi.fn()
       }
     }
   }
@@ -34,6 +35,7 @@ const participant = {
   id: 'p1',
   email: 'ana@exemplo.com',
   photo: '',
+  editToken: 'tok123',
   createdAt: '2026-08-03T00:00:00Z',
   answers: [
     { questionId: 'q1', questionTitle: questions[0].title, questionType: 'GROUP', optionId: 'opt-go', optionText: 'Go', text: '' },
@@ -135,6 +137,37 @@ describe('ResponsesPanel', () => {
       })
     );
     expect(await view.findByText('JS')).toBeInTheDocument();
+  });
+
+  it('mostra o link de edição do participante ao expandir', async () => {
+    api.events.responses.list.mockResolvedValue({ participantCount: 1, participants: [participant] });
+    const view = mount();
+    await view.findByText('ana@exemplo.com');
+
+    await fireEvent.click(view.getByText('ana@exemplo.com'));
+
+    expect(await view.findByText('Link de edição:')).toBeInTheDocument();
+    expect(view.getByLabelText('Copiar link de edição')).toBeInTheDocument();
+  });
+
+  it('permite editar a foto do participante', async () => {
+    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [participant] });
+    api.events.responses.updatePhoto.mockResolvedValue({ ok: true });
+    const updated = { ...participant, photo: 'data:image/jpeg;base64,Zm9v' };
+    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [updated] });
+
+    const view = mount();
+    await view.findByText('ana@exemplo.com');
+
+    await fireEvent.click(view.getByLabelText('Editar foto de ana@exemplo.com'));
+
+    expect(await view.findByText('Salvar foto')).toBeInTheDocument();
+
+    await fireEvent.click(view.getByRole('button', { name: 'Salvar foto' }));
+
+    await waitFor(() =>
+      expect(api.events.responses.updatePhoto).toHaveBeenCalledWith('42', 'p1', { photo: '' })
+    );
   });
 
   it('mostra erro ao falhar atualização', async () => {

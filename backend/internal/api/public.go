@@ -33,6 +33,66 @@ type publicQuestionDTO struct {
 	Options []publicOptionDTO `json:"options"`
 }
 
+type publicAnswerDTO struct {
+	QuestionID string `json:"questionId"`
+	OptionID   string `json:"optionId"`
+	Text       string `json:"text"`
+}
+
+type publicParticipantDTO struct {
+	Email   string            `json:"email"`
+	Photo   string            `json:"photo"`
+	Answers []publicAnswerDTO `json:"answers"`
+}
+
+// handlePublicGetParticipant resolve o participante pelo token de edição
+// (link enviado a ele após o primeiro envio), para pré-preencher o
+// formulário de resposta. O token é o único segredo que autoriza o acesso;
+// token inválido ou de outro evento retorna 404 (não revela se o e-mail
+// existe).
+func (a *API) handlePublicGetParticipant(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+
+	participant, err := a.store.FindParticipantByEventAndToken(r.Context(), id, token)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Link de edição inválido ou expirado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar participante por token: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar suas respostas.")
+		return
+	}
+
+	answers, err := a.store.ListAnswersByParticipant(r.Context(), participant.ID)
+	if err != nil {
+		log.Printf("api: listar respostas do participante: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar suas respostas.")
+		return
+	}
+
+	adtos := make([]publicAnswerDTO, 0, len(answers))
+	for _, ans := range answers {
+		dto := publicAnswerDTO{QuestionID: strconv.FormatInt(ans.QuestionID, 10), Text: ans.FreeText}
+		if ans.OptionID != 0 {
+			dto.OptionID = strconv.FormatInt(ans.OptionID, 10)
+		}
+		adtos = append(adtos, dto)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"participant": publicParticipantDTO{
+			Email:   participant.Email,
+			Photo:   participant.Photo,
+			Answers: adtos,
+		},
+	})
+}
+
 func (a *API) handlePublicGetEvent(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
@@ -88,9 +148,10 @@ type submitAnswerRequest struct {
 }
 
 type submitRequest struct {
-	Email   string                `json:"email"`
-	Photo   string                `json:"photo"`
-	Answers []submitAnswerRequest `json:"answers"`
+	Email     string                `json:"email"`
+	Photo     string                `json:"photo"`
+	EditToken string                `json:"editToken"`
+	Answers   []submitAnswerRequest `json:"answers"`
 }
 
 func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
@@ -119,10 +180,25 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	if !isValidEmail(req.Email) {
-		writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
-		return
+	req.EditToken = strings.TrimSpace(req.EditToken)
+	if req.EditToken != "" {
+		p, err := a.store.FindParticipantByEventAndToken(r.Context(), id, req.EditToken)
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "Link de edição inválido ou expirado.")
+			return
+		}
+		if err != nil {
+			log.Printf("api: buscar participante por token: %v", err)
+			writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
+			return
+		}
+		req.Email = p.Email
+	} else {
+		req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+		if !isValidEmail(req.Email) {
+			writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
+			return
+		}
 	}
 	if len(req.Photo) > maxPhotoDataURLLength {
 		writeError(w, http.StatusBadRequest, "Foto muito grande.")
@@ -225,5 +301,5 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "editToken": participant.EditToken})
 }

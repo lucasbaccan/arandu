@@ -8,7 +8,8 @@ vi.mock('../lib/api.js', () => ({
     public: {
       events: {
         get: vi.fn(),
-        submit: vi.fn()
+        submit: vi.fn(),
+        getParticipant: vi.fn()
       }
     }
   }
@@ -94,6 +95,10 @@ describe('Tela de respostas do participante', () => {
 
     await userEvent.type(screen.getByLabelText('E-mail'), 'Participante@Exemplo.com');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    expect(
+      await screen.findByText('A dinâmica não será a mesma sem sua foto.')
+    ).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
 
     expect(await screen.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
 
@@ -121,6 +126,7 @@ describe('Tela de respostas do participante', () => {
       expect(api.public.events.submit).toHaveBeenCalledWith('42', {
         email: 'Participante@Exemplo.com',
         photo: '',
+        editToken: '',
         answers: [
           { questionId: 'q1', optionId: 'opt-go', text: '' },
           { questionId: 'q2', optionId: '', text: 'Pizza' }
@@ -138,6 +144,7 @@ describe('Tela de respostas do participante', () => {
 
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
     await screen.findByText('Qual sua linguagem favorita?');
 
     await fireEvent.click(screen.getByLabelText('Go'));
@@ -156,5 +163,65 @@ describe('Tela de respostas do participante', () => {
 
     expect(await screen.findByText('Dinâmica de Testes')).toBeInTheDocument();
     expect(api.public.events.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('mostra o link de edição na tela de agradecimento', async () => {
+    mockLoad();
+    api.public.events.submit.mockResolvedValue({ ok: true, editToken: 'tok123' });
+    render(Answer, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    expect(await screen.findByText('Respostas enviadas!')).toBeInTheDocument();
+    const linkInput = screen.getByDisplayValue(/\/answer\/42\?edit=tok123$/);
+    expect(linkInput).toBeInTheDocument();
+    expect(
+      screen.getByText(/solicitá-lo ao responsável pelo evento/)
+    ).toBeInTheDocument();
+  });
+
+  it('pré-preenche as respostas ao acessar com um link de edição válido', async () => {
+    window.history.pushState({}, '', '/answer/42?edit=tok123');
+    mockLoad();
+    api.public.events.getParticipant.mockResolvedValue({
+      participant: {
+        email: 'ana@exemplo.com',
+        photo: '',
+        answers: [
+          { questionId: 'q1', optionId: 'opt-go', text: '' },
+          { questionId: 'q2', optionId: '', text: 'Pizza' }
+        ]
+      }
+    });
+    render(Answer, { props: { id: '42' } });
+
+    expect(await screen.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(api.public.events.getParticipant).toHaveBeenCalledWith('42', 'tok123');
+    expect(screen.getByText('Editando suas respostas anteriores')).toBeInTheDocument();
+    expect(screen.getByLabelText('Go').checked).toBe(true);
+
+    window.history.pushState({}, '', '/answer/42');
+  });
+
+  it('mostra aviso e segue o fluxo normal quando o link de edição é inválido', async () => {
+    window.history.pushState({}, '', '/answer/42?edit=invalido');
+    mockLoad();
+    api.public.events.getParticipant.mockRejectedValue(new Error('Link de edição inválido ou expirado.'));
+    render(Answer, { props: { id: '42' } });
+
+    expect(
+      await screen.findByText(/Link de edição inválido ou expirado/)
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
+
+    window.history.pushState({}, '', '/answer/42');
   });
 });

@@ -24,6 +24,7 @@ type participantResponseDTO struct {
 	ID        string      `json:"id"`
 	Email     string      `json:"email"`
 	Photo     string      `json:"photo"`
+	EditToken string      `json:"editToken"`
 	CreatedAt string      `json:"createdAt"`
 	Answers   []answerDTO `json:"answers"`
 }
@@ -96,6 +97,7 @@ func (a *API) handleListResponses(w http.ResponseWriter, r *http.Request) {
 			ID:        strconv.FormatInt(p.ID, 10),
 			Email:     p.Email,
 			Photo:     p.Photo,
+			EditToken: p.EditToken,
 			CreatedAt: p.CreatedAt.Format(time.RFC3339),
 			Answers:   adtos,
 		})
@@ -205,6 +207,66 @@ func (a *API) handleUpdateAnswer(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		log.Printf("api: atualizar resposta: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar a resposta.")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type updateParticipantPhotoRequest struct {
+	Photo string `json:"photo"`
+}
+
+// handleUpdateParticipantPhoto permite ao organizador definir ou corrigir a
+// foto de um participante (ex: participante pediu atualização por fora do
+// link de edição, ou não enviou foto ao responder).
+func (a *API) handleUpdateParticipantPhoto(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+
+	participantID, err := strconv.ParseInt(r.PathValue("participantId"), 10, 64)
+	if err != nil || participantID <= 0 {
+		writeError(w, http.StatusBadRequest, "ID de participante inválido.")
+		return
+	}
+
+	participant, err := a.store.FindParticipantByID(r.Context(), participantID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Participante não encontrado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar participante: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar a foto.")
+		return
+	}
+	if participant.EventID != eventID {
+		writeError(w, http.StatusNotFound, "Participante não encontrado.")
+		return
+	}
+
+	var req updateParticipantPhotoRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(req.Photo) > maxPhotoDataURLLength {
+		writeError(w, http.StatusBadRequest, "Foto muito grande.")
+		return
+	}
+	if req.Photo != "" && !strings.HasPrefix(req.Photo, "data:image/") {
+		writeError(w, http.StatusBadRequest, "Formato de foto inválido.")
+		return
+	}
+
+	if err := a.store.UpdateParticipantPhoto(r.Context(), participantID, req.Photo); errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Participante não encontrado.")
+		return
+	} else if err != nil {
+		log.Printf("api: atualizar foto do participante: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar a foto.")
 		return
 	}
 

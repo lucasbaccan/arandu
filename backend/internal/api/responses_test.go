@@ -143,6 +143,144 @@ func TestListResponsesRequiresOwnership(t *testing.T) {
 	}
 }
 
+func TestListResponsesIncludesEditToken(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+
+	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Participants[0].EditToken == "" {
+		t.Error("editToken não deveria vir vazio na listagem do organizador")
+	}
+}
+
+func TestUpdateParticipantPhoto(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+
+	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	participantID := resp.Participants[0].ID
+
+	rec = doJSON(t, h, http.MethodPatch,
+		"/api/events/"+eventID+"/responses/"+participantID+"/photo",
+		map[string]any{"photo": "data:image/jpeg;base64,Zm9vCg=="}, []*http.Cookie{cookie},
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Participants[0].Photo != "data:image/jpeg;base64,Zm9vCg==" {
+		t.Errorf("foto não atualizada: %+v", resp.Participants[0])
+	}
+}
+
+func TestUpdateParticipantPhotoValidation(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+
+	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	participantID := resp.Participants[0].ID
+
+	cases := []struct {
+		name          string
+		participantID string
+		body          map[string]any
+		cookie        *http.Cookie
+		want          int
+	}{
+		{"formato inválido", participantID, map[string]any{"photo": "não-é-data-url"}, cookie, http.StatusBadRequest},
+		{"participante inexistente", "999999", map[string]any{"photo": "data:image/jpeg;base64,Zm9vCg=="}, cookie, http.StatusNotFound},
+		{"sem autenticação", participantID, map[string]any{"photo": "data:image/jpeg;base64,Zm9vCg=="}, nil, http.StatusUnauthorized},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var cookies []*http.Cookie
+			if tc.cookie != nil {
+				cookies = []*http.Cookie{tc.cookie}
+			}
+			rec := doJSON(t, h, http.MethodPatch,
+				"/api/events/"+eventID+"/responses/"+tc.participantID+"/photo",
+				tc.body, cookies,
+			)
+			if rec.Code != tc.want {
+				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestUpdateParticipantPhotoRequiresOwnership(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+
+	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	participantID := resp.Participants[0].ID
+
+	rec = doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+		"name": "Bia", "email": "bia-owner2@exemplo.com", "password": "segredo",
+	}, nil)
+	otherCookie := sessionCookie(t, rec)
+
+	rec = doJSON(t, h, http.MethodPatch,
+		"/api/events/"+eventID+"/responses/"+participantID+"/photo",
+		map[string]any{"photo": "data:image/jpeg;base64,Zm9vCg=="}, []*http.Cookie{otherCookie},
+	)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("dono diferente: esperado 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestUpdateAnswerOptionQuestion(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie, eventID, groupQID, openQID, optAID, optBID := setupPublicEvent(t, h)

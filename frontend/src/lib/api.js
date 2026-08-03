@@ -63,12 +63,16 @@ export const api = {
         request(`/api/events/${id}/responses/${participantId}/answers/${questionId}`, {
           method: 'PATCH',
           body
-        })
+        }),
+      updatePhoto: (id, participantId, body) =>
+        request(`/api/events/${id}/responses/${participantId}/photo`, { method: 'PATCH', body })
     }
   },
   public: {
     events: {
       get: (id) => request(`/api/public/events/${id}`),
+      getParticipant: (id, token) =>
+        request(`/api/public/events/${id}/participant?token=${encodeURIComponent(token)}`),
       submit: (id, body) => request(`/api/public/events/${id}/submit`, { method: 'POST', body })
     }
   }

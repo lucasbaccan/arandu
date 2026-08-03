@@ -75,6 +75,10 @@ a:hover {
   gap: 20px;
 }
 
+.card.wide {
+  max-width: 640px;
+}
+
 .card h1,
 .card h2 {
   margin: 0;
@@ -141,6 +145,12 @@ a:hover {
 .form-error {
   margin: 0;
   color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.form-warning {
+  margin: 0;
+  color: #f5a623;
   font-size: 0.9rem;
 }
 

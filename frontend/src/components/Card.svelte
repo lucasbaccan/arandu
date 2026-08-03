@@ -2,9 +2,10 @@
   export let title = '';
   export let subtitle = '';
   export let clickable = false;
+  export let wide = false;
 </script>
 
-<div class="card" class:clickable on:click>
+<div class="card" class:clickable class:wide on:click>
   {#if title}
     <h1>{title}</h1>
   {/if}
