@@ -569,14 +569,29 @@ describe('Editar evento', () => {
       }
     ];
     api.events.questions.remove.mockResolvedValue(null);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const view = mount(questions);
     await view.findByText('Pergunta a remover');
 
     await fireEvent.click(view.getByLabelText('Remover pergunta Pergunta a remover'));
 
+    expect(confirmSpy).toHaveBeenCalled();
     await waitFor(() => expect(api.events.questions.remove).toHaveBeenCalledWith('42', '5'));
     await waitFor(() => expect(view.queryByText('Pergunta a remover')).not.toBeInTheDocument());
     await waitFor(() => expect(get(toast)?.message).toBe('Pergunta removida.'));
+  });
+
+  it('nao remove a pergunta se a confirmacao for cancelada', async () => {
+    api.events.get.mockResolvedValue({ event });
+    const questions = [question('5', 'Pergunta a manter')];
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const view = mount(questions);
+    await view.findByText('Pergunta a manter');
+
+    await fireEvent.click(view.getByLabelText('Remover pergunta Pergunta a manter'));
+
+    expect(api.events.questions.remove).not.toHaveBeenCalled();
+    expect(view.getByText('Pergunta a manter')).toBeInTheDocument();
   });
 
   it('edita uma pergunta existente', async () => {

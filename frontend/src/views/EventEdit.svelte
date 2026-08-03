@@ -203,6 +203,9 @@
   }
 
   async function removeQuestion(q) {
+    if (!window.confirm(`Remover a pergunta "${q.title}"? Essa ação não pode ser desfeita.`)) {
+      return;
+    }
     try {
       await api.events.questions.remove(id, q.id);
       questions = questions.filter((x) => x.id !== q.id);
