@@ -38,7 +38,7 @@
         label="E-mail"
         type="email"
         bind:value={email}
-        placeholder="voce@empresa.com"
+        placeholder="seu@melhor.email"
         autocomplete="email"
         required
       />
