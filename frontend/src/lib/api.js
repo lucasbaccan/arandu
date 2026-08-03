@@ -43,6 +43,19 @@ export const api = {
     create: (body) => request('/api/events', { method: 'POST', body }),
     list: () => request('/api/events'),
     get: (id) => request(`/api/events/${id}`),
-    update: (id, body) => request(`/api/events/${id}`, { method: 'PATCH', body })
+    update: (id, body) => request(`/api/events/${id}`, { method: 'PATCH', body }),
+    questions: {
+      list: (id) => request(`/api/events/${id}/questions`),
+      create: (id, body) => request(`/api/events/${id}/questions`, { method: 'POST', body }),
+      update: (id, questionId, body) =>
+        request(`/api/events/${id}/questions/${questionId}`, { method: 'PATCH', body }),
+      reorder: (id, questionIds) =>
+        request(`/api/events/${id}/questions/order`, {
+          method: 'PUT',
+          body: { questionIds }
+        }),
+      remove: (id, questionId) =>
+        request(`/api/events/${id}/questions/${questionId}`, { method: 'DELETE' })
+    }
   }
 };

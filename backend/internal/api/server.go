@@ -48,9 +48,9 @@ func toUserDTO(u store.User) userDTO {
 }
 
 type API struct {
-	cfg  config.Config
+	cfg   config.Config
 	store *store.Store
-	ids  *ids.Generator
+	ids   *ids.Generator
 }
 
 func New(cfg config.Config, st *store.Store, gen *ids.Generator) *API {
@@ -69,6 +69,11 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/events", a.requireAuth(a.handleListEvents))
 	mux.HandleFunc("GET /api/events/{id}", a.requireAuth(a.handleGetEvent))
 	mux.HandleFunc("PATCH /api/events/{id}", a.requireAuth(a.handleUpdateEvent))
+	mux.HandleFunc("GET /api/events/{id}/questions", a.requireAuth(a.handleListQuestions))
+	mux.HandleFunc("POST /api/events/{id}/questions", a.requireAuth(a.handleCreateQuestion))
+	mux.HandleFunc("PUT /api/events/{id}/questions/order", a.requireAuth(a.handleReorderQuestions))
+	mux.HandleFunc("PATCH /api/events/{id}/questions/{questionId}", a.requireAuth(a.handleUpdateQuestion))
+	mux.HandleFunc("DELETE /api/events/{id}/questions/{questionId}", a.requireAuth(a.handleDeleteQuestion))
 	mux.HandleFunc("/api/", a.handleAPI404)
 
 	if a.cfg.ViteDevURL != "" {
