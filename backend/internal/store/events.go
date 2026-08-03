@@ -63,6 +63,20 @@ func (s *Store) ListEventsByOwner(ctx context.Context, ownerID int64) ([]Event, 
 	return events, nil
 }
 
+// FindEventByID busca o evento por ID, sem checar dono (uso público/participante).
+func (s *Store) FindEventByID(ctx context.Context, id int64) (Event, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, created_at
+		 FROM events WHERE id = ?`,
+		id,
+	)
+	e, err := scanEvent(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Event{}, ErrNotFound
+	}
+	return e, err
+}
+
 func (s *Store) FindEventByIDAndOwner(ctx context.Context, id, ownerID int64) (Event, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, created_at

@@ -1,0 +1,299 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strconv"
+	"strings"
+	"testing"
+)
+
+func setupPublicEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventID string, groupQID, openQID, optAID, optBID string) {
+	t.Helper()
+	cookie = registerUser(t, h)
+	eventID = createEventAndGetID(t, h, cookie, "Evento Público")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+		"title": "Qual sua linguagem favorita?", "type": "GROUP", "options": []string{"Go", "JS"},
+	}, []*http.Cookie{cookie})
+	var created struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode pergunta de grupo: %v", err)
+	}
+	groupQID = created.Question.ID
+	optAID = created.Question.Options[0].ID
+	optBID = created.Question.Options[1].ID
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+		"title": "Qual sua comida favorita?", "type": "OPEN_TEXT",
+	}, []*http.Cookie{cookie})
+	var createdOpen struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createdOpen); err != nil {
+		t.Fatalf("decode pergunta aberta: %v", err)
+	}
+	openQID = createdOpen.Question.ID
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+		"title": "Evento Público", "status": "OPEN_FOR_ANSWERS",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("abrir respostas: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	return cookie, eventID, groupQID, openQID, optAID, optBID
+}
+
+func TestPublicGetEventNotFound(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	rec := doJSON(t, h, http.MethodGet, "/api/public/events/999999", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status esperado 404, got %d", rec.Code)
+	}
+}
+
+func TestPublicGetEvent(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// não deve vazar PIN nem dono
+	if body := rec.Body.String(); strings.Contains(body, "pinCode") || strings.Contains(body, "ownerId") {
+		t.Errorf("resposta pública não deveria conter pinCode/ownerId: %s", body)
+	}
+
+	var resp struct {
+		Event     publicEventDTO      `json:"event"`
+		Questions []publicQuestionDTO `json:"questions"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Event.ID != eventID || resp.Event.Title != "Evento Público" {
+		t.Errorf("evento divergente: %+v", resp.Event)
+	}
+	if len(resp.Questions) != 2 {
+		t.Fatalf("esperado 2 perguntas, got %d", len(resp.Questions))
+	}
+	if resp.Questions[0].ID != groupQID || len(resp.Questions[0].Options) != 2 || resp.Questions[0].Options[0].ID != optAID {
+		t.Errorf("primeira pergunta divergente: %+v", resp.Questions[0])
+	}
+	if resp.Questions[1].ID != openQID || resp.Questions[1].Type != "OPEN_TEXT" || len(resp.Questions[1].Options) != 0 {
+		t.Errorf("segunda pergunta divergente: %+v", resp.Questions[1])
+	}
+	if !resp.Event.AnswersOpen {
+		t.Error("answersOpen deveria ser true após abrir as respostas")
+	}
+}
+
+func TestPublicGetEventAnswersClosedByDefault(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	eventID := createEventAndGetID(t, h, cookie, "Evento recém-criado")
+
+	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Event publicEventDTO `json:"event"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Event.AnswersOpen {
+		t.Error("answersOpen deveria ser false por padrão (evento em PREPARATION)")
+	}
+}
+
+func TestSubmitAnswersEventNotFound(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/999999/submit", map[string]any{
+		"email": "a@b.com", "answers": []map[string]string{},
+	}, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status esperado 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestSubmitAnswersNoQuestions(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	eventID := createEventAndGetID(t, h, cookie, "Evento vazio")
+
+	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+		"title": "Evento vazio", "status": "OPEN_FOR_ANSWERS",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("abrir respostas: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "a@b.com", "answers": []map[string]string{},
+	}, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status esperado 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestSubmitAnswersRejectedWhenNotOpen(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	eventID := createEventAndGetID(t, h, cookie, "Evento fechado")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+		"title": "P", "type": "GROUP", "options": []string{"A", "B"},
+	}, []*http.Cookie{cookie})
+	var created struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode pergunta: %v", err)
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "a@b.com",
+		"answers": []map[string]string{
+			{"questionId": created.Question.ID, "optionId": created.Question.Options[0].ID},
+		},
+	}, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status esperado 403 (respostas fechadas), got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestSubmitAnswersSuccess(t *testing.T) {
+	app := newTestAPI(t)
+	h := app.Handler()
+	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "Participante@Exemplo.com",
+		"photo": "",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "  Pizza  "},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	id, err := strconv.ParseInt(eventID, 10, 64)
+	if err != nil {
+		t.Fatalf("parse eventID: %v", err)
+	}
+	p, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "participante@exemplo.com")
+	if err != nil {
+		t.Fatalf("participante não encontrado: %v", err)
+	}
+	if p.Email != "participante@exemplo.com" {
+		t.Errorf("email deveria ser normalizado, got %s", p.Email)
+	}
+}
+
+func TestSubmitAnswersReusesParticipant(t *testing.T) {
+	app := newTestAPI(t)
+	h := app.Handler()
+	_, eventID, groupQID, openQID, optAID, optBID := setupPublicEvent(t, h)
+
+	body := func(optionID string) map[string]any {
+		return map[string]any{
+			"email": "ana@exemplo.com",
+			"answers": []map[string]string{
+				{"questionId": groupQID, "optionId": optionID},
+				{"questionId": openQID, "text": "Pizza"},
+			},
+		}
+	}
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", body(optAID), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("primeiro envio: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	id, err := strconv.ParseInt(eventID, 10, 64)
+	if err != nil {
+		t.Fatalf("parse eventID: %v", err)
+	}
+	first, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	if err != nil {
+		t.Fatalf("participante não encontrado após primeiro envio: %v", err)
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", body(optBID), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reenvio: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	second, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	if err != nil {
+		t.Fatalf("participante não encontrado após reenvio: %v", err)
+	}
+	if first.ID != second.ID {
+		t.Errorf("reenvio deveria reaproveitar o mesmo participante, got %d e %d", first.ID, second.ID)
+	}
+}
+
+func TestSubmitAnswersValidation(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	valid := func() map[string]any {
+		return map[string]any{
+			"email": "ana@exemplo.com",
+			"answers": []map[string]string{
+				{"questionId": groupQID, "optionId": optAID},
+				{"questionId": openQID, "text": "Pizza"},
+			},
+		}
+	}
+
+	cases := []struct {
+		name   string
+		mutate func(m map[string]any)
+		want   int
+	}{
+		{"email vazio", func(m map[string]any) { m["email"] = "" }, http.StatusBadRequest},
+		{"email inválido", func(m map[string]any) { m["email"] = "não-é-email" }, http.StatusBadRequest},
+		{"faltando resposta", func(m map[string]any) {
+			m["answers"] = []map[string]string{{"questionId": groupQID, "optionId": optAID}}
+		}, http.StatusBadRequest},
+		{"opção inválida", func(m map[string]any) {
+			m["answers"] = []map[string]string{
+				{"questionId": groupQID, "optionId": "999999"},
+				{"questionId": openQID, "text": "Pizza"},
+			}
+		}, http.StatusBadRequest},
+		{"texto aberto vazio (só espaços)", func(m map[string]any) {
+			m["answers"] = []map[string]string{
+				{"questionId": groupQID, "optionId": optAID},
+				{"questionId": openQID, "text": "   "},
+			}
+		}, http.StatusBadRequest},
+		{"resposta duplicada para mesma pergunta", func(m map[string]any) {
+			m["answers"] = []map[string]string{
+				{"questionId": groupQID, "optionId": optAID},
+				{"questionId": groupQID, "optionId": optAID},
+			}
+		}, http.StatusBadRequest},
+		{"foto com formato inválido", func(m map[string]any) { m["photo"] = "não-é-data-url" }, http.StatusBadRequest},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := valid()
+			tc.mutate(body)
+			rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", body, nil)
+			if rec.Code != tc.want {
+				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}

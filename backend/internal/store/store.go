@@ -78,6 +78,29 @@ func Migrate(db *sql.DB) error {
 
 		CREATE INDEX IF NOT EXISTS idx_questions_event ON questions(event_id);
 		CREATE INDEX IF NOT EXISTS idx_question_options_question ON question_options(question_id);
+
+		CREATE TABLE IF NOT EXISTS participants (
+			id         INTEGER PRIMARY KEY,
+			event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+			email      TEXT    NOT NULL,
+			photo      TEXT    NOT NULL DEFAULT '',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(event_id, email)
+		);
+
+		CREATE TABLE IF NOT EXISTS answers (
+			id             INTEGER PRIMARY KEY,
+			question_id    INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+			participant_id INTEGER NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+			option_id      INTEGER REFERENCES question_options(id) ON DELETE CASCADE,
+			free_text      TEXT    NOT NULL DEFAULT '',
+			created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(question_id, participant_id)
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_participants_event ON participants(event_id);
+		CREATE INDEX IF NOT EXISTS idx_answers_question ON answers(question_id);
+		CREATE INDEX IF NOT EXISTS idx_answers_participant ON answers(participant_id);
 	`)
 	if err != nil {
 		return fmt.Errorf("store: migração: %w", err)
