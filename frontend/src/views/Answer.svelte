@@ -229,14 +229,16 @@
       <p class="subtitle">Este evento ainda não tem perguntas.</p>
     </Card>
   {:else if step === 'identify'}
-    <Card title={event.title} subtitle="Para responder, se identifique abaixo." wide>
+    <Card wide>
+      <img class="answer-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
       <form class="form" novalidate on:submit|preventDefault={startQuestions}>
         {#if editLinkNotice}
           <p class="form-warning">{editLinkNotice}</p>
         {/if}
         <p class="invite-text">
-          Você foi convidado(a) para responder {event.title}. Adicione sua foto para deixar mais
-          legal a dinâmica.
+          Seja bem-vindo(a), você foi convidado(a) para responder o evento<br />
+          <strong>{event.title}</strong><br />
+          Vamos coletar algumas informações suas para deixar a dinâmica mais legal.
         </p>
         <AvatarCropper on:change={onPhotoChange} />
         <Input
@@ -335,11 +337,24 @@
 </main>
 
 <style>
+  .answer-logo {
+    display: block;
+    height: 56px;
+    width: auto;
+    margin: 0 auto;
+  }
+
   .invite-text {
     margin: 0;
     color: var(--text-muted);
     font-size: 0.9rem;
+    line-height: 1.5;
     text-align: center;
+  }
+
+  .invite-text strong {
+    color: var(--text);
+    font-size: 1rem;
   }
 
   .edit-link-box {
