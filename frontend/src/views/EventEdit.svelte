@@ -500,16 +500,37 @@
                       on:dragstart={(e) => onDragStart(e, i)}
                       on:dragend={onDragEnd}
                     >
-                      <span class="drag-handle" title="Arraste para reordenar">⠿</span>
+                      <div class="reorder-controls">
+                        <div class="move-buttons">
+                          <button
+                            type="button"
+                            class="icon-btn icon-btn-move"
+                            title="Mover para cima"
+                            aria-label="Mover pergunta para cima"
+                            disabled={i === 0}
+                            on:click={() => moveQuestion(i, i - 1)}
+                          >↑</button>
+                          <button
+                            type="button"
+                            class="icon-btn icon-btn-move"
+                            title="Mover para baixo"
+                            aria-label="Mover pergunta para baixo"
+                            disabled={i === questions.length - 1}
+                            on:click={() => moveQuestion(i, i + 1)}
+                          >↓</button>
+                        </div>
+                        <span class="drag-handle" title="Arraste para reordenar">⠿</span>
+                      </div>
                       <div class="question-info">
                         <div class="question-title-row">
                           <strong class="question-title">{q.title}</strong>
-                          {#if q.type === 'OPEN_TEXT'}
-                            <span class="badge badge-open-text">Resposta aberta</span>
-                          {:else if q.type !== 'GROUP'}
+                          {#if q.type !== 'OPEN_TEXT' && q.type !== 'GROUP'}
                             <span class="badge badge-individual">Individual</span>
                           {/if}
                         </div>
+                        {#if q.type === 'OPEN_TEXT'}
+                          <span class="badge badge-open-text">Resposta aberta</span>
+                        {/if}
                         {#if q.options.length > 0}
                           <ul class="option-chips">
                             {#each q.options as opt (opt.id)}
@@ -521,30 +542,14 @@
                       <div class="question-actions">
                         <button
                           type="button"
-                          class="icon-btn"
-                          title="Mover para cima"
-                          aria-label="Mover pergunta para cima"
-                          disabled={i === 0}
-                          on:click={() => moveQuestion(i, i - 1)}
-                        >↑</button>
-                        <button
-                          type="button"
-                          class="icon-btn"
-                          title="Mover para baixo"
-                          aria-label="Mover pergunta para baixo"
-                          disabled={i === questions.length - 1}
-                          on:click={() => moveQuestion(i, i + 1)}
-                        >↓</button>
-                        <button
-                          type="button"
-                          class="icon-btn"
+                          class="icon-btn icon-btn-edit"
                           title="Editar pergunta"
                           aria-label={`Editar pergunta ${q.title}`}
                           on:click={() => startEdit(q)}
                         >✎</button>
                         <button
                           type="button"
-                          class="icon-btn danger"
+                          class="icon-btn icon-btn-delete"
                           title="Remover pergunta"
                           aria-label={`Remover pergunta ${q.title}`}
                           on:click={() => removeQuestion(q)}
@@ -804,9 +809,67 @@
     color: var(--accent);
   }
 
+  .reorder-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .move-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .icon-btn-move {
+    font-size: 1.3rem;
+    color: var(--accent);
+    border-color: rgba(79, 140, 255, 0.35);
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .icon-btn-move:hover:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    transform: scale(1.08);
+  }
+
+  .icon-btn-edit {
+    font-size: 1.3rem;
+    color: #f5a623;
+    border-color: rgba(245, 166, 35, 0.35);
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .icon-btn-edit:hover:not(:disabled) {
+    background: #f5a623;
+    color: #1c1200;
+    border-color: #f5a623;
+    transform: scale(1.08);
+  }
+
+  .icon-btn-delete {
+    font-size: 1.3rem;
+    color: var(--danger);
+    border-color: rgba(255, 92, 92, 0.35);
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .icon-btn-delete:hover:not(:disabled) {
+    background: var(--danger);
+    color: #2a0505;
+    border-color: var(--danger);
+    transform: scale(1.08);
+  }
+
   .drag-handle {
     color: var(--text-muted);
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     line-height: 1;
     flex-shrink: 0;
   }
@@ -838,6 +901,7 @@
   }
 
   .badge-open-text {
+    align-self: flex-start;
     color: #f5a623;
     border-color: #f5a623;
     background: rgba(245, 166, 35, 0.12);
