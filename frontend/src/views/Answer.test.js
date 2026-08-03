@@ -68,6 +68,22 @@ describe('Tela de respostas do participante', () => {
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
   });
 
+  it('rejeita na identificação um e-mail que o backend também rejeitaria', async () => {
+    // Regra idêntica à do backend (isValidEmail em server.go): domínio não
+    // aceita "_", só letras/dígitos/ponto/hífen. Antes da correção, esse
+    // e-mail passava aqui e só falhava ao clicar em Finalizar, depois de
+    // responder tudo.
+    mockLoad();
+    render(Answer, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@my_domain.com');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+
+    expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
+    expect(screen.queryByText('Qual sua linguagem favorita?')).not.toBeInTheDocument();
+  });
+
   it('mostra tela de respostas fechadas quando o evento não está aberto', async () => {
     mockLoad({ answersOpen: false });
     render(Answer, { props: { id: '42' } });
@@ -163,6 +179,25 @@ describe('Tela de respostas do participante', () => {
 
     expect(await screen.findByText('Dinâmica de Testes')).toBeInTheDocument();
     expect(api.public.events.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('volta para a identificação se o servidor ainda assim rejeitar o e-mail ao finalizar', async () => {
+    mockLoad({ questions: [groupQuestion] });
+    const err = new Error('Informe um e-mail válido.');
+    err.status = 400;
+    api.public.events.submit.mockRejectedValue(err);
+    render(Answer, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+
+    expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
+    expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
+    expect(screen.queryByText('Respostas enviadas!')).not.toBeInTheDocument();
   });
 
   it('mostra o link de edição na tela de agradecimento', async () => {

@@ -27,7 +27,7 @@ const (
 	maxPasswordLength = 72
 )
 
-var emailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+var emailRe = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]+$`)
 
 type userDTO struct {
 	ID           string `json:"id"`

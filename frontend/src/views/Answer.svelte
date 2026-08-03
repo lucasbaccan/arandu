@@ -8,7 +8,10 @@
   import AvatarCropper from '../components/AvatarCropper.svelte';
   import CopyButton from '../components/CopyButton.svelte';
 
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Mesma regra usada pelo backend (isValidEmail em server.go) — precisa ficar
+  // idêntica para o erro aparecer aqui, na identificação, e não só depois de
+  // responder tudo e tentar finalizar.
+  const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]+$/;
 
   const SLIDE_HEIGHT = 300;
   const SLIDE_GAP = 14;
@@ -176,7 +179,12 @@
       }
       step = 'done';
     } catch (e) {
-      submitError = e.message;
+      if (e.status === 400 && /e-mail/i.test(e.message)) {
+        emailError = e.message;
+        step = 'identify';
+      } else {
+        submitError = e.message;
+      }
     } finally {
       submitting = false;
     }
