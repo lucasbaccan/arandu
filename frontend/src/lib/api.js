@@ -57,5 +57,11 @@ export const api = {
       remove: (id, questionId) =>
         request(`/api/events/${id}/questions/${questionId}`, { method: 'DELETE' })
     }
+  },
+  public: {
+    events: {
+      get: (id) => request(`/api/public/events/${id}`),
+      submit: (id, body) => request(`/api/public/events/${id}/submit`, { method: 'POST', body })
+    }
   }
 };

@@ -10,10 +10,12 @@
   import Dashboard from './views/Dashboard.svelte';
   import EventCreate from './views/EventCreate.svelte';
   import EventEdit from './views/EventEdit.svelte';
+  import Answer from './views/Answer.svelte';
 
   onMount(initAuth);
 
   $: eventMatch = /^\/events\/(\d+)$/.exec($route);
+  $: answerMatch = /^\/answer\/(\d+)$/.exec($route);
 
   $: if ($authReady) {
     if ($route === '/' && $user) navigate('/dashboard');
@@ -44,6 +46,8 @@
     <EventCreate />
   {:else if eventMatch}
     <EventEdit id={eventMatch[1]} />
+  {:else if answerMatch}
+    <Answer id={answerMatch[1]} />
   {:else}
     <main class="page">
       <p>Página não encontrada.</p>
