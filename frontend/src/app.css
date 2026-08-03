@@ -124,6 +124,10 @@ a:hover {
   border-color: var(--danger);
 }
 
+.field input.uppercase {
+  text-transform: uppercase;
+}
+
 .field .error {
   color: var(--danger);
   font-size: 0.8rem;
@@ -328,6 +332,12 @@ a:hover {
 .pin-chip strong {
   font-size: 1.25rem;
   letter-spacing: 0.12em;
+}
+
+.pin-chip-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .badge {

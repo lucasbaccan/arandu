@@ -5,6 +5,7 @@
   import { formatDate } from '../lib/formatDate.js';
   import Button from '../components/Button.svelte';
   import Card from '../components/Card.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
 
   let events = [];
   let loading = true;
@@ -87,7 +88,10 @@
             </div>
             <div class="pin-chip" title="Código de acesso">
               <span class="pin-chip-label">PIN</span>
-              <strong>{ev.pinCode}</strong>
+              <div class="pin-chip-value">
+                <strong>{ev.pinCode.toUpperCase()}</strong>
+                <CopyButton text={ev.pinCode.toUpperCase()} label="Copiar PIN" />
+              </div>
             </div>
           </div>
         </Card>

@@ -7,6 +7,7 @@
   export let autocomplete = undefined;
   export let required = false;
   export let hint = '';
+  export let uppercase = false;
 </script>
 
 <div class="field">
@@ -22,6 +23,7 @@
       {autocomplete}
       {required}
       class:invalid={!!error}
+      class:uppercase
     />
   </label>
   {#if error}

@@ -6,6 +6,7 @@
   import { showToast } from '../lib/toastStore.js';
   import Button from '../components/Button.svelte';
   import Input from '../components/Input.svelte';
+  import CopyButton from '../components/CopyButton.svelte';
   import QuestionForm, { MIN_OPTIONS, MAX_OPTIONS } from '../components/QuestionForm.svelte';
 
   const statusLabels = {
@@ -19,6 +20,8 @@
   let loading = true;
   let error = '';
   let notFound = false;
+
+  $: answerLink = `${window.location.origin}/answer/${id}`;
 
   let title = '';
   let pinCode = '';
@@ -282,7 +285,14 @@
             <h1 class="dash-title">{title || 'Editar evento'}</h1>
             <p class="dash-user">
               <span class="badge badge-{status.toLowerCase()}">{statusLabel(status)}</span>
-              <span class="text-muted">· PIN: <strong>{pinCode}</strong></span>
+              <span class="text-muted pin-inline">
+                · PIN: <strong>{pinCode.toUpperCase()}</strong>
+                <CopyButton text={pinCode.toUpperCase()} label="Copiar PIN" />
+              </span>
+              <span class="text-muted pin-inline">
+                · <a href={answerLink} target="_blank" rel="noopener">Link de participação</a>
+                <CopyButton text={answerLink} label="Copiar link de participação" />
+              </span>
             </p>
           </div>
         </div>
@@ -310,6 +320,7 @@
                 bind:value={pinCode}
                 placeholder="Ex: dev-team"
                 hint="1 a 25 caracteres: letras, números, _ ou -"
+                uppercase
               />
             {/if}
 
@@ -492,6 +503,13 @@
 </main>
 
 <style>
+  .pin-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: middle;
+  }
+
   .edit-wrap {
     width: 100%;
     max-width: 1100px;

@@ -59,6 +59,7 @@
           bind:value={pinCode}
           placeholder="Ex: dev-team"
           hint="1 a 25 caracteres: letras, números, _ ou -"
+          uppercase
         />
       {:else}
         <p class="text-muted pin-note">
