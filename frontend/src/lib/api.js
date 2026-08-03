@@ -41,6 +41,8 @@ export const api = {
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   events: {
     create: (body) => request('/api/events', { method: 'POST', body }),
-    list: () => request('/api/events')
+    list: () => request('/api/events'),
+    get: (id) => request(`/api/events/${id}`),
+    update: (id, body) => request(`/api/events/${id}`, { method: 'PATCH', body })
   }
 };

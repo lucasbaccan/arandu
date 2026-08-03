@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -50,16 +51,60 @@ func (s *Store) ListEventsByOwner(ctx context.Context, ownerID int64) ([]Event, 
 
 	var events []Event
 	for rows.Next() {
-		var e Event
-		var createdAt string
-		if err := rows.Scan(&e.ID, &e.OwnerID, &e.Title, &e.PINCode, &e.Status, &e.ShowRanking, &createdAt); err != nil {
-			return nil, fmt.Errorf("store: ler evento: %w", err)
+		e, err := scanEvent(rows)
+		if err != nil {
+			return nil, err
 		}
-		e.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
 		events = append(events, e)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: iterar eventos: %w", err)
 	}
 	return events, nil
+}
+
+func (s *Store) FindEventByIDAndOwner(ctx context.Context, id, ownerID int64) (Event, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, created_at
+		 FROM events WHERE id = ? AND owner_id = ?`,
+		id, ownerID,
+	)
+	e, err := scanEvent(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Event{}, ErrNotFound
+	}
+	return e, err
+}
+
+func (s *Store) UpdateEvent(ctx context.Context, e Event) (Event, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE events SET title = ?, pin_code = ?, config_show_ranking = ?
+		 WHERE id = ? AND owner_id = ?`,
+		e.Title, e.PINCode, e.ShowRanking, e.ID, e.OwnerID,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return Event{}, ErrPinTaken
+		}
+		return Event{}, fmt.Errorf("store: atualizar evento: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return Event{}, fmt.Errorf("store: atualizar evento: %w", err)
+	}
+	if n == 0 {
+		return Event{}, ErrNotFound
+	}
+	return e, nil
+}
+
+func scanEvent(row scanner) (Event, error) {
+	var e Event
+	var createdAt string
+	err := row.Scan(&e.ID, &e.OwnerID, &e.Title, &e.PINCode, &e.Status, &e.ShowRanking, &createdAt)
+	if err != nil {
+		return Event{}, err
+	}
+	e.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+	return e, nil
 }

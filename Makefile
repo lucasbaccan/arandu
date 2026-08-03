@@ -1,4 +1,4 @@
-.PHONY: dev backend-dev frontend-dev frontend-watch run build test clean tools deps
+.PHONY: dev backend-dev frontend-dev frontend-watch run build build-windows test clean stop tools deps
 
 GOBIN := $(shell go env GOBIN 2>/dev/null)
 AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
@@ -33,12 +33,22 @@ run: ## Roda o binário compilado (API + frontend buildado)
 	@echo "▶️  Rodando o servidor compilado em http://localhost:8080"
 	@cd backend && ./bin/server
 
-build: ## Compila backend e frontend
+build: ## Compila backend e frontend (binário para o sistema atual)
 	@echo "🏗️  Compilando frontend..."
 	@cd frontend && npm run build
 	@echo "🏗️  Compilando backend..."
 	@cd backend && go build -o bin/server ./cmd/server
 	@echo "✅ Build concluído! (backend/bin/server + frontend embutido)"
+
+build-windows: ## Compila o frontend e o backend para Windows (server.exe) — rode no WSL
+	@echo "🏗️  Compilando frontend..."
+	@cd frontend && npm run build
+	@echo "🏗️  Compilando backend para Windows (GOOS=windows)..."
+	@cd backend && GOOS=windows GOARCH=amd64 go build -o bin/server.exe ./cmd/server
+	@echo "✅ server.exe gerado em backend/bin/server.exe"
+	@echo "💡 Para rodar no Windows: backend\\bin\\server.exe  (ou os comandos manuais:)"
+	@echo "   cd frontend && npm run build"
+	@echo "   cd backend && GOOS=windows GOARCH=amd64 go build -o bin/server.exe ./cmd/server"
 
 test: ## Testes de backend e frontend
 	@echo "🧪 Rodando testes do backend..."
@@ -56,3 +66,9 @@ clean:
 	@echo "🧹 Limpando artefatos de build..."
 	@rm -rf backend/bin backend/tmp frontend/node_modules frontend/dist
 	@echo "🧹 Limpeza concluída!"
+
+stop: ## Encerra servidores de dev órfãos (quando o air não está mais rodando)
+	@echo "⏹️  Encerrando servidores órfãos..."
+	@-pkill -f "backend/tmp/server" 2>/dev/null; pkill -f "air" 2>/dev/null; pkill -f "vite" 2>/dev/null
+	@sleep 1
+	@echo "✅ Portas liberadas (8080 e 5173). Rode 'make dev' para subir de novo."

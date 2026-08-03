@@ -1,6 +1,7 @@
 <script>
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
+  import { showToast } from '../lib/toastStore.js';
   import Button from '../components/Button.svelte';
   import Card from '../components/Card.svelte';
   import Input from '../components/Input.svelte';
@@ -28,6 +29,7 @@
         title: title.trim(),
         pinCode: customPin ? pinCode.trim() : ''
       });
+      showToast('Evento criado com sucesso!');
       navigate('/dashboard');
     } catch (e) {
       error = e.message;

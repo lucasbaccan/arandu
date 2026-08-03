@@ -49,7 +49,7 @@ describe('Dashboard (meus eventos)', () => {
     expect(navigate).toHaveBeenCalledWith('/events/new');
   });
 
-  it('lista os eventos com PIN e status', async () => {
+  it('lista os eventos com PIN, status e data em formato brasileiro', async () => {
     user.set({ id: '1', name: 'Ana' });
     api.events.list.mockResolvedValue({
       events: [
@@ -58,7 +58,7 @@ describe('Dashboard (meus eventos)', () => {
           title: 'Conecta DevOps',
           pinCode: '123456',
           status: 'PREPARATION',
-          createdAt: '2026-08-02T00:00:00Z'
+          createdAt: '2026-08-02T12:00:00Z'
         },
         {
           id: '2',
@@ -76,6 +76,7 @@ describe('Dashboard (meus eventos)', () => {
     expect(view.getByText('123456')).toBeInTheDocument();
     expect(view.getByText('Em preparação')).toBeInTheDocument();
     expect(view.getByText('Ao vivo')).toBeInTheDocument();
+    expect(view.getByText('· criado em 02/08/2026')).toBeInTheDocument();
   });
 
   it('mostra erro da API', async () => {
@@ -86,6 +87,27 @@ describe('Dashboard (meus eventos)', () => {
     expect(
       await view.findByText('Erro inesperado. Tente novamente.')
     ).toBeInTheDocument();
+  });
+
+  it('abre o evento ao clicar no card', async () => {
+    user.set({ id: '1', name: 'Ana' });
+    api.events.list.mockResolvedValue({
+      events: [
+        {
+          id: '1',
+          title: 'Conecta DevOps',
+          pinCode: '123456',
+          status: 'PREPARATION',
+          createdAt: '2026-08-02T00:00:00Z'
+        }
+      ]
+    });
+    const view = mountDashboard();
+    await view.findByText('Conecta DevOps');
+
+    await fireEvent.click(view.getByText('Conecta DevOps'));
+
+    expect(navigate).toHaveBeenCalledWith('/events/1');
   });
 
   it('sai da conta e volta para a home', async () => {

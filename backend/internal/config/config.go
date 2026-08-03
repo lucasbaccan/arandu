@@ -5,6 +5,12 @@ import (
 	"strconv"
 )
 
+const (
+	DefaultHost = "0.0.0.0"
+	DefaultPort = "8080"
+	DefaultDB   = "./data/app.db"
+)
+
 type Config struct {
 	Host              string
 	Port              string
@@ -20,12 +26,12 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		Host:              getEnv("HOST", "0.0.0.0"),
-		Port:              getEnv("PORT", "8080"),
+		Host:              getEnv("HOST", DefaultHost),
+		Port:              getEnv("PORT", DefaultPort),
 		JWTSecret:         getEnv("JWT_SECRET", "dev-secret-change-me"),
 		SessionHours:      getEnvInt("SESSION_HOURS", 24),
 		MinPasswordLength: getEnvInt("MIN_PASSWORD_LENGTH", 3),
-		DatabasePath:      getEnv("DATABASE_PATH", "./data/app.db"),
+		DatabasePath:      getEnv("DATABASE_PATH", DefaultDB),
 		CookieSecure:      getEnvBool("COOKIE_SECURE", false),
 		SnowflakeNode:     getEnvInt("SNOWFLAKE_NODE", 0),
 		ViteDevURL:        getEnv("VITE_DEV_URL", ""),

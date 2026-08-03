@@ -203,9 +203,10 @@ a:hover {
 
 .page-wide {
   justify-content: flex-start;
-  max-width: 720px;
-  margin: 0 auto;
+  max-width: none;
   width: 100%;
+  padding-left: 32px;
+  padding-right: 32px;
 }
 
 .dash-head {
@@ -237,6 +238,11 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
+}
+
+.event-list .card {
+  max-width: none;
   width: 100%;
 }
 

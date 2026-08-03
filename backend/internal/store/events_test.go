@@ -79,3 +79,74 @@ func TestCreateEventPinReusableAfterFinish(t *testing.T) {
 		t.Errorf("PIN de evento FINISHED deveria ser reciclável, got %v", err)
 	}
 }
+
+func TestFindEventByIDAndOwner(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	createOwner(t, s, 1, "a@x.com")
+	createOwner(t, s, 2, "b@x.com")
+
+	s.CreateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "Meu", PINCode: "111", Status: "PREPARATION"})
+
+	ev, err := s.FindEventByIDAndOwner(ctx, 10, 1)
+	if err != nil {
+		t.Fatalf("buscar evento do dono: %v", err)
+	}
+	if ev.Title != "Meu" {
+		t.Errorf("título esperado Meu, got %s", ev.Title)
+	}
+
+	if _, err := s.FindEventByIDAndOwner(ctx, 10, 2); !errors.Is(err, ErrNotFound) {
+		t.Errorf("outro dono deveria ser ErrNotFound, got %v", err)
+	}
+	if _, err := s.FindEventByIDAndOwner(ctx, 999, 1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("inexistente deveria ser ErrNotFound, got %v", err)
+	}
+}
+
+func TestUpdateEvent(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	createOwner(t, s, 1, "a@x.com")
+
+	_, err := s.CreateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "Antes", PINCode: "111", Status: "PREPARATION"})
+	if err != nil {
+		t.Fatalf("criar evento: %v", err)
+	}
+
+	ev, err := s.UpdateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "Depois", PINCode: "222", Status: "PREPARATION", ShowRanking: true})
+	if err != nil {
+		t.Fatalf("atualizar evento: %v", err)
+	}
+	if ev.Title != "Depois" || ev.PINCode != "222" || !ev.ShowRanking {
+		t.Errorf("evento atualizado divergente: %+v", ev)
+	}
+
+	got, err := s.FindEventByIDAndOwner(ctx, 10, 1)
+	if err != nil {
+		t.Fatalf("buscar evento atualizado: %v", err)
+	}
+	if got.Title != "Depois" || got.PINCode != "222" || !got.ShowRanking {
+		t.Errorf("alterações não persistidas: %+v", got)
+	}
+}
+
+func TestUpdateEventNotFoundAndPinTaken(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	createOwner(t, s, 1, "a@x.com")
+	createOwner(t, s, 2, "b@x.com")
+
+	s.CreateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "A", PINCode: "111", Status: "PREPARATION"})
+	s.CreateEvent(ctx, Event{ID: 20, OwnerID: 2, Title: "B", PINCode: "222", Status: "PREPARATION"})
+
+	_, err := s.UpdateEvent(ctx, Event{ID: 10, OwnerID: 2, Title: "X", PINCode: "333", Status: "PREPARATION"})
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("outro dono deveria ser ErrNotFound, got %v", err)
+	}
+
+	_, err = s.UpdateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "A", PINCode: "222", Status: "PREPARATION"})
+	if !errors.Is(err, ErrPinTaken) {
+		t.Errorf("PIN duplicado deveria ser ErrPinTaken, got %v", err)
+	}
+}

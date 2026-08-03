@@ -23,6 +23,27 @@ vi.mock('./lib/router.js', async () => {
   };
 });
 
+vi.mock('./lib/api.js', () => ({
+  api: {
+    events: {
+      create: vi.fn(),
+      list: vi.fn().mockResolvedValue({ events: [] }),
+      get: vi.fn().mockResolvedValue({
+        event: {
+          id: '42',
+          title: 'X',
+          pinCode: '123456',
+          status: 'PREPARATION',
+          configShowRanking: false,
+          createdAt: '2026-01-01T00:00:00Z'
+        }
+      }),
+      update: vi.fn()
+    },
+    logout: vi.fn()
+  }
+}));
+
 import { user, authReady } from './lib/authStore.js';
 import { route, navigate } from './lib/router.js';
 
@@ -83,6 +104,15 @@ describe('App (guardas de rota)', () => {
 
   it('redireciona para a home em /events/new sem sessão', async () => {
     route.set('/events/new');
+    render(App);
+
+    authReady.set(true);
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
+  });
+
+  it('redireciona para a home em /events/123 sem sessão', async () => {
+    route.set('/events/123');
     render(App);
 
     authReady.set(true);

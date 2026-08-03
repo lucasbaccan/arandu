@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { get } from 'svelte/store';
 import EventCreate from './EventCreate.svelte';
+import { toast } from '../lib/toastStore.js';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -18,6 +20,7 @@ import { api } from '../lib/api.js';
 
 describe('Novo evento', () => {
   beforeEach(() => {
+    toast.set(null);
     vi.clearAllMocks();
   });
 
@@ -41,6 +44,9 @@ describe('Novo evento', () => {
         title: 'Conecta DevOps',
         pinCode: ''
       })
+    );
+    await waitFor(() =>
+      expect(get(toast)?.message).toBe('Evento criado com sucesso!')
     );
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
   });

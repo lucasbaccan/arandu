@@ -50,7 +50,9 @@ func doJSON(t *testing.T, h http.Handler, method, path string, body any, cookies
 	req := httptest.NewRequest(method, path, &buf)
 	req.Header.Set("Content-Type", "application/json")
 	for _, c := range cookies {
-		req.AddCookie(c)
+		if c != nil {
+			req.AddCookie(c)
+		}
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

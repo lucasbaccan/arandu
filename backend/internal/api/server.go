@@ -67,6 +67,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/auth/config", a.handleConfig)
 	mux.HandleFunc("POST /api/events", a.requireAuth(a.handleCreateEvent))
 	mux.HandleFunc("GET /api/events", a.requireAuth(a.handleListEvents))
+	mux.HandleFunc("GET /api/events/{id}", a.requireAuth(a.handleGetEvent))
+	mux.HandleFunc("PATCH /api/events/{id}", a.requireAuth(a.handleUpdateEvent))
 	mux.HandleFunc("/api/", a.handleAPI404)
 
 	if a.cfg.ViteDevURL != "" {

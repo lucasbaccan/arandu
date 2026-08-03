@@ -124,6 +124,109 @@ func (a *API) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"events": dtos})
 }
 
+func (a *API) handleGetEvent(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	ownerID := userIDFromContext(r.Context())
+	ev, err := a.store.FindEventByIDAndOwner(r.Context(), id, ownerID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Evento não encontrado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar evento: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar o evento.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"event": toEventDTO(ev)})
+}
+
+type updateEventRequest struct {
+	Title       string `json:"title"`
+	PINCode     string `json:"pinCode"`
+	ShowRanking bool   `json:"configShowRanking"`
+}
+
+func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	ownerID := userIDFromContext(r.Context())
+
+	var req updateEventRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	req.Title = strings.TrimSpace(req.Title)
+	req.PINCode = strings.TrimSpace(req.PINCode)
+
+	if req.Title == "" {
+		writeError(w, http.StatusBadRequest, "Informe o título do evento.")
+		return
+	}
+	if len(req.Title) > maxEventTitleLength {
+		writeError(w, http.StatusBadRequest, "Título muito longo (máximo "+strconv.Itoa(maxEventTitleLength)+" caracteres).")
+		return
+	}
+	if req.PINCode != "" && !pinRe.MatchString(req.PINCode) {
+		writeError(w, http.StatusBadRequest, "O PIN deve ter 1 a 25 caracteres: letras, números, _ ou -.")
+		return
+	}
+
+	current, err := a.store.FindEventByIDAndOwner(r.Context(), id, ownerID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Evento não encontrado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar evento: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar o evento.")
+		return
+	}
+
+	pin := current.PINCode
+	if req.PINCode != "" {
+		pin = req.PINCode
+	}
+
+	ev, err := a.store.UpdateEvent(r.Context(), store.Event{
+		ID:          id,
+		OwnerID:     ownerID,
+		Title:       req.Title,
+		PINCode:     pin,
+		Status:      current.Status,
+		ShowRanking: req.ShowRanking,
+	})
+	if errors.Is(err, store.ErrPinTaken) {
+		writeError(w, http.StatusConflict, "Este PIN já está em uso. Escolha outro.")
+		return
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Evento não encontrado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: atualizar evento: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar o evento.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"event": toEventDTO(ev)})
+}
+
+func parseEventID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeError(w, http.StatusBadRequest, "ID de evento inválido.")
+		return 0, false
+	}
+	return id, true
+}
+
 func generatePIN() string {
 	b := make([]byte, 6)
 	if _, err := rand.Read(b); err != nil {

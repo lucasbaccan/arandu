@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"devopsconecta/backend/internal/api"
-	"devopsconecta/backend/internal/config"
 	"devopsconecta/backend/internal/ids"
 	"devopsconecta/backend/internal/store"
 )
 
 func main() {
-	cfg := config.Load()
+	cfg := resolveConfig()
 	if cfg.JWTSecret == "dev-secret-change-me" {
 		log.Println("AVISO: JWT_SECRET não configurado, usando segredo de desenvolvimento.")
 	}
