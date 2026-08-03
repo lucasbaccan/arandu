@@ -74,6 +74,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/events/{id}/questions/order", a.requireAuth(a.handleReorderQuestions))
 	mux.HandleFunc("PATCH /api/events/{id}/questions/{questionId}", a.requireAuth(a.handleUpdateQuestion))
 	mux.HandleFunc("DELETE /api/events/{id}/questions/{questionId}", a.requireAuth(a.handleDeleteQuestion))
+	mux.HandleFunc("GET /api/events/{id}/responses", a.requireAuth(a.handleListResponses))
+	mux.HandleFunc("PATCH /api/events/{id}/responses/{participantId}/answers/{questionId}", a.requireAuth(a.handleUpdateAnswer))
 	mux.HandleFunc("GET /api/public/events/{id}", a.handlePublicGetEvent)
 	mux.HandleFunc("POST /api/public/events/{id}/submit", a.handleSubmitAnswers)
 	mux.HandleFunc("/api/", a.handleAPI404)
