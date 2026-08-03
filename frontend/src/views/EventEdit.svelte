@@ -6,6 +6,7 @@
   import { showToast } from '../lib/toastStore.js';
   import Button from '../components/Button.svelte';
   import Input from '../components/Input.svelte';
+  import QuestionForm, { MIN_OPTIONS, MAX_OPTIONS } from '../components/QuestionForm.svelte';
 
   const statusLabels = {
     PREPARATION: 'Em preparação',
@@ -14,9 +15,6 @@
     PRESENTING: 'Ao vivo',
     FINISHED: 'Finalizado'
   };
-
-  const MAX_OPTIONS = 10;
-  const MIN_OPTIONS = 2;
 
   let loading = true;
   let error = '';
@@ -32,11 +30,10 @@
   let questions = [];
   let questionsLoading = true;
 
-  let qTitle = '';
-  let qOptions = ['', ''];
-  let qError = '';
-  let addingQuestion = false;
+  let formError = '';
+  let formBusy = false;
   let editingId = null;
+  let insertAt = null;
 
   let dragIndex = null;
   let dropIndex = null;
@@ -99,7 +96,7 @@
     }
   }
 
-  function validateQuestion() {
+  function validateQuestion(qTitle, qOptions) {
     if (!qTitle.trim()) return 'Informe o texto da pergunta.';
     if (qTitle.trim().length > 300) return 'Pergunta muito longa (máximo 300 caracteres).';
     const opts = qOptions.map((o) => o.trim()).filter(Boolean);
@@ -110,55 +107,68 @@
     return '';
   }
 
-  function addOption() {
-    if (qOptions.length >= MAX_OPTIONS) return;
-    qOptions = [...qOptions, ''];
-  }
-
-  function removeOption(index) {
-    if (qOptions.length <= MIN_OPTIONS) return;
-    qOptions = qOptions.filter((_, i) => i !== index);
-  }
-
   function startEdit(q) {
+    insertAt = null;
+    formError = '';
     editingId = q.id;
-    qTitle = q.title;
-    qOptions = q.options.map((o) => o.text);
-    while (qOptions.length < MIN_OPTIONS) qOptions.push('');
-    qError = '';
   }
 
-  function resetQuestionForm() {
+  function openInsertAt(pos) {
     editingId = null;
-    qTitle = '';
-    qOptions = ['', ''];
-    qError = '';
+    formError = '';
+    insertAt = pos;
   }
 
-  async function saveQuestion() {
-    qError = validateQuestion();
-    if (qError) return;
-    addingQuestion = true;
+  function closeForms() {
+    editingId = null;
+    insertAt = null;
+    formError = '';
+  }
+
+  async function handleInsert(detail, pos) {
+    formError = validateQuestion(detail.title, detail.options);
+    if (formError) return;
+    formBusy = true;
     try {
       const body = {
-        title: qTitle.trim(),
-        options: qOptions.map((o) => o.trim()).filter(Boolean)
+        title: detail.title.trim(),
+        options: detail.options.map((o) => o.trim()).filter(Boolean)
       };
-      if (editingId) {
-        const { question } = await api.events.questions.update(id, editingId, body);
-        questions = questions.map((x) => (x.id === editingId ? question : x));
-        showToast('Pergunta atualizada!');
-      } else {
-        const { question } = await api.events.questions.create(id, { ...body, type: 'GROUP' });
-        questions = [...questions, question];
-        showToast('Pergunta adicionada!');
+      const { question } = await api.events.questions.create(id, { ...body, type: 'GROUP' });
+      const next = [...questions];
+      next.splice(pos, 0, question);
+      questions = next;
+      if (pos < questions.length - 1) {
+        await persistOrder();
       }
-      resetQuestionForm();
+      showToast('Pergunta adicionada!');
+      closeForms();
     } catch (e) {
       showToast(e.message, 'error');
-      qError = e.message;
+      formError = e.message;
     } finally {
-      addingQuestion = false;
+      formBusy = false;
+    }
+  }
+
+  async function handleUpdate(detail, questionId) {
+    formError = validateQuestion(detail.title, detail.options);
+    if (formError) return;
+    formBusy = true;
+    try {
+      const body = {
+        title: detail.title.trim(),
+        options: detail.options.map((o) => o.trim()).filter(Boolean)
+      };
+      const { question } = await api.events.questions.update(id, questionId, body);
+      questions = questions.map((x) => (x.id === questionId ? question : x));
+      showToast('Pergunta atualizada!');
+      closeForms();
+    } catch (e) {
+      showToast(e.message, 'error');
+      formError = e.message;
+    } finally {
+      formBusy = false;
     }
   }
 
@@ -202,6 +212,7 @@
   }
 
   function onDragStart(e, index) {
+    if (editingId !== null || insertAt !== null) return;
     dragIndex = index;
     dropIndex = index;
     if (e.dataTransfer) {
@@ -216,7 +227,7 @@
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = 'move';
     }
-    const items = e.currentTarget.querySelectorAll(':scope > li:not(.drop-end)');
+    const items = e.currentTarget.querySelectorAll(':scope > li.question-item');
     let target = items.length;
     for (let k = 0; k < items.length; k++) {
       const rect = items[k].getBoundingClientRect();
@@ -322,78 +333,151 @@
         <div class="card panel questions-panel">
           <div class="questions-head">
             <h2>Perguntas da dinâmica</h2>
-            <p class="text-muted">Arraste para reordenar ou use as setas.</p>
+            <p class="text-muted">Arraste para reordenar ou clique em "+" para inserir uma pergunta em qualquer posição.</p>
           </div>
 
           {#if questionsLoading}
             <p class="text-muted">Carregando perguntas…</p>
           {:else if questions.length === 0}
-            <p class="text-muted empty-note">
-              Nenhuma pergunta ainda. Adicione a primeira abaixo.
-            </p>
+            <div class="empty-note">
+              <p class="text-muted">Nenhuma pergunta ainda.</p>
+              {#if insertAt === 0}
+                <QuestionForm
+                  heading="Adicionar pergunta"
+                  submitLabel="Adicionar"
+                  showCancel
+                  error={formError}
+                  submitting={formBusy}
+                  on:submit={(e) => handleInsert(e.detail, 0)}
+                  on:cancel={closeForms}
+                />
+              {:else}
+                <Button variant="secondary" type="button" on:click={() => openInsertAt(0)}>
+                  + Adicionar pergunta
+                </Button>
+              {/if}
+            </div>
           {:else}
             <ul
               class="question-list"
               on:dragover={onDragOver}
               on:drop={onDrop}
             >
+              <li class="insert-slot" class:active={insertAt === 0}>
+                {#if insertAt === 0}
+                  <QuestionForm
+                    heading="Adicionar pergunta"
+                    submitLabel="Adicionar"
+                    showCancel
+                    error={formError}
+                    submitting={formBusy}
+                    on:submit={(e) => handleInsert(e.detail, 0)}
+                    on:cancel={closeForms}
+                  />
+                {:else}
+                  <button
+                    type="button"
+                    class="insert-btn"
+                    aria-label="Adicionar pergunta no início"
+                    on:click={() => openInsertAt(0)}
+                  >+ Adicionar pergunta aqui</button>
+                {/if}
+              </li>
+
               {#each questions as q, i (q.id)}
-                <li
-                  class="question-item"
-                  class:dragging={dragIndex === i}
-                  class:drop-top={dragIndex !== null && dropIndex === i && dragIndex !== i}
-                  draggable="true"
-                  on:dragstart={(e) => onDragStart(e, i)}
-                  on:dragend={onDragEnd}
-                >
-                  <span class="drag-handle" title="Arraste para reordenar">⠿</span>
-                  <div class="question-info">
-                    <div class="question-title-row">
-                      <strong class="question-title">{q.title}</strong>
-                      {#if q.type !== 'GROUP'}
-                        <span class="badge badge-individual">Individual</span>
+                {#if editingId === q.id}
+                  <li class="insert-slot active">
+                    <QuestionForm
+                      heading="Editar pergunta"
+                      submitLabel="Salvar pergunta"
+                      showCancel
+                      initialTitle={q.title}
+                      initialOptions={q.options.map((o) => o.text)}
+                      error={formError}
+                      submitting={formBusy}
+                      on:submit={(e) => handleUpdate(e.detail, q.id)}
+                      on:cancel={closeForms}
+                    />
+                  </li>
+                {:else}
+                  <li
+                    class="question-item"
+                    class:dragging={dragIndex === i}
+                    class:drop-top={dragIndex !== null && dropIndex === i && dragIndex !== i}
+                    draggable={editingId === null && insertAt === null}
+                    on:dragstart={(e) => onDragStart(e, i)}
+                    on:dragend={onDragEnd}
+                  >
+                    <span class="drag-handle" title="Arraste para reordenar">⠿</span>
+                    <div class="question-info">
+                      <div class="question-title-row">
+                        <strong class="question-title">{q.title}</strong>
+                        {#if q.type !== 'GROUP'}
+                          <span class="badge badge-individual">Individual</span>
+                        {/if}
+                      </div>
+                      {#if q.options.length > 0}
+                        <ul class="option-chips">
+                          {#each q.options as opt (opt.id)}
+                            <li class="option-chip">{opt.text}</li>
+                          {/each}
+                        </ul>
                       {/if}
                     </div>
-                    {#if q.options.length > 0}
-                      <ul class="option-chips">
-                        {#each q.options as opt (opt.id)}
-                          <li class="option-chip">{opt.text}</li>
-                        {/each}
-                      </ul>
-                    {/if}
-                  </div>
-                  <div class="question-actions">
+                    <div class="question-actions">
+                      <button
+                        type="button"
+                        class="icon-btn"
+                        title="Mover para cima"
+                        aria-label="Mover pergunta para cima"
+                        disabled={i === 0}
+                        on:click={() => moveQuestion(i, i - 1)}
+                      >↑</button>
+                      <button
+                        type="button"
+                        class="icon-btn"
+                        title="Mover para baixo"
+                        aria-label="Mover pergunta para baixo"
+                        disabled={i === questions.length - 1}
+                        on:click={() => moveQuestion(i, i + 1)}
+                      >↓</button>
+                      <button
+                        type="button"
+                        class="icon-btn"
+                        title="Editar pergunta"
+                        aria-label={`Editar pergunta ${q.title}`}
+                        on:click={() => startEdit(q)}
+                      >✎</button>
+                      <button
+                        type="button"
+                        class="icon-btn danger"
+                        title="Remover pergunta"
+                        aria-label={`Remover pergunta ${q.title}`}
+                        on:click={() => removeQuestion(q)}
+                      >×</button>
+                    </div>
+                  </li>
+                {/if}
+
+                <li class="insert-slot" class:active={insertAt === i + 1}>
+                  {#if insertAt === i + 1}
+                    <QuestionForm
+                      heading="Adicionar pergunta"
+                      submitLabel="Adicionar"
+                      showCancel
+                      error={formError}
+                      submitting={formBusy}
+                      on:submit={(e) => handleInsert(e.detail, i + 1)}
+                      on:cancel={closeForms}
+                    />
+                  {:else}
                     <button
                       type="button"
-                      class="icon-btn"
-                      title="Mover para cima"
-                      aria-label="Mover pergunta para cima"
-                      disabled={i === 0}
-                      on:click={() => moveQuestion(i, i - 1)}
-                    >↑</button>
-                    <button
-                      type="button"
-                      class="icon-btn"
-                      title="Mover para baixo"
-                      aria-label="Mover pergunta para baixo"
-                      disabled={i === questions.length - 1}
-                      on:click={() => moveQuestion(i, i + 1)}
-                    >↓</button>
-                    <button
-                      type="button"
-                      class="icon-btn"
-                      title="Editar pergunta"
-                      aria-label={`Editar pergunta ${q.title}`}
-                      on:click={() => startEdit(q)}
-                    >✎</button>
-                    <button
-                      type="button"
-                      class="icon-btn danger"
-                      title="Remover pergunta"
-                      aria-label={`Remover pergunta ${q.title}`}
-                      on:click={() => removeQuestion(q)}
-                    >×</button>
-                  </div>
+                      class="insert-btn"
+                      aria-label={`Adicionar pergunta após "${q.title}"`}
+                      on:click={() => openInsertAt(i + 1)}
+                    >+ Adicionar pergunta aqui</button>
+                  {/if}
                 </li>
               {/each}
               {#if dragIndex !== null && dropIndex === questions.length}
@@ -401,62 +485,6 @@
               {/if}
             </ul>
           {/if}
-
-          <form class="form question-form" novalidate on:submit|preventDefault={saveQuestion}>
-            <h3>{editingId ? 'Editar pergunta' : 'Adicionar pergunta'}</h3>
-            <Input
-              label="Pergunta"
-              bind:value={qTitle}
-              placeholder="Ex: Qual é o seu prato favorito?"
-              hint="Máximo de 300 caracteres"
-            />
-
-            <div class="field">
-              <span class="label">Opções</span>
-              {#each qOptions as _, i (i)}
-                <div class="option-row">
-                  <Input
-                    bind:value={qOptions[i]}
-                    placeholder={`Opção ${i + 1}`}
-                    autocomplete="off"
-                  />
-                  {#if qOptions.length > MIN_OPTIONS}
-                    <button
-                      type="button"
-                      class="icon-btn"
-                      title="Remover opção"
-                      aria-label={`Remover opção ${i + 1}`}
-                      on:click={() => removeOption(i)}
-                    >×</button>
-                  {/if}
-                </div>
-              {/each}
-              {#if qOptions.length < MAX_OPTIONS}
-                <Button variant="secondary" type="button" on:click={addOption}>
-                  + Adicionar opção
-                </Button>
-              {/if}
-            </div>
-
-            {#if qError}
-              <p class="form-error">{qError}</p>
-            {/if}
-
-            <div class="form-actions">
-              <Button type="submit" disabled={addingQuestion}>
-                {addingQuestion
-                  ? 'Salvando…'
-                  : editingId
-                    ? 'Salvar pergunta'
-                    : 'Adicionar pergunta'}
-              </Button>
-              {#if editingId}
-                <Button variant="secondary" on:click={resetQuestionForm} disabled={addingQuestion}>
-                  Cancelar
-                </Button>
-              {/if}
-            </div>
-          </form>
         </div>
       </div>
     </div>
@@ -508,6 +536,13 @@
   }
 
   .empty-note {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .empty-note p {
     margin: 0;
   }
 
@@ -517,7 +552,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 2px;
   }
 
   .question-item {
@@ -529,7 +564,7 @@
     border-radius: 10px;
     padding: 12px 14px;
     cursor: grab;
-    transition: border-color 0.15s ease, opacity 0.15s ease;
+    transition: border-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
   }
 
   .question-item.dragging {
@@ -539,7 +574,8 @@
   }
 
   .question-item.drop-top {
-    border-top: 2px solid var(--accent);
+    transform: translateX(10px);
+    border-color: var(--accent);
   }
 
   .drop-end {
@@ -547,6 +583,45 @@
     background: var(--accent);
     border-radius: 2px;
     margin-top: -2px;
+  }
+
+  .insert-slot {
+    display: flex;
+  }
+
+  .insert-slot.active {
+    margin: 6px 0;
+  }
+
+  .insert-btn {
+    flex: 1;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 6px 0;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .insert-slot:hover .insert-btn,
+  .insert-btn:focus-visible {
+    opacity: 1;
+  }
+
+  .insert-btn::before {
+    content: '';
+    display: block;
+    height: 1px;
+    background: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .insert-btn:hover,
+  .insert-btn:focus-visible {
+    color: var(--accent);
   }
 
   .drag-handle {
@@ -607,53 +682,4 @@
     flex-shrink: 0;
   }
 
-  .icon-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 1rem;
-    line-height: 1;
-    cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-  }
-
-  .icon-btn:hover:not(:disabled) {
-    color: var(--text);
-    border-color: var(--text-muted);
-  }
-
-  .icon-btn.danger:hover:not(:disabled) {
-    color: var(--danger);
-    border-color: var(--danger);
-  }
-
-  .icon-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-
-  .question-form {
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-  }
-
-  .question-form h3 {
-    margin: 0;
-    font-size: 1rem;
-  }
-
-  .option-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .option-row .field {
-    flex: 1;
-  }
 </style>
