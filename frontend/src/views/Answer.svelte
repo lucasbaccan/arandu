@@ -272,7 +272,12 @@
             style="transform: translateY(-{currentIndex * SLIDE_STEP}px);"
           >
             {#each questions as q, i (q.id)}
-              <div class="slide" class:current={i === currentIndex} style="height: {SLIDE_HEIGHT}px;">
+              <div
+                class="slide"
+                class:current={i === currentIndex}
+                style="height: {SLIDE_HEIGHT}px;"
+                aria-hidden={i !== currentIndex}
+              >
                 <div class="card-face">
                   <h2 class="question-title">{q.title}</h2>
 
@@ -282,6 +287,7 @@
                       bind:value={answers[q.id].text}
                       placeholder="Escreva sua resposta"
                       rows="4"
+                      tabindex={i === currentIndex ? 0 : -1}
                     ></textarea>
                   {:else}
                     <div class="options">
@@ -292,6 +298,7 @@
                             class="sr-only"
                             bind:group={answers[q.id].optionId}
                             value={opt.id}
+                            tabindex={i === currentIndex ? 0 : -1}
                           />
                           <span>{opt.text}</span>
                         </label>

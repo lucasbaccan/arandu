@@ -173,6 +173,32 @@ describe('Tela de respostas do participante', () => {
     expect(screen.getByLabelText('Go').checked).toBe(true);
   });
 
+  it('remove do tab as perguntas fora da tela, evitando o bug de foco/scroll no carrossel', async () => {
+    // Todas as perguntas ficam no DOM ao mesmo tempo (só a atual é deslocada
+    // para a área visível via transform); sem tabindex="-1" nas ocultas, um
+    // Tab movia o foco pra pergunta seguinte e o navegador rolava o
+    // carrossel pra mostrá-la, sem que o estado (Pergunta X de Y) mudasse.
+    mockLoad();
+    render(Answer, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+    await screen.findByText('Qual sua linguagem favorita?');
+
+    expect(screen.getByLabelText('Go')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByLabelText('JS')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByPlaceholderText('Escreva sua resposta')).toHaveAttribute('tabindex', '-1');
+
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await screen.findByText('Qual sua comida favorita?');
+
+    expect(screen.getByPlaceholderText('Escreva sua resposta')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByLabelText('Go')).toHaveAttribute('tabindex', '-1');
+  });
+
   it('permite responder de novo (mesmo dispositivo), pois a unicidade é por e-mail no servidor', async () => {
     mockLoad();
     render(Answer, { props: { id: '42' } });
