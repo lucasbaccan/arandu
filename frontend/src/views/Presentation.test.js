@@ -11,7 +11,13 @@ vi.mock('../lib/api.js', () => ({
     events: {
       get: vi.fn(),
       questions: { list: vi.fn() },
-      responses: { list: vi.fn() }
+      responses: { list: vi.fn() },
+      live: {
+        setQuestion: vi.fn().mockResolvedValue({ ok: true }),
+        reveal: vi.fn().mockResolvedValue({ ok: true }),
+        revealAll: vi.fn().mockResolvedValue({ ok: true }),
+        reset: vi.fn().mockResolvedValue({ ok: true })
+      }
     }
   }
 }));

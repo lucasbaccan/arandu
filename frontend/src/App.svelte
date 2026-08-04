@@ -12,12 +12,14 @@
   import EventEdit from './views/EventEdit.svelte';
   import Answer from './views/Answer.svelte';
   import Presentation from './views/Presentation.svelte';
+  import Live from './views/Live.svelte';
 
   onMount(initAuth);
 
   $: eventMatch = /^\/events\/(\d+)$/.exec($route);
   $: answerMatch = /^\/answer\/(\d+)$/.exec($route);
   $: presentMatch = /^\/present\/(\d+)$/.exec($route);
+  $: liveMatch = /^\/live\/(\d+)$/.exec($route);
 
   $: if ($authReady) {
     if ($route === '/' && $user) navigate('/dashboard');
@@ -55,6 +57,8 @@
     <Answer id={answerMatch[1]} />
   {:else if presentMatch}
     <Presentation id={presentMatch[1]} />
+  {:else if liveMatch}
+    <Live id={liveMatch[1]} />
   {:else}
     <main class="page">
       <p>Página não encontrada.</p>

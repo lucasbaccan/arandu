@@ -26,6 +26,7 @@
   let activeTab = 'questions'; // questions | responses
 
   $: answerLink = `${window.location.origin}/answer/${id}`;
+  $: liveLink = `${window.location.origin}/live/${id}`;
 
   let title = '';
   let pinCode = '';
@@ -330,6 +331,10 @@
               <span class="text-muted pin-inline">
                 · <a href={answerLink} target="_blank" rel="noopener">Link de participação</a>
                 <CopyButton text={answerLink} label="Copiar link de participação" />
+              </span>
+              <span class="text-muted pin-inline">
+                · <a href={liveLink} target="_blank" rel="noopener">Apresentação pública</a>
+                <CopyButton text={liveLink} label="Copiar link da apresentação pública" />
               </span>
             </p>
           </div>

@@ -1,11 +1,10 @@
 <script>
   export let id = '';
 
-  import { fly, fade } from 'svelte/transition';
-  import { flip } from 'svelte/animate';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import Button from '../components/Button.svelte';
+  import PresentationStage from '../components/PresentationStage.svelte';
 
   let loading = true;
   let error = '';
@@ -60,6 +59,7 @@
       questions = qs;
       participants = ps;
       revealed = Object.fromEntries(qs.map((q) => [q.id, new Set()]));
+      if (qs.length > 0) syncQuestion(qs[0].id);
     } catch (e) {
       error = e.message;
     } finally {
@@ -69,6 +69,13 @@
 
   function back() {
     navigate(`/events/${id}`);
+  }
+
+  // Espelha o estado ao vivo pro servidor (best-effort — não bloqueia nem
+  // quebra a UI local se a rede falhar), pra quem está assistindo em
+  // /live/:id ver a mesma coisa em tempo real.
+  function syncQuestion(questionId) {
+    api.events.live.setQuestion(id, questionId).catch(() => {});
   }
 
   $: currentQuestion = questions[currentIndex];
@@ -83,7 +90,7 @@
   $: choiceGroups =
     currentQuestion && currentQuestion.type !== 'OPEN_TEXT'
       ? currentQuestion.options.map((opt) => ({
-          option: opt,
+          label: opt.text,
           participants: participants.filter((p) => {
             if (!revealedIds.has(p.id)) return false;
             const a = answerFor(p, currentQuestion);
@@ -111,12 +118,14 @@
   function groupOpenAnswers(allParticipants, q, revealedSet) {
     const groups = new Map();
     for (const p of allParticipants) {
-      const text = normalizeOpenText(answerFor(p, q)?.text) || '—';
-      if (!groups.has(text)) groups.set(text, { text, participants: [] });
-      if (revealedSet.has(p.id)) groups.get(text).participants.push(p);
+      const label = normalizeOpenText(answerFor(p, q)?.text) || '—';
+      if (!groups.has(label)) groups.set(label, { label, participants: [] });
+      if (revealedSet.has(p.id)) groups.get(label).participants.push(p);
     }
     return Array.from(groups.values());
   }
+
+  $: groups = currentQuestion && currentQuestion.type === 'OPEN_TEXT' ? openGroups : choiceGroups;
 
   function reveal(p) {
     if (!currentQuestion) return;
@@ -124,15 +133,18 @@
     if (set.has(p.id)) return;
     set.add(p.id);
     revealed = { ...revealed };
+    api.events.live.reveal(id, currentQuestion.id, p.id).catch(() => {});
   }
 
   function revealAll() {
     if (!currentQuestion) return;
     const set = revealed[currentQuestion.id];
+    const questionId = currentQuestion.id;
     pending.forEach((p, i) => {
       setTimeout(() => {
         set.add(p.id);
         revealed = { ...revealed };
+        api.events.live.reveal(id, questionId, p.id).catch(() => {});
       }, i * 150);
     });
   }
@@ -140,14 +152,21 @@
   function resetReveal() {
     if (!currentQuestion) return;
     revealed = { ...revealed, [currentQuestion.id]: new Set() };
+    api.events.live.reset(id, currentQuestion.id).catch(() => {});
   }
 
   function goPrev() {
-    if (currentIndex > 0) currentIndex -= 1;
+    if (currentIndex > 0) {
+      currentIndex -= 1;
+      syncQuestion(questions[currentIndex].id);
+    }
   }
 
   function goNext() {
-    if (currentIndex < questions.length - 1) currentIndex += 1;
+    if (currentIndex < questions.length - 1) {
+      currentIndex += 1;
+      syncQuestion(questions[currentIndex].id);
+    }
   }
 </script>
 
@@ -192,89 +211,7 @@
         </div>
       {/if}
 
-      <div class="pending-row">
-        {#each pending as p (p.id)}
-          <button
-            type="button"
-            class="face"
-            title={p.email}
-            aria-label={`Revelar resposta de ${p.email}`}
-            on:click={() => reveal(p)}
-            animate:flip={{ duration: 350 }}
-            out:fade={{ duration: 150 }}
-          >
-            {#if p.photo}
-              <img src={p.photo} alt="" />
-            {:else}
-              <span class="face-placeholder">{p.email[0].toUpperCase()}</span>
-            {/if}
-          </button>
-        {/each}
-        {#if pending.length === 0}
-          <p class="text-muted present-empty">
-            {participants.length === 0 ? 'Ninguém respondeu ainda.' : 'Todas as respostas foram reveladas.'}
-          </p>
-        {/if}
-      </div>
-
-      {#if currentQuestion.type === 'OPEN_TEXT'}
-        <div class="zones">
-          {#if openGroups.length === 0}
-            <p class="text-muted present-empty">Ninguém respondeu ainda.</p>
-          {/if}
-          {#each openGroups as group (group.text)}
-            <div class="zone">
-              <div class="zone-label">
-                <span>{group.text}</span>
-                <span class="zone-count">{group.participants.length}</span>
-              </div>
-              <div class="zone-faces">
-                {#each group.participants as p (p.id)}
-                  <span
-                    class="face static"
-                    title={p.email}
-                    animate:flip={{ duration: 350 }}
-                    in:fly={{ y: -30, duration: 350 }}
-                  >
-                    {#if p.photo}
-                      <img src={p.photo} alt="" />
-                    {:else}
-                      <span class="face-placeholder">{p.email[0].toUpperCase()}</span>
-                    {/if}
-                  </span>
-                {/each}
-              </div>
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="zones">
-          {#each choiceGroups as g (g.option.id)}
-            <div class="zone">
-              <div class="zone-label">
-                <span>{g.option.text}</span>
-                <span class="zone-count">{g.participants.length}</span>
-              </div>
-              <div class="zone-faces">
-                {#each g.participants as p (p.id)}
-                  <span
-                    class="face static"
-                    title={p.email}
-                    animate:flip={{ duration: 350 }}
-                    in:fly={{ y: -30, duration: 350 }}
-                  >
-                    {#if p.photo}
-                      <img src={p.photo} alt="" />
-                    {:else}
-                      <span class="face-placeholder">{p.email[0].toUpperCase()}</span>
-                    {/if}
-                  </span>
-                {/each}
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
+      <PresentationStage {pending} {groups} onFaceClick={reveal} />
 
       {#if !presentationMode}
         <div class="present-nav">
@@ -345,95 +282,6 @@
   .present-actions {
     display: flex;
     gap: 10px;
-  }
-
-  .pending-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    min-height: 64px;
-    padding: 12px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-  }
-
-  .face {
-    width: 52px;
-    height: 52px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    padding: 0;
-    overflow: hidden;
-    cursor: pointer;
-    background: var(--bg-input);
-    transition: border-color 0.15s ease, transform 0.1s ease;
-  }
-
-  .face:hover {
-    border-color: var(--accent);
-    transform: scale(1.05);
-  }
-
-  .face.static {
-    cursor: default;
-    display: block;
-  }
-
-  .face img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .face-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent);
-    color: #fff;
-    font-weight: 600;
-  }
-
-  .zones {
-    flex: 1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-  }
-
-  .zone {
-    flex: 1;
-    min-width: 220px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-  }
-
-  .zone-label {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-weight: 600;
-  }
-
-  .zone-count {
-    color: var(--text-muted);
-    font-weight: 400;
-  }
-
-  .zone-faces {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    min-height: 52px;
   }
 
   .present-nav {

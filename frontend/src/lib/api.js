@@ -66,6 +66,16 @@ export const api = {
         }),
       updatePhoto: (id, participantId, body) =>
         request(`/api/events/${id}/responses/${participantId}/photo`, { method: 'PATCH', body })
+    },
+    live: {
+      setQuestion: (id, questionId) =>
+        request(`/api/events/${id}/live/question`, { method: 'POST', body: { questionId } }),
+      reveal: (id, questionId, participantId) =>
+        request(`/api/events/${id}/live/reveal`, { method: 'POST', body: { questionId, participantId } }),
+      revealAll: (id, questionId) =>
+        request(`/api/events/${id}/live/reveal-all`, { method: 'POST', body: { questionId } }),
+      reset: (id, questionId) =>
+        request(`/api/events/${id}/live/reset`, { method: 'POST', body: { questionId } })
     }
   },
   public: {
@@ -73,7 +83,14 @@ export const api = {
       get: (id) => request(`/api/public/events/${id}`),
       getParticipant: (id, token) =>
         request(`/api/public/events/${id}/participant?token=${encodeURIComponent(token)}`),
-      submit: (id, body) => request(`/api/public/events/${id}/submit`, { method: 'POST', body })
+      submit: (id, body) => request(`/api/public/events/${id}/submit`, { method: 'POST', body }),
+      live: {
+        join: (id, body) => request(`/api/public/events/${id}/live/join`, { method: 'POST', body }),
+        state: (id, token) =>
+          request(`/api/public/events/${id}/live/state?token=${encodeURIComponent(token)}`),
+        streamUrl: (id, token) =>
+          `/api/public/events/${id}/live/stream?token=${encodeURIComponent(token)}`
+      }
     }
   }
 };
