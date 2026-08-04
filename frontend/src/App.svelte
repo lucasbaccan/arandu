@@ -11,15 +11,20 @@
   import EventCreate from './views/EventCreate.svelte';
   import EventEdit from './views/EventEdit.svelte';
   import Answer from './views/Answer.svelte';
+  import Presentation from './views/Presentation.svelte';
 
   onMount(initAuth);
 
   $: eventMatch = /^\/events\/(\d+)$/.exec($route);
   $: answerMatch = /^\/answer\/(\d+)$/.exec($route);
+  $: presentMatch = /^\/present\/(\d+)$/.exec($route);
 
   $: if ($authReady) {
     if ($route === '/' && $user) navigate('/dashboard');
-    if (($route === '/dashboard' || $route === '/events/new' || eventMatch) && !$user) {
+    if (
+      ($route === '/dashboard' || $route === '/events/new' || eventMatch || presentMatch) &&
+      !$user
+    ) {
       navigate('/');
     }
     if (($route === '/login' || $route === '/register') && $user) navigate('/dashboard');
@@ -48,6 +53,8 @@
     <EventEdit id={eventMatch[1]} />
   {:else if answerMatch}
     <Answer id={answerMatch[1]} />
+  {:else if presentMatch}
+    <Presentation id={presentMatch[1]} />
   {:else}
     <main class="page">
       <p>Página não encontrada.</p>
