@@ -145,3 +145,63 @@ func TestUpsertParticipantScopedPerEvent(t *testing.T) {
 		t.Errorf("participantes de eventos diferentes não deveriam compartilhar id")
 	}
 }
+
+// insertParticipantWithoutToken simula uma linha criada antes do link de
+// edição existir (edit_token vazio), contornando o UpsertParticipant normal.
+func insertParticipantWithoutToken(t *testing.T, s *Store, id, eventID int64, email string) {
+	t.Helper()
+	_, err := s.db.Exec(
+		`INSERT INTO participants (id, event_id, email, photo, edit_token, created_at) VALUES (?, ?, ?, '', '', datetime('now'))`,
+		id, eventID, email,
+	)
+	if err != nil {
+		t.Fatalf("inserir participante legado sem token: %v", err)
+	}
+}
+
+func TestUpsertParticipantBackfillsMissingEditToken(t *testing.T) {
+	s, eventID := setupQuestionStore(t)
+	ctx := context.Background()
+	insertParticipantWithoutToken(t, s, 610, eventID, "legado@x.com")
+
+	p, err := s.UpsertParticipant(ctx, Participant{ID: 611, EventID: eventID, Email: "legado@x.com"})
+	if err != nil {
+		t.Fatalf("reenviar participante legado: %v", err)
+	}
+	if p.ID != 610 {
+		t.Errorf("deveria reaproveitar o participante legado, got id %d", p.ID)
+	}
+	if p.EditToken == "" {
+		t.Fatal("edit_token deveria ser preenchido ao reenviar um participante legado sem token")
+	}
+
+	found, err := s.FindParticipantByEventAndToken(ctx, eventID, p.EditToken)
+	if err != nil {
+		t.Fatalf("buscar pelo token recém-gerado: %v", err)
+	}
+	if found.ID != 610 {
+		t.Errorf("token gerado não aponta para o participante legado, got id %d", found.ID)
+	}
+}
+
+func TestListParticipantsByEventBackfillsMissingEditToken(t *testing.T) {
+	s, eventID := setupQuestionStore(t)
+	ctx := context.Background()
+	insertParticipantWithoutToken(t, s, 620, eventID, "legado2@x.com")
+
+	list, err := s.ListParticipantsByEvent(ctx, eventID)
+	if err != nil {
+		t.Fatalf("listar participantes: %v", err)
+	}
+	if len(list) != 1 || list[0].EditToken == "" {
+		t.Fatalf("edit_token deveria ser preenchido ao listar, got %+v", list)
+	}
+
+	found, err := s.FindParticipantByEventAndToken(ctx, eventID, list[0].EditToken)
+	if err != nil {
+		t.Fatalf("buscar pelo token recém-gerado: %v", err)
+	}
+	if found.ID != 620 {
+		t.Errorf("token gerado não aponta para o participante legado, got id %d", found.ID)
+	}
+}

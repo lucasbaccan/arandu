@@ -30,6 +30,25 @@ func newEditToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// ensureEditToken preenche o token de um participante que ficou sem um (ex:
+// criado antes do link de edição existir), persistindo o valor gerado.
+func (s *Store) ensureEditToken(ctx context.Context, p *Participant) error {
+	if p.EditToken != "" {
+		return nil
+	}
+	token, err := newEditToken()
+	if err != nil {
+		return err
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE participants SET edit_token = ? WHERE id = ?`, token, p.ID,
+	); err != nil {
+		return fmt.Errorf("store: gerar token de edição: %w", err)
+	}
+	p.EditToken = token
+	return nil
+}
+
 // UpsertParticipant cria o participante ou reaproveita o existente (mesmo
 // evento + e-mail). A foto só é sobrescrita quando uma nova é enviada, para
 // não apagar uma foto já salva quando o participante reenvia sem trocar a
@@ -44,6 +63,9 @@ func (s *Store) UpsertParticipant(ctx context.Context, p Participant) (Participa
 				return Participant{}, fmt.Errorf("store: atualizar participante: %w", err)
 			}
 			existing.Photo = p.Photo
+		}
+		if err := s.ensureEditToken(ctx, &existing); err != nil {
+			return Participant{}, err
 		}
 		return existing, nil
 	}
@@ -137,6 +159,11 @@ func (s *Store) ListParticipantsByEvent(ctx context.Context, eventID int64) ([]P
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: iterar participantes: %w", err)
+	}
+	for i := range participants {
+		if err := s.ensureEditToken(ctx, &participants[i]); err != nil {
+			return nil, err
+		}
 	}
 	return participants, nil
 }
