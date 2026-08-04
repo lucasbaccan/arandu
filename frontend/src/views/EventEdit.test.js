@@ -56,11 +56,11 @@ function question(id, title) {
   };
 }
 
-function mount(questions = []) {
+function mount(questions = [], participantCount = 0) {
   const target = document.createElement('div');
   document.body.appendChild(target);
   api.events.questions.list.mockResolvedValue({ questions });
-  api.events.responses.list.mockResolvedValue({ participantCount: 0, participants: [] });
+  api.events.responses.list.mockResolvedValue({ participantCount, participants: [] });
   new EventEdit({ target, props: { id: '42' } });
   return within(target);
 }
@@ -82,6 +82,13 @@ describe('Editar evento', () => {
     expect(view.getByLabelText('Exibir ranking de pontos').checked).toBe(true);
   });
 
+  it('mostra a quantidade de pessoas que responderam', async () => {
+    api.events.get.mockResolvedValue({ event });
+    const view = mount([], 3);
+
+    expect(await view.findByText('3 pessoas responderam')).toBeInTheDocument();
+  });
+
   it('exige título ao salvar', async () => {
     api.events.get.mockResolvedValue({ event });
     const view = mount();
@@ -94,7 +101,7 @@ describe('Editar evento', () => {
     expect(api.events.update).not.toHaveBeenCalled();
   });
 
-  it('salva mantendo o PIN quando a troca não é marcada', async () => {
+  it('salva mantendo o PIN quando ele não é alterado', async () => {
     api.events.get.mockResolvedValue({ event });
     api.events.update.mockResolvedValue({ event });
     const view = mount();
@@ -106,21 +113,20 @@ describe('Editar evento', () => {
     await waitFor(() =>
       expect(api.events.update).toHaveBeenCalledWith('42', {
         title: 'Título novo',
-        pinCode: '',
+        pinCode: '123456',
         configShowRanking: true
       })
     );
     await waitFor(() => expect(get(toast)?.message).toBe('Alterações salvas!'));
   });
 
-  it('salva com novo PIN quando marcado', async () => {
+  it('salva com novo PIN ao editar o campo diretamente', async () => {
     api.events.get.mockResolvedValue({ event });
     api.events.update.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
-    await fireEvent.click(view.getByLabelText('Definir novo PIN'));
-    const pinInput = await view.findByLabelText('Novo PIN');
+    const pinInput = view.getByLabelText('PIN');
     await userEvent.clear(pinInput);
     await userEvent.type(pinInput, 'dev-team');
     await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
@@ -132,19 +138,17 @@ describe('Editar evento', () => {
         configShowRanking: true
       })
     );
-    await waitFor(() =>
-      expect(view.queryByLabelText('Novo PIN')).not.toBeInTheDocument()
-    );
     expect(view.getByText('DEV-TEAM')).toBeInTheDocument();
   });
 
-  it('rejeita novo PIN inválido', async () => {
+  it('rejeita PIN inválido', async () => {
     api.events.get.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
-    await fireEvent.click(view.getByLabelText('Definir novo PIN'));
-    await userEvent.type(await view.findByLabelText('Novo PIN'), 'com espaço');
+    const pinInput = view.getByLabelText('PIN');
+    await userEvent.clear(pinInput);
+    await userEvent.type(pinInput, 'com espaço');
     await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
 
     expect(await view.findByText(/O PIN deve ter 1 a 25 caracteres/)).toBeInTheDocument();

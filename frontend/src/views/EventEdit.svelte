@@ -29,13 +29,13 @@
 
   let title = '';
   let pinCode = '';
-  let changePin = false;
   let showRanking = false;
   let status = '';
   let submitting = false;
 
   let questions = [];
   let questionsLoading = true;
+  let participantCount = 0;
 
   let formError = '';
   let formBusy = false;
@@ -53,15 +53,17 @@
 
   async function load() {
     try {
-      const [{ event }, { questions: qs }] = await Promise.all([
+      const [{ event }, { questions: qs }, { participantCount: pc }] = await Promise.all([
         api.events.get(id),
-        api.events.questions.list(id)
+        api.events.questions.list(id),
+        api.events.responses.list(id)
       ]);
       title = event.title;
       pinCode = event.pinCode;
       showRanking = event.configShowRanking;
       status = event.status;
       questions = qs;
+      participantCount = pc;
     } catch (e) {
       if (e.status === 404) {
         notFound = true;
@@ -77,7 +79,7 @@
 
   function validate() {
     if (!title.trim()) return 'Informe o título do evento.';
-    if (changePin && !/^[a-zA-Z0-9_-]{1,25}$/.test(pinCode.trim())) {
+    if (!/^[a-zA-Z0-9_-]{1,25}$/.test(pinCode.trim())) {
       return 'O PIN deve ter 1 a 25 caracteres: letras, números, _ ou -.';
     }
     return '';
@@ -90,10 +92,9 @@
     try {
       await api.events.update(id, {
         title: title.trim(),
-        pinCode: changePin ? pinCode.trim() : '',
+        pinCode: pinCode.trim(),
         configShowRanking: showRanking
       });
-      changePin = false;
       showToast('Alterações salvas!');
     } catch (e) {
       showToast(e.message, 'error');
@@ -295,6 +296,10 @@
     navigate('/dashboard');
   }
 
+  function openPreview() {
+    navigate(`/present/${id}`);
+  }
+
   function statusLabel(s) {
     return statusLabels[s] || s;
   }
@@ -329,6 +334,7 @@
             </p>
           </div>
         </div>
+        <Button variant="secondary" on:click={openPreview}>Preview da apresentação</Button>
       </div>
 
       <div class="edit-layout">
@@ -336,6 +342,9 @@
           <h2>Configurações do evento</h2>
           <p class="text-muted questions-count">
             {questions.length} pergunta{questions.length === 1 ? '' : 's'} adicionada{questions.length === 1 ? '' : 's'}
+          </p>
+          <p class="text-muted responses-count">
+            {participantCount} {participantCount === 1 ? 'pessoa respondeu' : 'pessoas responderam'}
           </p>
 
           <div class="answers-switch">
@@ -359,19 +368,13 @@
               required
             />
 
-            <label class="field check">
-              <input type="checkbox" bind:checked={changePin} />
-              <span>Definir novo PIN</span>
-            </label>
-            {#if changePin}
-              <Input
-                label="Novo PIN"
-                bind:value={pinCode}
-                placeholder="Ex: dev-team"
-                hint="1 a 25 caracteres: letras, números, _ ou -"
-                uppercase
-              />
-            {/if}
+            <Input
+              label="PIN"
+              bind:value={pinCode}
+              placeholder="Ex: dev-team"
+              hint="1 a 25 caracteres: letras, números, _ ou -"
+              uppercase
+            />
 
             <label class="field check">
               <input type="checkbox" bind:checked={showRanking} />
@@ -698,6 +701,11 @@
 
   .questions-count {
     margin: -10px 0 0;
+    font-size: 0.85rem;
+  }
+
+  .responses-count {
+    margin: 2px 0 0;
     font-size: 0.85rem;
   }
 
