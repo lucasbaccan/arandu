@@ -4,7 +4,7 @@
 
   import { api } from '../lib/api.js';
   import { showToast } from '../lib/toastStore.js';
-  import { formatDate } from '../lib/formatDate.js';
+  import { formatDateTime } from '../lib/formatDate.js';
   import Button from './Button.svelte';
   import CopyButton from './CopyButton.svelte';
   import AvatarCropper from './AvatarCropper.svelte';
@@ -149,7 +149,7 @@
                 </span>
                 <span class="participant-info">
                   <strong>{p.email}</strong>
-                  <span class="text-muted">{formatDate(p.createdAt)}</span>
+                  <span class="text-muted">{formatDateTime(p.createdAt)}</span>
                 </span>
                 <span class="chevron" class:open={expandedId === p.id} aria-hidden="true">›</span>
               </button>
