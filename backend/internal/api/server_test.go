@@ -13,6 +13,7 @@ import (
 	"devopsconecta/backend/internal/auth"
 	"devopsconecta/backend/internal/config"
 	"devopsconecta/backend/internal/ids"
+	"devopsconecta/backend/internal/live"
 	"devopsconecta/backend/internal/store"
 )
 
@@ -36,7 +37,7 @@ func newTestAPI(t *testing.T) *API {
 		CookieSecure:      false,
 		SnowflakeNode:     1,
 	}
-	return New(cfg, store.New(db), ids.NewGenerator(1))
+	return New(cfg, store.New(db), ids.NewGenerator(1), live.NewManager())
 }
 
 func doJSON(t *testing.T, h http.Handler, method, path string, body any, cookies []*http.Cookie) *httptest.ResponseRecorder {
@@ -353,7 +354,7 @@ func TestServesFrontendFromDir(t *testing.T) {
 		MinPasswordLength: 3,
 		FrontendDir:       dir,
 	}
-	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	app := New(cfg, store.New(nil), ids.NewGenerator(1), live.NewManager())
 	h := app.Handler()
 
 	for _, path := range []string{"/", "/login"} {
@@ -379,7 +380,7 @@ func TestDevProxyForwardsFrontend(t *testing.T) {
 		MinPasswordLength: 3,
 		ViteDevURL:        upstream.URL,
 	}
-	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	app := New(cfg, store.New(nil), ids.NewGenerator(1), live.NewManager())
 	h := app.Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -405,7 +406,7 @@ func TestDevProxyFallsBackToNextUpstream(t *testing.T) {
 		MinPasswordLength: 3,
 		ViteDevURL:        dead + "," + upstream.URL,
 	}
-	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	app := New(cfg, store.New(nil), ids.NewGenerator(1), live.NewManager())
 	h := app.Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -423,7 +424,7 @@ func TestDevProxyAllDown(t *testing.T) {
 		MinPasswordLength: 3,
 		ViteDevURL:        "http://127.0.0.1:1",
 	}
-	app := New(cfg, store.New(nil), ids.NewGenerator(1))
+	app := New(cfg, store.New(nil), ids.NewGenerator(1), live.NewManager())
 	h := app.Handler()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

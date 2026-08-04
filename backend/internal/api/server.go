@@ -17,6 +17,7 @@ import (
 	"devopsconecta/backend/internal/auth"
 	"devopsconecta/backend/internal/config"
 	"devopsconecta/backend/internal/ids"
+	"devopsconecta/backend/internal/live"
 	"devopsconecta/backend/internal/store"
 	"devopsconecta/backend/web"
 )
@@ -51,10 +52,11 @@ type API struct {
 	cfg   config.Config
 	store *store.Store
 	ids   *ids.Generator
+	live  *live.Manager
 }
 
-func New(cfg config.Config, st *store.Store, gen *ids.Generator) *API {
-	return &API{cfg: cfg, store: st, ids: gen}
+func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *live.Manager) *API {
+	return &API{cfg: cfg, store: st, ids: gen, live: liveManager}
 }
 
 func (a *API) Handler() http.Handler {
@@ -77,9 +79,16 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/events/{id}/responses", a.requireAuth(a.handleListResponses))
 	mux.HandleFunc("PATCH /api/events/{id}/responses/{participantId}/answers/{questionId}", a.requireAuth(a.handleUpdateAnswer))
 	mux.HandleFunc("PATCH /api/events/{id}/responses/{participantId}/photo", a.requireAuth(a.handleUpdateParticipantPhoto))
+	mux.HandleFunc("POST /api/events/{id}/live/question", a.requireAuth(a.handleLiveSetQuestion))
+	mux.HandleFunc("POST /api/events/{id}/live/reveal", a.requireAuth(a.handleLiveReveal))
+	mux.HandleFunc("POST /api/events/{id}/live/reveal-all", a.requireAuth(a.handleLiveRevealAll))
+	mux.HandleFunc("POST /api/events/{id}/live/reset", a.requireAuth(a.handleLiveReset))
 	mux.HandleFunc("GET /api/public/events/{id}", a.handlePublicGetEvent)
 	mux.HandleFunc("GET /api/public/events/{id}/participant", a.handlePublicGetParticipant)
 	mux.HandleFunc("POST /api/public/events/{id}/submit", a.handleSubmitAnswers)
+	mux.HandleFunc("POST /api/public/events/{id}/live/join", a.handleLiveJoin)
+	mux.HandleFunc("GET /api/public/events/{id}/live/state", a.handleLiveState)
+	mux.HandleFunc("GET /api/public/events/{id}/live/stream", a.handleLiveStream)
 	mux.HandleFunc("/api/", a.handleAPI404)
 
 	if a.cfg.ViteDevURL != "" {

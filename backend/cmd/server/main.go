@@ -12,6 +12,7 @@ import (
 
 	"devopsconecta/backend/internal/api"
 	"devopsconecta/backend/internal/ids"
+	"devopsconecta/backend/internal/live"
 	"devopsconecta/backend/internal/store"
 )
 
@@ -32,13 +33,14 @@ func main() {
 	}
 
 	gen := ids.NewGenerator(int64(cfg.SnowflakeNode))
-	app := api.New(cfg, store.New(db), gen)
+	app := api.New(cfg, store.New(db), gen, live.NewManager())
 
 	srv := &http.Server{
-		Addr:         cfg.Host + ":" + cfg.Port,
-		Handler:      app.Handler(),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:        cfg.Host + ":" + cfg.Port,
+		Handler:     app.Handler(),
+		ReadTimeout: 10 * time.Second,
+		// Sem WriteTimeout: a apresentação ao vivo mantém conexões SSE
+		// abertas por horas; um timeout global derrubaria esses streams.
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
