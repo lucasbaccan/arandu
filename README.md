@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="frontend/public/img/porandu-completo.png" alt="Porandu" width="420" />
+  <img src="frontend/public/img/arandu-completo.png" alt="Arandu" width="420" />
 </p>
 
-# Porandu
+# Arandu
 
-**Porandu** significa *"pergunta"* em Guarani — e é exatamente o coração da plataforma: uma aplicação para conduzir dinâmicas, integrações e quebra-gelos ao vivo, onde as perguntas movem as pessoas.
+**Arandu** significa *"conhecimento"* em Guarani — e é exatamente o coração da plataforma: uma aplicação para conduzir dinâmicas, integrações e quebra-gelos ao vivo, onde o conhecimento move as pessoas.
 
 Em uma única aplicação: coleta de respostas pré-evento, apresentação ao vivo no telão e estatísticas pós-evento.
 
@@ -113,5 +113,5 @@ make test
 ---
 
 <p align="center">
-  <sub>Porandu — perguntas que conectam pessoas. 🗣️</sub>
+  <sub>Arandu — conhecimento que conecta pessoas. 🗣️</sub>
 </p>
