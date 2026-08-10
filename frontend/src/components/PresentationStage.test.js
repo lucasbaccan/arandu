@@ -82,4 +82,33 @@ describe('PresentationStage', () => {
 
     expect(view.getByLabelText('bob@exemplo.com')).toBeInTheDocument();
   });
+
+  it('com onFaceClick, clicar num rosto já revelado chama o callback de novo (desrevelar)', async () => {
+    const onFaceClick = vi.fn();
+    const view = mount({
+      pending: [],
+      groups: [{ label: 'Go', participants: [ana] }],
+      onFaceClick
+    });
+
+    const face = view.getByLabelText('Desrevelar resposta de ana@exemplo.com');
+    expect(face).not.toBeDisabled();
+
+    await fireEvent.click(face);
+    expect(onFaceClick).toHaveBeenCalledWith(ana);
+  });
+
+  it('hideZones esconde as zonas e mostra um aviso, mesmo com gente revelada', () => {
+    const view = mount({
+      pending: [bob],
+      groups: [{ label: 'Go', participants: [ana] }],
+      hideZones: true
+    });
+
+    expect(view.getByText('O organizador escondeu as respostas por enquanto.')).toBeInTheDocument();
+    expect(view.queryByText('Go')).not.toBeInTheDocument();
+    expect(view.queryByTitle('ana@exemplo.com')).not.toBeInTheDocument();
+    // a fila de pendentes continua visível independente do hideZones
+    expect(view.getByLabelText('bob@exemplo.com')).toBeInTheDocument();
+  });
 });

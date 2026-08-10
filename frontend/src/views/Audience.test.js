@@ -216,6 +216,16 @@ describe('Tela pública da apresentação (Audience)', () => {
     expect(view.queryByText('Qual sua linguagem favorita?')).not.toBeInTheDocument();
   });
 
+  it('esconde as opções quando o organizador ativa esconder respostas, mas mantém a pergunta e os pendentes', async () => {
+    const view = mount('?pin=dev-team');
+    await joinAndWatch(view, { answersHidden: true });
+
+    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(view.getByText('O organizador escondeu as respostas por enquanto.')).toBeInTheDocument();
+    expect(view.queryByText('Go')).not.toBeInTheDocument();
+    expect(view.queryByText('JS')).not.toBeInTheDocument();
+  });
+
   it('mostra a pergunta normalmente quando não está em branco nem tem mensagem', async () => {
     const view = mount('?pin=dev-team');
     await joinAndWatch(view);

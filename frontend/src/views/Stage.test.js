@@ -15,9 +15,11 @@ vi.mock('../lib/api.js', () => ({
       live: {
         setQuestion: vi.fn().mockResolvedValue({ ok: true }),
         reveal: vi.fn().mockResolvedValue({ ok: true }),
+        unreveal: vi.fn().mockResolvedValue({ ok: true }),
         revealAll: vi.fn().mockResolvedValue({ ok: true }),
         reset: vi.fn().mockResolvedValue({ ok: true }),
         setBlanked: vi.fn().mockResolvedValue({ ok: true }),
+        setAnswersHidden: vi.fn().mockResolvedValue({ ok: true }),
         setMessage: vi.fn().mockResolvedValue({ ok: true }),
         setInteractionsEnabled: vi.fn().mockResolvedValue({ ok: true }),
         adminStreamUrl: vi.fn((id) => `/api/events/${id}/live/stream`),
@@ -50,6 +52,7 @@ FakeEventSource.instances = [];
 
 const adminSnapshot = {
   blanked: false,
+  answersHidden: false,
   message: '',
   interactionsEnabled: true,
   qaInbox: []
@@ -158,6 +161,24 @@ describe('Preview da apresentação', () => {
     await waitFor(() => expect(within(goZone).getByTitle('ana@exemplo.com')).toBeInTheDocument());
     expect(within(goZone).getByText('1')).toBeInTheDocument();
     expect(view.getByLabelText('Revelar resposta de bob@exemplo.com')).toBeInTheDocument();
+  });
+
+  it('clicar de novo no rosto revelado desrevela e volta pra pendente', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
+    const revealedFace = await view.findByLabelText('Desrevelar resposta de ana@exemplo.com');
+
+    await fireEvent.click(revealedFace);
+
+    expect(api.events.live.unreveal).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String)
+    );
+    expect(await view.findByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
+    expect(view.queryByLabelText('Desrevelar resposta de ana@exemplo.com')).not.toBeInTheDocument();
   });
 
   it('revelar todos move todo mundo para as respectivas opções', async () => {
@@ -323,9 +344,19 @@ describe('Preview da apresentação', () => {
     await view.findByText('Qual sua linguagem favorita?');
 
     const switches = view.getAllByRole('switch');
-    await fireEvent.click(switches[1]);
+    await fireEvent.click(switches[2]);
 
     expect(api.events.live.setInteractionsEnabled).toHaveBeenCalledWith('42', false);
+  });
+
+  it('alterna esconder respostas da plateia e chama a API', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    const switches = view.getAllByRole('switch');
+    await fireEvent.click(switches[1]);
+
+    expect(api.events.live.setAnswersHidden).toHaveBeenCalledWith('42', true);
   });
 
   it('envia e limpa uma mensagem de aviso', async () => {

@@ -10,6 +10,10 @@
   // onFaceClick: se informado, os rostos pendentes viram botão clicável
   // (tela do admin). Se omitido, ficam só leitura (tela pública).
   export let onFaceClick = null;
+  // hideZones: esconde as zonas de resposta (opções e quem foi revelado
+  // nelas) — usado pela plateia quando o organizador ativa "esconder
+  // respostas". A fila de pendentes continua visível independente disso.
+  export let hideZones = false;
 
   $: totalParticipants =
     pending.length + groups.reduce((sum, g) => sum + g.participants.length, 0);
@@ -43,33 +47,42 @@
 </div>
 
 <div class="zones">
-  {#if groups.length === 0}
-    <p class="text-muted present-empty">Ninguém respondeu ainda.</p>
+  {#if hideZones}
+    <p class="text-muted present-empty">O organizador escondeu as respostas por enquanto.</p>
+  {:else}
+    {#if groups.length === 0}
+      <p class="text-muted present-empty">Ninguém respondeu ainda.</p>
+    {/if}
+    {#each groups as group (group.label)}
+      <div class="zone">
+        <div class="zone-label">
+          <span>{group.label}</span>
+          <span class="zone-count">{group.participants.length}</span>
+        </div>
+        <div class="zone-faces">
+          {#each group.participants as p (p.id)}
+            <button
+              type="button"
+              class="face"
+              class:static={!onFaceClick}
+              disabled={!onFaceClick}
+              title={p.email}
+              aria-label={onFaceClick ? `Desrevelar resposta de ${p.email}` : p.email}
+              on:click={() => onFaceClick && onFaceClick(p)}
+              animate:flip={{ duration: 350 }}
+              in:fly={{ y: -30, duration: 350 }}
+            >
+              {#if p.photo}
+                <img src={p.photo} alt="" />
+              {:else}
+                <span class="face-placeholder">{p.email[0].toUpperCase()}</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/each}
   {/if}
-  {#each groups as group (group.label)}
-    <div class="zone">
-      <div class="zone-label">
-        <span>{group.label}</span>
-        <span class="zone-count">{group.participants.length}</span>
-      </div>
-      <div class="zone-faces">
-        {#each group.participants as p (p.id)}
-          <span
-            class="face static"
-            title={p.email}
-            animate:flip={{ duration: 350 }}
-            in:fly={{ y: -30, duration: 350 }}
-          >
-            {#if p.photo}
-              <img src={p.photo} alt="" />
-            {:else}
-              <span class="face-placeholder">{p.email[0].toUpperCase()}</span>
-            {/if}
-          </span>
-        {/each}
-      </div>
-    </div>
-  {/each}
 </div>
 
 <style>

@@ -123,7 +123,10 @@
     snapshot && snapshot.questions.find((q) => q.id === snapshot.currentQuestionId);
 </script>
 
-<main class="present-page">
+<main
+  class="present-page"
+  class:present-page-center={!initialPin || step === 'identify' || loadError || !snapshot}
+>
   {#if !initialPin}
     <p class="text-muted">Redirecionando…</p>
   {:else if step === 'identify'}
@@ -171,7 +174,11 @@
       <p class="text-muted present-empty">Este evento ainda não tem perguntas.</p>
     {:else if currentQuestion}
       <h2 class="present-question">{currentQuestion.title}</h2>
-      <PresentationStage pending={snapshot.pending || []} groups={snapshot.groups || []} />
+      <PresentationStage
+        pending={snapshot.pending || []}
+        groups={snapshot.groups || []}
+        hideZones={snapshot.answersHidden}
+      />
     {/if}
 
     {#if snapshot.interactionsEnabled}
@@ -199,11 +206,17 @@
     max-width: none;
     width: 100%;
     min-height: 100vh;
+    min-height: 100dvh;
     box-sizing: border-box;
     padding: 24px 32px 32px;
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+
+  .present-page-center {
+    align-items: center;
+    justify-content: center;
   }
 
   .live-logo {

@@ -20,6 +20,7 @@
   let currentIndex = 0;
 
   let blanked = false;
+  let answersHidden = false;
   let interactionsEnabled = true;
   let message = '';
   let messageDraft = '';
@@ -110,6 +111,7 @@
     adminEventSource.onmessage = (e) => {
       const snap = JSON.parse(e.data);
       blanked = snap.blanked;
+      answersHidden = snap.answersHidden;
       interactionsEnabled = snap.interactionsEnabled;
       message = snap.message;
       messageDraft = snap.message;
@@ -123,6 +125,11 @@
   function toggleBlanked() {
     blanked = !blanked;
     api.events.live.setBlanked(id, blanked).catch(() => {});
+  }
+
+  function toggleAnswersHidden() {
+    answersHidden = !answersHidden;
+    api.events.live.setAnswersHidden(id, answersHidden).catch(() => {});
   }
 
   function toggleInteractions() {
@@ -201,11 +208,17 @@
 
   function reveal(p) {
     if (!currentQuestion) return;
-    const set = revealed[currentQuestion.id];
-    if (set.has(p.id)) return;
-    set.add(p.id);
-    revealed = { ...revealed };
-    api.events.live.reveal(id, currentQuestion.id, p.id).catch(() => {});
+    const questionId = currentQuestion.id;
+    const set = revealed[questionId];
+    if (set.has(p.id)) {
+      set.delete(p.id);
+      revealed = { ...revealed };
+      api.events.live.unreveal(id, questionId, p.id).catch(() => {});
+    } else {
+      set.add(p.id);
+      revealed = { ...revealed };
+      api.events.live.reveal(id, questionId, p.id).catch(() => {});
+    }
   }
 
   function revealAll() {
@@ -246,7 +259,11 @@
 
 <ReactionBurstLayer />
 
-<main class="present-page" class:presentation-mode={presentationMode}>
+<main
+  class="present-page"
+  class:presentation-mode={presentationMode}
+  class:present-page-center={loading || error}
+>
   {#if loading}
     <p class="text-muted">Carregando…</p>
   {:else if error}
@@ -266,6 +283,10 @@
         <div class="control-row">
           <Switch checked={blanked} on:change={toggleBlanked} />
           <span>Tela em branco</span>
+        </div>
+        <div class="control-row">
+          <Switch checked={answersHidden} on:change={toggleAnswersHidden} />
+          <span>Esconder respostas da plateia</span>
         </div>
         <div class="control-row">
           <Switch checked={interactionsEnabled} on:change={toggleInteractions} />
@@ -354,11 +375,17 @@
     max-width: none;
     width: 100%;
     min-height: 100vh;
+    min-height: 100dvh;
     box-sizing: border-box;
     padding: 24px 32px 32px;
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+
+  .present-page-center {
+    align-items: center;
+    justify-content: center;
   }
 
   .present-bar {

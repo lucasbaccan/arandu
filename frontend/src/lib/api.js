@@ -72,12 +72,16 @@ export const api = {
         request(`/api/events/${id}/live/question`, { method: 'POST', body: { questionId } }),
       reveal: (id, questionId, participantId) =>
         request(`/api/events/${id}/live/reveal`, { method: 'POST', body: { questionId, participantId } }),
+      unreveal: (id, questionId, participantId) =>
+        request(`/api/events/${id}/live/unreveal`, { method: 'POST', body: { questionId, participantId } }),
       revealAll: (id, questionId) =>
         request(`/api/events/${id}/live/reveal-all`, { method: 'POST', body: { questionId } }),
       reset: (id, questionId) =>
         request(`/api/events/${id}/live/reset`, { method: 'POST', body: { questionId } }),
       setBlanked: (id, blanked) =>
         request(`/api/events/${id}/live/blank`, { method: 'POST', body: { blanked } }),
+      setAnswersHidden: (id, hidden) =>
+        request(`/api/events/${id}/live/hide-answers`, { method: 'POST', body: { hidden } }),
       setMessage: (id, message) =>
         request(`/api/events/${id}/live/message`, { method: 'POST', body: { message } }),
       setInteractionsEnabled: (id, enabled) =>
