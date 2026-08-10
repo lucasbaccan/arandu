@@ -32,15 +32,17 @@
 </script>
 
 <main class="page">
-  <a
-    class="back-logo"
-    href="/"
-    aria-label="Voltar para o início"
-    on:click|preventDefault={() => navigate('/')}
-  >
-    <img src="/img/arandu-logo.png" alt="Arandu" />
-  </a>
-  <Card title="Entrar" subtitle="Acesse sua conta para gerenciar eventos.">
+  <Card>
+    <a
+      class="back-logo"
+      href="/"
+      aria-label="Voltar para o início"
+      on:click|preventDefault={() => navigate('/')}
+    >
+      <img src="/img/arandu-completo.png" alt="Arandu" />
+    </a>
+    <h1>Entrar</h1>
+    <p class="subtitle">Acesse sua conta para gerenciar eventos.</p>
     <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
       <Input
         label="E-mail"
@@ -75,7 +77,8 @@
 
 <style>
   .back-logo {
-    display: inline-block;
+    display: block;
+    text-align: center;
   }
 
   .back-logo img {

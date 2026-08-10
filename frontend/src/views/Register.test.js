@@ -17,7 +17,7 @@ import { navigate } from '../lib/router.js';
 import { api } from '../lib/api.js';
 
 async function fillAndSubmit({ name, email, password, confirm }) {
-  if (name) await userEvent.type(screen.getByLabelText('Nome'), name);
+  if (name) await userEvent.type(screen.getByLabelText('Nome completo'), name);
   if (email) await userEvent.type(screen.getByLabelText('E-mail'), email);
   if (password) await userEvent.type(screen.getByLabelText('Senha'), password);
   if (confirm !== undefined) {

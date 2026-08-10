@@ -29,7 +29,7 @@
 
 <main class="home">
   <div class="home-content">
-    <img class="home-logo" src="/img/arandu-logo.png" alt="Arandu" />
+    <img class="home-logo" src="/img/arandu-completo.png" alt="Arandu" />
     <p class="home-tagline">Dinâmicas de grupo ao vivo</p>
 
     <form class="code-form" novalidate on:submit|preventDefault={joinWithCode}>
@@ -51,8 +51,8 @@
     </div>
 
     <div class="home-actions">
-      <Button variant="secondary" on:click={() => navigate('/login')}>Entrar</Button>
-      <Button variant="secondary" on:click={() => navigate('/register')}>
+      <Button variant="outline" on:click={() => navigate('/login')}>Entrar</Button>
+      <Button variant="outline" on:click={() => navigate('/register')}>
         Criar conta
       </Button>
     </div>
@@ -117,5 +117,21 @@
 
   .home-actions :global(.btn) {
     min-width: 240px;
+  }
+
+  .code-form :global(.btn),
+  .home-actions :global(.btn) {
+    transition:
+      background 0.15s ease,
+      color 0.15s ease,
+      border-color 0.15s ease,
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .code-form :global(.btn:hover:not(:disabled)),
+  .home-actions :global(.btn:hover:not(:disabled)) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(43, 0, 187, 0.25);
   }
 </style>

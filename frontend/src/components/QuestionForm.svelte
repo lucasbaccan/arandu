@@ -187,17 +187,17 @@
   }
 
   .type-open .type-dot {
-    background: var(--open-text-color, #f5a623);
+    background: var(--open-text-color, var(--orange));
   }
 
   .type-group.selected {
     border-color: var(--accent);
-    background: rgba(79, 140, 255, 0.12);
+    background: rgba(43, 0, 187, 0.12);
   }
 
   .type-open.selected {
-    border-color: var(--open-text-color, #f5a623);
-    background: rgba(245, 166, 35, 0.12);
+    border-color: var(--open-text-color, var(--orange));
+    background: rgba(255, 117, 0, 0.12);
   }
 
   .sr-only {

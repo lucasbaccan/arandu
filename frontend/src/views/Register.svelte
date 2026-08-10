@@ -10,24 +10,29 @@
   let password = '';
   let confirm = '';
   let error = '';
+  let fieldErrors = {};
   let submitting = false;
 
   function validate() {
-    if (!name.trim()) return 'Informe seu nome.';
+    const errors = {};
+    if (!name.trim()) errors.name = 'Informe seu nome.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return 'Informe um e-mail válido.';
+      errors.email = 'Informe um e-mail válido.';
     }
     const min = $authConfig.minPasswordLength;
     if (password.length < min) {
-      return `A senha deve ter pelo menos ${min} caracteres.`;
+      errors.password = `A senha deve ter pelo menos ${min} caracteres.`;
     }
-    if (password !== confirm) return 'As senhas não conferem.';
-    return '';
+    if (confirm !== password) {
+      errors.confirm = 'As senhas não conferem.';
+    }
+    return errors;
   }
 
   async function handleSubmit() {
-    error = validate();
-    if (error) return;
+    error = '';
+    fieldErrors = validate();
+    if (Object.keys(fieldErrors).length) return;
     submitting = true;
     try {
       await register(name.trim(), email.trim(), password);
@@ -41,23 +46,33 @@
 </script>
 
 <main class="page">
-  <a
-    class="back-logo"
-    href="/"
-    aria-label="Voltar para o início"
-    on:click|preventDefault={() => navigate('/')}
-  >
-    <img src="/img/arandu-logo.png" alt="Arandu" />
-  </a>
-  <Card title="Criar conta" subtitle="Comece a organizar suas dinâmicas.">
+  <Card>
+    <a
+      class="back-logo"
+      href="/"
+      aria-label="Voltar para o início"
+      on:click|preventDefault={() => navigate('/')}
+    >
+      <img src="/img/arandu-completo.png" alt="Arandu" />
+    </a>
+    <h1>Criar conta</h1>
+    <p class="subtitle">Comece a organizar suas dinâmicas.</p>
     <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
-      <Input label="Nome" bind:value={name} placeholder="Seu nome" autocomplete="name" required />
+      <Input
+        label="Nome completo"
+        bind:value={name}
+        placeholder="Seu nome"
+        autocomplete="name"
+        error={fieldErrors.name}
+        required
+      />
       <Input
         label="E-mail"
         type="email"
         bind:value={email}
         placeholder="seu@melhor.email"
         autocomplete="email"
+        error={fieldErrors.email}
         required
       />
       <Input
@@ -66,6 +81,7 @@
         bind:value={password}
         autocomplete="new-password"
         hint={`Mínimo de ${$authConfig.minPasswordLength} caracteres`}
+        error={fieldErrors.password}
         required
       />
       <Input
@@ -73,6 +89,7 @@
         type="password"
         bind:value={confirm}
         autocomplete="new-password"
+        error={fieldErrors.confirm}
         required
       />
       {#if error}
@@ -91,7 +108,8 @@
 
 <style>
   .back-logo {
-    display: inline-block;
+    display: block;
+    text-align: center;
   }
 
   .back-logo img {

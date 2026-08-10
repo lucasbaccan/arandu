@@ -9,7 +9,7 @@
   let height = 0;
 
   const COUNT = 70;
-  const palette = ['#4f8cff', '#7aa7ff', '#3b78e6', '#ffffff'];
+  const palette = ['#2B00BB', '#00C3FD', '#FCD000', '#FC27A7', '#FF7500'];
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);

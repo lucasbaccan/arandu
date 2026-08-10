@@ -69,7 +69,7 @@
       {#if error}
         <p class="form-error">{error}</p>
       {/if}
-      <Button type="submit" block disabled={submitting}>
+      <Button type="submit" variant="accent-invert" block disabled={submitting}>
         {submitting ? 'Criando…' : 'Criar evento'}
       </Button>
     </form>

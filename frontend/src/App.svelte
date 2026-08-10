@@ -13,6 +13,7 @@
   import Answer from './views/Answer.svelte';
   import Stage from './views/Stage.svelte';
   import Audience from './views/Audience.svelte';
+  import StyleGuide from './views/StyleGuide.svelte';
 
   onMount(initAuth);
 
@@ -49,6 +50,8 @@
     <Register />
   {:else if $route === '/dashboard'}
     <Dashboard />
+  {:else if $route === '/tela'}
+    <StyleGuide />
   {:else if $route === '/events/new'}
     <EventCreate />
   {:else if eventMatch}

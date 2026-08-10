@@ -266,7 +266,7 @@
   }
 
   .participant {
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: 10px;
     background: var(--bg-input);
     overflow: hidden;
@@ -292,6 +292,11 @@
     cursor: pointer;
     text-align: left;
     color: var(--text);
+    transition: background-color 0.15s ease;
+  }
+
+  .participant-head-main:hover {
+    background: rgba(23, 21, 42, 0.05);
   }
 
   .avatar-wrap {
@@ -300,15 +305,15 @@
 
   .photo-edit-btn {
     flex-shrink: 0;
-    color: #f5a623;
-    border-color: rgba(245, 166, 35, 0.35);
+    color: var(--orange);
+    border-color: rgba(255, 117, 0, 0.35);
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
 
   .photo-edit-btn:hover:not(:disabled) {
-    background: #f5a623;
-    color: #1c1200;
-    border-color: #f5a623;
+    background: var(--orange);
+    color: var(--text);
+    border-color: var(--orange);
   }
 
   .avatar {
@@ -369,7 +374,7 @@
     gap: 10px;
     padding: 12px;
     background: var(--bg-elev);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: 10px;
   }
 
@@ -378,7 +383,7 @@
     flex-direction: column;
     gap: 6px;
     padding-top: 10px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-strong);
   }
 
   .answer-question {
@@ -401,7 +406,7 @@
     width: 100%;
     box-sizing: border-box;
     background: var(--bg-elev);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
     color: var(--text);
     padding: 8px 10px;
@@ -412,7 +417,7 @@
 
   .answer-edit-select {
     background: var(--bg-elev);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
     color: var(--text);
     padding: 8px 10px;

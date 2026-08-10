@@ -64,7 +64,7 @@
     justify-content: center;
     border-radius: 7px;
     border: 1px solid var(--accent);
-    background: rgba(79, 140, 255, 0.1);
+    background: rgba(43, 0, 187, 0.1);
     color: var(--accent);
     cursor: pointer;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;

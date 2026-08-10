@@ -52,15 +52,15 @@
 <main class="page page-wide">
   <div class="dash-head">
     <div class="dash-brand">
-      <img class="dash-logo" src="/img/arandu-logo.png" alt="Arandu" />
+      <img class="dash-logo" src="/img/arandu-completo.png" alt="Arandu" />
       <div>
         <h1 class="dash-title">Meus eventos</h1>
         <p class="dash-user">Olá, {($user && $user.name) || '…'}</p>
       </div>
     </div>
     <div class="dash-actions">
-      <Button on:click={goCreate}>Novo evento</Button>
-      <Button variant="secondary" on:click={handleLogout}>Sair</Button>
+      <Button variant="accent-invert" on:click={goCreate}>Novo evento</Button>
+      <Button variant="pink-invert" on:click={handleLogout}>Sair</Button>
     </div>
   </div>
 
@@ -72,7 +72,7 @@
     <Card>
       <h2>Nenhum evento ainda</h2>
       <p class="subtitle">Crie seu primeiro evento para começar uma dinâmica.</p>
-      <Button block on:click={goCreate}>Criar evento</Button>
+      <Button variant="accent-invert" block on:click={goCreate}>Criar evento</Button>
     </Card>
   {:else}
     <div class="event-list">

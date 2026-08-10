@@ -523,7 +523,7 @@
 
   .option.selected {
     border-color: var(--accent);
-    background: rgba(79, 140, 255, 0.1);
+    background: rgba(43, 0, 187, 0.1);
   }
 
   .sr-only {

@@ -321,7 +321,14 @@
     <div class="edit-wrap">
       <div class="dash-head">
         <div class="dash-brand">
-          <Button variant="secondary" on:click={back}>Voltar</Button>
+          <a
+            class="dash-logo-link"
+            href="/dashboard"
+            aria-label="Voltar para meus eventos"
+            on:click|preventDefault={back}
+          >
+            <img class="dash-logo" src="/img/arandu-completo.png" alt="Arandu" />
+          </a>
           <div>
             <h1 class="dash-title">{title || 'Editar evento'}</h1>
             <p class="dash-user">
@@ -341,7 +348,12 @@
             </p>
           </div>
         </div>
-        <Button variant="secondary" on:click={openOrganizerPanel}>Painel do organizador</Button>
+        <Button
+          variant={status === 'PRESENTING' ? 'success-invert' : 'accent-invert'}
+          on:click={openOrganizerPanel}
+        >
+          ▶ Painel do organizador
+        </Button>
       </div>
 
       <div class="edit-layout">
@@ -633,6 +645,17 @@
 </main>
 
 <style>
+  .dash-logo-link {
+    display: block;
+    line-height: 0;
+    opacity: 1;
+    transition: opacity 0.15s ease;
+  }
+
+  .dash-logo-link:hover {
+    opacity: 0.8;
+  }
+
   .pin-inline {
     display: inline-flex;
     align-items: center;
@@ -840,7 +863,7 @@
   .icon-btn-move {
     font-size: 1.3rem;
     color: var(--accent);
-    border-color: rgba(79, 140, 255, 0.35);
+    border-color: rgba(43, 0, 187, 0.35);
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
       transform 0.15s ease;
   }
@@ -854,30 +877,30 @@
 
   .icon-btn-edit {
     font-size: 1.3rem;
-    color: #f5a623;
-    border-color: rgba(245, 166, 35, 0.35);
+    color: var(--orange);
+    border-color: rgba(255, 117, 0, 0.35);
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
       transform 0.15s ease;
   }
 
   .icon-btn-edit:hover:not(:disabled) {
-    background: #f5a623;
-    color: #1c1200;
-    border-color: #f5a623;
+    background: var(--orange);
+    color: var(--text);
+    border-color: var(--orange);
     transform: scale(1.08);
   }
 
   .icon-btn-delete {
     font-size: 1.3rem;
     color: var(--danger);
-    border-color: rgba(255, 92, 92, 0.35);
+    border-color: rgba(229, 72, 77, 0.35);
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
       transform 0.15s ease;
   }
 
   .icon-btn-delete:hover:not(:disabled) {
     background: var(--danger);
-    color: #2a0505;
+    color: #fff;
     border-color: var(--danger);
     transform: scale(1.08);
   }
@@ -911,15 +934,15 @@
   .badge-individual {
     color: var(--text-muted);
     border-color: var(--border);
-    background: rgba(139, 152, 165, 0.12);
+    background: rgba(104, 103, 122, 0.12);
     flex-shrink: 0;
   }
 
   .badge-open-text {
     align-self: flex-start;
-    color: #f5a623;
-    border-color: #f5a623;
-    background: rgba(245, 166, 35, 0.12);
+    color: var(--orange);
+    border-color: var(--orange);
+    background: rgba(255, 117, 0, 0.12);
     flex-shrink: 0;
   }
 
