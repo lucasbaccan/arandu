@@ -54,7 +54,7 @@ func promptSetup(cfg config.Config) config.Config {
 		return cfg
 	}
 
-	fmt.Println("===== Porandu — configuração inicial =====")
+	fmt.Println("===== Arandu — configuração inicial =====")
 	fmt.Println("Pressione Enter para aceitar o valor padrão.")
 	cfg.Host = ask("Host", cfg.Host)
 	cfg.Port = ask("Porta", cfg.Port)

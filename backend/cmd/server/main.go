@@ -47,7 +47,7 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("Porandu rodando em http://%s:%s", cfg.Host, cfg.Port)
+		log.Printf("Arandu rodando em http://%s:%s", cfg.Host, cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("main: servidor: %v", err)
 		}

@@ -336,7 +336,7 @@ func TestSpaServesIndex(t *testing.T) {
 		if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
 			t.Errorf("%s: content-type esperado html, got %s", path, ct)
 		}
-		if !strings.Contains(rec.Body.String(), "Porandu") {
+		if !strings.Contains(rec.Body.String(), "Arandu") {
 			t.Errorf("%s: resposta deveria conter o app", path)
 		}
 	}

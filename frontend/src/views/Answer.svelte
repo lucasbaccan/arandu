@@ -230,7 +230,7 @@
     </Card>
   {:else if step === 'identify'}
     <Card wide>
-      <img class="answer-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
+      <img class="answer-logo" src="/img/arandu-logo.png" alt="Arandu" />
       <form class="form" novalidate on:submit|preventDefault={startQuestions}>
         {#if editLinkNotice}
           <p class="form-warning">{editLinkNotice}</p>

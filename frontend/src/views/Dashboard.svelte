@@ -52,7 +52,7 @@
 <main class="page page-wide">
   <div class="dash-head">
     <div class="dash-brand">
-      <img class="dash-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
+      <img class="dash-logo" src="/img/arandu-logo.png" alt="Arandu" />
       <div>
         <h1 class="dash-title">Meus eventos</h1>
         <p class="dash-user">Olá, {($user && $user.name) || '…'}</p>
