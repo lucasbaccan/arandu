@@ -17,6 +17,32 @@ func TestRevealMarksParticipant(t *testing.T) {
 	}
 }
 
+func TestUnrevealClearsOnlyThatParticipant(t *testing.T) {
+	m := NewManager()
+	m.Reveal(1, 10, 100)
+	m.Reveal(1, 10, 101)
+
+	m.Unreveal(1, 10, 100)
+
+	state := m.Get(1)
+	if state.Revealed[10][100] {
+		t.Fatalf("esperava 100 não revelado, got %+v", state.Revealed)
+	}
+	if !state.Revealed[10][101] {
+		t.Fatalf("esperava 101 continuar revelado, got %+v", state.Revealed)
+	}
+}
+
+func TestUnrevealOnQuestionWithNoRevealsIsNoop(t *testing.T) {
+	m := NewManager()
+	m.Unreveal(1, 10, 100)
+
+	state := m.Get(1)
+	if len(state.Revealed[10]) != 0 {
+		t.Fatalf("esperava nada revelado, got %+v", state.Revealed)
+	}
+}
+
 func TestRevealAllMarksEveryone(t *testing.T) {
 	m := NewManager()
 	m.RevealAll(1, 10, []int64{100, 101, 102})
@@ -77,6 +103,18 @@ func TestSetBlankedTogglesFlag(t *testing.T) {
 	m.SetBlanked(1, false)
 	if m.Get(1).Blanked {
 		t.Fatal("esperava Blanked false")
+	}
+}
+
+func TestSetAnswersHiddenTogglesFlag(t *testing.T) {
+	m := NewManager()
+	m.SetAnswersHidden(1, true)
+	if !m.Get(1).AnswersHidden {
+		t.Fatal("esperava AnswersHidden true")
+	}
+	m.SetAnswersHidden(1, false)
+	if m.Get(1).AnswersHidden {
+		t.Fatal("esperava AnswersHidden false")
 	}
 }
 

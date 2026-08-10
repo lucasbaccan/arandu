@@ -21,6 +21,10 @@ type EventState struct {
 	// Message é um aviso/recado que o organizador transmite pra tela dos
 	// participantes, sobrepondo a pergunta atual enquanto não-vazio.
 	Message string
+	// AnswersHidden, quando true, esconde só as zonas de resposta (opções e
+	// quem já foi revelado nelas) da tela pública — a pergunta e a fila de
+	// pendentes continuam visíveis. Diferente de Blanked, que some com tudo.
+	AnswersHidden bool
 }
 
 func newEventState() *EventState {
@@ -41,6 +45,7 @@ func (s *EventState) clone() EventState {
 		Revealed:          revealed,
 		Blanked:           s.Blanked,
 		Message:           s.Message,
+		AnswersHidden:     s.AnswersHidden,
 	}
 }
 
@@ -134,6 +139,16 @@ func (m *Manager) Reveal(eventID, questionID, participantID int64) {
 	e.notify()
 }
 
+func (m *Manager) Unreveal(eventID, questionID, participantID int64) {
+	e := m.entry(eventID)
+	e.mu.Lock()
+	if set, ok := e.state.Revealed[questionID]; ok {
+		delete(set, participantID)
+	}
+	e.mu.Unlock()
+	e.notify()
+}
+
 func (m *Manager) RevealAll(eventID, questionID int64, participantIDs []int64) {
 	e := m.entry(eventID)
 	e.mu.Lock()
@@ -161,6 +176,14 @@ func (m *Manager) SetBlanked(eventID int64, blanked bool) {
 	e := m.entry(eventID)
 	e.mu.Lock()
 	e.state.Blanked = blanked
+	e.mu.Unlock()
+	e.notify()
+}
+
+func (m *Manager) SetAnswersHidden(eventID int64, hidden bool) {
+	e := m.entry(eventID)
+	e.mu.Lock()
+	e.state.AnswersHidden = hidden
 	e.mu.Unlock()
 	e.notify()
 }

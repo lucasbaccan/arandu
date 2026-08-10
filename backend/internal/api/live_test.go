@@ -228,6 +228,28 @@ func TestLiveSetBlankedAppearsInPublicSnapshot(t *testing.T) {
 	}
 }
 
+func TestLiveSetAnswersHiddenAppearsInPublicSnapshot(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-answers", map[string]bool{"hidden": true}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hide-answers: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if snap := getLiveState(t, h, eventID, token); !snap.AnswersHidden {
+		t.Fatalf("esperava answersHidden=true no snapshot público, got %+v", snap)
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-answers", map[string]bool{"hidden": false}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("show-answers: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if snap := getLiveState(t, h, eventID, token); snap.AnswersHidden {
+		t.Fatalf("esperava answersHidden=false no snapshot público, got %+v", snap)
+	}
+}
+
 func TestLiveSetMessageAppearsInSnapshotAndClears(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
@@ -290,6 +312,7 @@ func TestLiveBlankMessageInteractionsRequireOwnership(t *testing.T) {
 		body any
 	}{
 		{"/api/events/" + eventID + "/live/blank", map[string]bool{"blanked": true}},
+		{"/api/events/" + eventID + "/live/hide-answers", map[string]bool{"hidden": true}},
 		{"/api/events/" + eventID + "/live/message", map[string]string{"message": "oi"}},
 		{"/api/events/" + eventID + "/live/interactions", map[string]bool{"enabled": false}},
 	}
@@ -745,6 +768,45 @@ func TestLiveRevealAllAndReset(t *testing.T) {
 	_ = biaID
 }
 
+func TestLiveRevealThenUnreveal(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, questionID, _, _, pin, anaID, _ := setupLiveEvent(t, h)
+	viewerToken, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("revelar: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap := getLiveState(t, h, eventID, viewerToken)
+	found := false
+	for _, g := range snap.Groups {
+		found = found || len(g.Participants) > 0
+	}
+	if len(snap.Pending) != 1 || !found {
+		t.Fatalf("esperava ana revelada e 1 pendente, got pending=%+v groups=%+v", snap.Pending, snap.Groups)
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/unreveal", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("desrevelar: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap = getLiveState(t, h, eventID, viewerToken)
+	if len(snap.Pending) != 2 {
+		t.Fatalf("esperava ana de volta pra pendente, got %+v", snap.Pending)
+	}
+	for _, g := range snap.Groups {
+		if len(g.Participants) != 0 {
+			t.Fatalf("esperava nenhum participante revelado apos desrevelar, got %+v", snap.Groups)
+		}
+	}
+}
+
 func TestLiveAdminEndpointsRequireOwnership(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h)
@@ -763,6 +825,13 @@ func TestLiveAdminEndpointsRequireOwnership(t *testing.T) {
 	}, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("sem sessao: status esperado 401, got %d", rec.Code)
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/unreveal", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{other})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("desrevelar com dono errado: status esperado 404, got %d", rec.Code)
 	}
 }
 

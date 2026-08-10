@@ -80,6 +80,26 @@ func (a *API) handleLiveReveal(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+func (a *API) handleLiveUnreveal(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	var req liveRevealRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	questionID, err1 := strconv.ParseInt(req.QuestionID, 10, 64)
+	participantID, err2 := strconv.ParseInt(req.ParticipantID, 10, 64)
+	if err1 != nil || err2 != nil || questionID <= 0 || participantID <= 0 {
+		writeError(w, http.StatusBadRequest, "Dados inválidos.")
+		return
+	}
+	a.live.Unreveal(eventID, questionID, participantID)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 type liveRevealAllRequest struct {
 	QuestionID string `json:"questionId"`
 }
@@ -151,6 +171,24 @@ func (a *API) handleLiveSetBlanked(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.live.SetBlanked(eventID, req.Blanked)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type liveSetAnswersHiddenRequest struct {
+	Hidden bool `json:"hidden"`
+}
+
+func (a *API) handleLiveSetAnswersHidden(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	var req liveSetAnswersHiddenRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	a.live.SetAnswersHidden(eventID, req.Hidden)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -622,6 +660,7 @@ type liveSnapshotDTO struct {
 	Blanked             bool                 `json:"blanked"`
 	Message             string               `json:"message"`
 	InteractionsEnabled bool                 `json:"interactionsEnabled"`
+	AnswersHidden       bool                 `json:"answersHidden"`
 }
 
 type liveQAMessageDTO struct {
@@ -635,6 +674,7 @@ type liveAdminSnapshotDTO struct {
 	Blanked             bool               `json:"blanked"`
 	Message             string             `json:"message"`
 	InteractionsEnabled bool               `json:"interactionsEnabled"`
+	AnswersHidden       bool               `json:"answersHidden"`
 	QAInbox             []liveQAMessageDTO `json:"qaInbox"`
 }
 
@@ -674,6 +714,7 @@ func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAd
 		Blanked:             state.Blanked,
 		Message:             state.Message,
 		InteractionsEnabled: event.InteractionsEnabled,
+		AnswersHidden:       state.AnswersHidden,
 		QAInbox:             qaDTOs,
 	}, nil
 }
@@ -733,6 +774,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 		Blanked:             state.Blanked,
 		Message:             state.Message,
 		InteractionsEnabled: event.InteractionsEnabled,
+		AnswersHidden:       state.AnswersHidden,
 	}
 	if current == nil {
 		return snapshot, nil
