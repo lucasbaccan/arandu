@@ -32,6 +32,14 @@
 </script>
 
 <main class="page">
+  <a
+    class="back-logo"
+    href="/"
+    aria-label="Voltar para o início"
+    on:click|preventDefault={() => navigate('/')}
+  >
+    <img src="/img/arandu-logo.png" alt="Arandu" />
+  </a>
   <Card title="Entrar" subtitle="Acesse sua conta para gerenciar eventos.">
     <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
       <Input
@@ -64,3 +72,14 @@
     </p>
   </Card>
 </main>
+
+<style>
+  .back-logo {
+    display: inline-block;
+  }
+
+  .back-logo img {
+    width: min(180px, 55vw);
+    height: auto;
+  }
+</style>
