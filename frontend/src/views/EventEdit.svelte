@@ -26,7 +26,9 @@
   let activeTab = 'questions'; // questions | responses
 
   $: answerLink = `${window.location.origin}/answer/${id}`;
-  $: liveLink = `${window.location.origin}/live/${id}`;
+  $: audienceLink = pinCode
+    ? `${window.location.origin}/audience/${id}?pin=${encodeURIComponent(pinCode.toUpperCase())}`
+    : `${window.location.origin}/audience/${id}`;
 
   let title = '';
   let pinCode = '';
@@ -297,8 +299,8 @@
     navigate('/dashboard');
   }
 
-  function openPreview() {
-    navigate(`/present/${id}`);
+  function openOrganizerPanel() {
+    navigate(`/stage/${id}`);
   }
 
   function statusLabel(s) {
@@ -333,13 +335,13 @@
                 <CopyButton text={answerLink} label="Copiar link de participação" />
               </span>
               <span class="text-muted pin-inline">
-                · <a href={liveLink} target="_blank" rel="noopener">Apresentação pública</a>
-                <CopyButton text={liveLink} label="Copiar link da apresentação pública" />
+                · <a href={audienceLink} target="_blank" rel="noopener">Apresentação pública</a>
+                <CopyButton text={audienceLink} label="Copiar link da apresentação pública" />
               </span>
             </p>
           </div>
         </div>
-        <Button variant="secondary" on:click={openPreview}>Preview da apresentação</Button>
+        <Button variant="secondary" on:click={openOrganizerPanel}>Painel do organizador</Button>
       </div>
 
       <div class="edit-layout">

@@ -121,4 +121,30 @@ describe('Dashboard (meus eventos)', () => {
     await waitFor(() => expect(api.logout).toHaveBeenCalled());
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
+
+  async function mountWithOneEvent() {
+    user.set({ id: '1', name: 'Ana' });
+    api.events.list.mockResolvedValue({
+      events: [
+        {
+          id: '1',
+          title: 'Conecta DevOps',
+          pinCode: '123456',
+          status: 'PREPARATION',
+          createdAt: '2026-08-02T00:00:00Z'
+        }
+      ]
+    });
+    const view = mountDashboard();
+    await view.findByText('Conecta DevOps');
+    return view;
+  }
+
+  it('clicar no corpo do card continua abrindo a tela de configurações', async () => {
+    const view = await mountWithOneEvent();
+
+    await fireEvent.click(view.getByText('Conecta DevOps'));
+
+    expect(navigate).toHaveBeenCalledWith('/events/1');
+  });
 });

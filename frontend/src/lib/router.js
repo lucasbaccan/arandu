@@ -10,7 +10,10 @@ function currentPath() {
 export function navigate(to) {
   if (to === currentPath()) return;
   window.history.pushState({}, '', to);
-  route.set(to);
+  // route guarda só o pathname (igual ao popstate) — os regex de rota em
+  // App.svelte não esperam query string. Quem precisa de query (ex.: ?pin=)
+  // lê window.location.search direto no componente.
+  route.set(currentPath());
 }
 
 window.addEventListener('popstate', () => route.set(currentPath()));

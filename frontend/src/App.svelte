@@ -11,20 +11,20 @@
   import EventCreate from './views/EventCreate.svelte';
   import EventEdit from './views/EventEdit.svelte';
   import Answer from './views/Answer.svelte';
-  import Presentation from './views/Presentation.svelte';
-  import Live from './views/Live.svelte';
+  import Stage from './views/Stage.svelte';
+  import Audience from './views/Audience.svelte';
 
   onMount(initAuth);
 
   $: eventMatch = /^\/events\/(\d+)$/.exec($route);
   $: answerMatch = /^\/answer\/(\d+)$/.exec($route);
-  $: presentMatch = /^\/present\/(\d+)$/.exec($route);
-  $: liveMatch = /^\/live\/(\d+)$/.exec($route);
+  $: stageMatch = /^\/stage\/(\d+)$/.exec($route);
+  $: audienceMatch = /^\/audience\/(\d+)$/.exec($route);
 
   $: if ($authReady) {
     if ($route === '/' && $user) navigate('/dashboard');
     if (
-      ($route === '/dashboard' || $route === '/events/new' || eventMatch || presentMatch) &&
+      ($route === '/dashboard' || $route === '/events/new' || eventMatch || stageMatch) &&
       !$user
     ) {
       navigate('/');
@@ -38,7 +38,7 @@
 <div class="app-view">
   {#if !$authReady}
     <main class="page">
-      <img class="loading-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
+      <img class="loading-logo" src="/img/arandu-logo.png" alt="Arandu" />
       <p class="home-tagline">Carregando…</p>
     </main>
   {:else if $route === '/'}
@@ -55,10 +55,10 @@
     <EventEdit id={eventMatch[1]} />
   {:else if answerMatch}
     <Answer id={answerMatch[1]} />
-  {:else if presentMatch}
-    <Presentation id={presentMatch[1]} />
-  {:else if liveMatch}
-    <Live id={liveMatch[1]} />
+  {:else if stageMatch}
+    <Stage id={stageMatch[1]} />
+  {:else if audienceMatch}
+    <Audience id={audienceMatch[1]} />
   {:else}
     <main class="page">
       <p>Página não encontrada.</p>

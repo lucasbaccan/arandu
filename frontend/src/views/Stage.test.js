@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, within, waitFor } from '@testing-library/dom';
-import Presentation from './Presentation.svelte';
+import Stage from './Stage.svelte';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -16,7 +16,12 @@ vi.mock('../lib/api.js', () => ({
         setQuestion: vi.fn().mockResolvedValue({ ok: true }),
         reveal: vi.fn().mockResolvedValue({ ok: true }),
         revealAll: vi.fn().mockResolvedValue({ ok: true }),
-        reset: vi.fn().mockResolvedValue({ ok: true })
+        reset: vi.fn().mockResolvedValue({ ok: true }),
+        setBlanked: vi.fn().mockResolvedValue({ ok: true }),
+        setMessage: vi.fn().mockResolvedValue({ ok: true }),
+        setInteractionsEnabled: vi.fn().mockResolvedValue({ ok: true }),
+        adminStreamUrl: vi.fn((id) => `/api/events/${id}/live/stream`),
+        dismissQA: vi.fn().mockResolvedValue({ ok: true })
       }
     }
   }
@@ -24,6 +29,31 @@ vi.mock('../lib/api.js', () => ({
 
 import { navigate } from '../lib/router.js';
 import { api } from '../lib/api.js';
+
+class FakeEventSource {
+  constructor(url) {
+    this.url = url;
+    this.onmessage = null;
+    this.onerror = null;
+    this.listeners = {};
+    FakeEventSource.instances.push(this);
+  }
+  addEventListener(name, cb) {
+    this.listeners[name] = cb;
+  }
+  emit(name, detail) {
+    this.listeners[name] && this.listeners[name](detail);
+  }
+  close() {}
+}
+FakeEventSource.instances = [];
+
+const adminSnapshot = {
+  blanked: false,
+  message: '',
+  interactionsEnabled: true,
+  qaInbox: []
+};
 
 const event = { id: '42', title: 'Conecta DevOps', pinCode: '123456', status: 'PRESENTING' };
 
@@ -88,7 +118,7 @@ const participants = [
 function mount() {
   const target = document.createElement('div');
   document.body.appendChild(target);
-  new Presentation({ target, props: { id: '42' } });
+  new Stage({ target, props: { id: '42' } });
   return within(target);
 }
 
@@ -96,6 +126,8 @@ describe('Preview da apresentação', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
+    FakeEventSource.instances = [];
+    global.EventSource = FakeEventSource;
     api.events.get.mockResolvedValue({ event });
     api.events.questions.list.mockResolvedValue({ questions });
     api.events.responses.list.mockResolvedValue({ participantCount: participants.length, participants });
@@ -138,6 +170,10 @@ describe('Preview da apresentação', () => {
     const jsZone = view.getByText('JS').closest('.zone');
     await waitFor(() => expect(within(goZone).getByTitle('ana@exemplo.com')).toBeInTheDocument());
     await waitFor(() => expect(within(jsZone).getByTitle('bob@exemplo.com')).toBeInTheDocument());
+    // drena o timer escalonado da 3ª pessoa (carla, delay 300ms) antes de
+    // sair do teste — senão ele dispara durante um teste seguinte, contra um
+    // componente já órfão.
+    await waitFor(() => expect(within(goZone).getByTitle('carla@exemplo.com')).toBeInTheDocument());
   });
 
   it('reiniciar revelação volta todos para pendentes', async () => {
@@ -254,6 +290,102 @@ describe('Preview da apresentação', () => {
     await fireEvent.keyDown(window, { key: 'r' });
 
     const goZone = view.getByText('Go').closest('.zone');
+    const jsZone = view.getByText('JS').closest('.zone');
     await waitFor(() => expect(within(goZone).getByTitle('ana@exemplo.com')).toBeInTheDocument());
+    // drena os timers escalonados de bob (150ms) e carla (300ms) antes de
+    // sair do teste — senão disparam durante um teste seguinte.
+    await waitFor(() => expect(within(jsZone).getByTitle('bob@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(goZone).getByTitle('carla@exemplo.com')).toBeInTheDocument());
+  });
+
+  it('abre a tela de apresentação numa nova aba com o PIN na URL', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    await fireEvent.click(view.getByRole('button', { name: 'Abrir tela de apresentação' }));
+
+    expect(openSpy).toHaveBeenCalledWith('/audience/42?pin=123456', '_blank');
+    openSpy.mockRestore();
+  });
+
+  it('alterna tela em branco e chama a API', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    await fireEvent.click(view.getAllByRole('switch')[0]);
+
+    expect(api.events.live.setBlanked).toHaveBeenCalledWith('42', true);
+  });
+
+  it('alterna interações e chama a API', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    const switches = view.getAllByRole('switch');
+    await fireEvent.click(switches[1]);
+
+    expect(api.events.live.setInteractionsEnabled).toHaveBeenCalledWith('42', false);
+  });
+
+  it('envia e limpa uma mensagem de aviso', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    await fireEvent.input(view.getByLabelText('Aviso pra tela dos participantes'), {
+      target: { value: 'Voltamos em 5 min' }
+    });
+    await fireEvent.click(view.getByRole('button', { name: 'Enviar aviso' }));
+    expect(api.events.live.setMessage).toHaveBeenCalledWith('42', 'Voltamos em 5 min');
+
+    await fireEvent.click(view.getByRole('button', { name: 'Limpar' }));
+    expect(api.events.live.setMessage).toHaveBeenCalledWith('42', '');
+  });
+
+  it('espaço, R e P digitados no campo de aviso não disparam os atalhos globais', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    const input = view.getByLabelText('Aviso pra tela dos participantes');
+    await fireEvent.keyDown(input, { key: ' ' });
+    await fireEvent.keyDown(input, { key: 'r' });
+    await fireEvent.keyDown(input, { key: 'p' });
+
+    // espaço não deveria ter avançado pra próxima pergunta (goNext)
+    expect(view.getByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(view.queryByText('Deixe um recado')).not.toBeInTheDocument();
+    // R não deveria ter revelado ninguém
+    expect(view.getByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
+    // P não deveria ter entrado em modo apresentação
+    expect(view.getByRole('button', { name: 'Sair do preview' })).toBeInTheDocument();
+  });
+
+  it('mostra e dispensa mensagens da caixa de Q&A', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    FakeEventSource.instances[0].onmessage({
+      data: JSON.stringify({
+        ...adminSnapshot,
+        qaInbox: [{ id: 'm1', email: 'ana@exemplo.com', text: 'oi', createdAt: '2026-08-03T00:00:00Z' }]
+      })
+    });
+
+    expect(await view.findByText('oi')).toBeInTheDocument();
+    expect(view.getByText('ana@exemplo.com')).toBeInTheDocument();
+
+    await fireEvent.click(view.getByRole('button', { name: 'Dispensar' }));
+
+    expect(api.events.live.dismissQA).toHaveBeenCalledWith('42', 'm1');
+    expect(view.queryByText('oi')).not.toBeInTheDocument();
+  });
+
+  it('recebe reações via SSE', async () => {
+    const view = mount();
+    await view.findByText('Qual sua linguagem favorita?');
+
+    FakeEventSource.instances[0].emit('reaction', { data: JSON.stringify({ emoji: '🎉' }) });
+
+    await waitFor(() => expect(view.getByText('🎉')).toBeInTheDocument());
   });
 });

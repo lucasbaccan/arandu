@@ -75,11 +75,22 @@ export const api = {
       revealAll: (id, questionId) =>
         request(`/api/events/${id}/live/reveal-all`, { method: 'POST', body: { questionId } }),
       reset: (id, questionId) =>
-        request(`/api/events/${id}/live/reset`, { method: 'POST', body: { questionId } })
+        request(`/api/events/${id}/live/reset`, { method: 'POST', body: { questionId } }),
+      setBlanked: (id, blanked) =>
+        request(`/api/events/${id}/live/blank`, { method: 'POST', body: { blanked } }),
+      setMessage: (id, message) =>
+        request(`/api/events/${id}/live/message`, { method: 'POST', body: { message } }),
+      setInteractionsEnabled: (id, enabled) =>
+        request(`/api/events/${id}/live/interactions`, { method: 'POST', body: { enabled } }),
+      adminState: (id) => request(`/api/events/${id}/live/state`),
+      adminStreamUrl: (id) => `/api/events/${id}/live/stream`,
+      dismissQA: (id, messageId) =>
+        request(`/api/events/${id}/live/qa/${messageId}/dismiss`, { method: 'POST' })
     }
   },
   public: {
     events: {
+      resolvePin: (pin) => request(`/api/public/events/by-pin?pin=${encodeURIComponent(pin)}`),
       get: (id) => request(`/api/public/events/${id}`),
       getParticipant: (id, token) =>
         request(`/api/public/events/${id}/participant?token=${encodeURIComponent(token)}`),
@@ -89,7 +100,17 @@ export const api = {
         state: (id, token) =>
           request(`/api/public/events/${id}/live/state?token=${encodeURIComponent(token)}`),
         streamUrl: (id, token) =>
-          `/api/public/events/${id}/live/stream?token=${encodeURIComponent(token)}`
+          `/api/public/events/${id}/live/stream?token=${encodeURIComponent(token)}`,
+        react: (id, token, emoji) =>
+          request(`/api/public/events/${id}/live/react?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            body: { emoji }
+          }),
+        submitQuestion: (id, token, text) =>
+          request(`/api/public/events/${id}/live/qa?token=${encodeURIComponent(token)}`, {
+            method: 'POST',
+            body: { text }
+          })
       }
     }
   }

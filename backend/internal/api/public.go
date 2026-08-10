@@ -93,6 +93,31 @@ func (a *API) handlePublicGetParticipant(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// handlePublicResolvePIN acha o evento a partir só do PIN, pra tela inicial
+// (sem ID na URL) poder checar se o código existe antes de avançar pro
+// próximo passo. Não revela mais que o ID — status e detalhes do evento só
+// aparecem nas rotas que já exigem PIN validado (join da live).
+func (a *API) handlePublicResolvePIN(w http.ResponseWriter, r *http.Request) {
+	pin := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("pin")))
+	if pin == "" || !pinRe.MatchString(pin) {
+		writeError(w, http.StatusNotFound, "Código não encontrado.")
+		return
+	}
+
+	event, err := a.store.FindEventByPIN(r.Context(), pin)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Código não encontrado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar evento por pin: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"id": strconv.FormatInt(event.ID, 10)})
+}
+
 func (a *API) handlePublicGetEvent(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {

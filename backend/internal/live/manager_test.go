@@ -68,6 +68,137 @@ func TestGetReturnsIndependentCopy(t *testing.T) {
 	}
 }
 
+func TestSetBlankedTogglesFlag(t *testing.T) {
+	m := NewManager()
+	m.SetBlanked(1, true)
+	if !m.Get(1).Blanked {
+		t.Fatal("esperava Blanked true")
+	}
+	m.SetBlanked(1, false)
+	if m.Get(1).Blanked {
+		t.Fatal("esperava Blanked false")
+	}
+}
+
+func TestSetMessageStoresAndClears(t *testing.T) {
+	m := NewManager()
+	m.SetMessage(1, "Voltamos em 5 min")
+	if got := m.Get(1).Message; got != "Voltamos em 5 min" {
+		t.Fatalf("esperava mensagem definida, got %q", got)
+	}
+	m.SetMessage(1, "")
+	if got := m.Get(1).Message; got != "" {
+		t.Fatalf("esperava mensagem limpa, got %q", got)
+	}
+}
+
+func TestSetBlankedAndSetMessageNotifySubscribers(t *testing.T) {
+	m := NewManager()
+	ch, unsubscribe := m.Subscribe(1)
+	defer unsubscribe()
+
+	m.SetBlanked(1, true)
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("esperava sinal apos SetBlanked")
+	}
+
+	m.SetMessage(1, "oi")
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("esperava sinal apos SetMessage")
+	}
+}
+
+func TestTouchNotifiesWithoutChangingState(t *testing.T) {
+	m := NewManager()
+	m.SetBlanked(1, true)
+	ch, unsubscribe := m.Subscribe(1)
+	defer unsubscribe()
+
+	m.Touch(1)
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("esperava sinal apos Touch")
+	}
+	if !m.Get(1).Blanked {
+		t.Fatal("Touch nao deveria alterar o EventState")
+	}
+}
+
+func TestBroadcastReactionDeliversToSubscribers(t *testing.T) {
+	m := NewManager()
+	ch, unsubscribe := m.SubscribeReactions(1)
+	defer unsubscribe()
+
+	m.BroadcastReaction(1, "👍")
+
+	select {
+	case ev := <-ch:
+		if ev.Emoji != "👍" {
+			t.Fatalf("esperava emoji 👍, got %q", ev.Emoji)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("esperava receber a reacao")
+	}
+}
+
+func TestBroadcastReactionDropsWhenBufferFull(t *testing.T) {
+	m := NewManager()
+	ch, unsubscribe := m.SubscribeReactions(1)
+	defer unsubscribe()
+
+	for i := 0; i < reactionBufferSize+5; i++ {
+		m.BroadcastReaction(1, "👍")
+	}
+
+	count := 0
+drain:
+	for {
+		select {
+		case <-ch:
+			count++
+		default:
+			break drain
+		}
+	}
+	if count > reactionBufferSize {
+		t.Fatalf("esperava no maximo %d reacoes no buffer, got %d", reactionBufferSize, count)
+	}
+}
+
+func TestUnsubscribeReactionsStopsDelivery(t *testing.T) {
+	m := NewManager()
+	ch, unsubscribe := m.SubscribeReactions(1)
+	unsubscribe()
+
+	m.BroadcastReaction(1, "👍")
+
+	select {
+	case <-ch:
+		t.Fatal("nao deveria receber reacao apos unsubscribe")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestReactionsScopedPerEvent(t *testing.T) {
+	m := NewManager()
+	ch, unsubscribe := m.SubscribeReactions(2)
+	defer unsubscribe()
+
+	m.BroadcastReaction(1, "👍")
+
+	select {
+	case <-ch:
+		t.Fatal("nao deveria receber reacao de outro evento")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 func TestSubscribeNotifiesOnChange(t *testing.T) {
 	m := NewManager()
 	ch, unsubscribe := m.Subscribe(1)

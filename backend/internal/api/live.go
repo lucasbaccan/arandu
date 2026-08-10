@@ -9,12 +9,26 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"devopsconecta/backend/internal/auth"
+	"devopsconecta/backend/internal/live"
 	"devopsconecta/backend/internal/store"
 )
 
 const liveViewerTokenHours = 12
+
+// allowedReactionEmojis é o mesmo conjunto usado no frontend
+// (frontend/src/components/ReactionBar.svelte) — mudar um lado exige mudar o
+// outro.
+var allowedReactionEmojis = map[string]bool{
+	"👍": true, "❤️": true, "😂": true, "🎉": true, "👏": true,
+}
+
+const (
+	maxLiveMessageLength = 300
+	maxLiveQATextLength  = 500
+)
 
 // --- Admin (autenticado, dono do evento) ---
 
@@ -122,6 +136,182 @@ func (a *API) handleLiveReset(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+type liveSetBlankedRequest struct {
+	Blanked bool `json:"blanked"`
+}
+
+func (a *API) handleLiveSetBlanked(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	var req liveSetBlankedRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	a.live.SetBlanked(eventID, req.Blanked)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type liveSetMessageRequest struct {
+	Message string `json:"message"`
+}
+
+func (a *API) handleLiveSetMessage(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	var req liveSetMessageRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	msg := strings.TrimSpace(req.Message)
+	if len(msg) > maxLiveMessageLength {
+		writeError(w, http.StatusBadRequest, "Mensagem muito longa (máximo "+strconv.Itoa(maxLiveMessageLength)+" caracteres).")
+		return
+	}
+	a.live.SetMessage(eventID, msg)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type liveSetInteractionsRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (a *API) handleLiveSetInteractions(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	var req liveSetInteractionsRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := a.store.SetInteractionsEnabled(r.Context(), eventID, req.Enabled); err != nil {
+		log.Printf("api: alternar interações: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	a.live.Touch(eventID)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *API) handleLiveDismissQA(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	messageID, err := strconv.ParseInt(r.PathValue("messageId"), 10, 64)
+	if err != nil || messageID <= 0 {
+		writeError(w, http.StatusBadRequest, "ID de mensagem inválido.")
+		return
+	}
+	msg, err := a.store.FindLiveQAMessageByID(r.Context(), messageID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar mensagem de q&a: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	if msg.EventID != eventID {
+		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
+		return
+	}
+	if err := a.store.DismissLiveQAMessage(r.Context(), messageID); err != nil {
+		log.Printf("api: dispensar mensagem de q&a: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	a.live.Touch(eventID)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleLiveAdminState é o equivalente autenticado de handleLiveState — deixa
+// buscar o snapshot do organizador sem abrir SSE (útil pra testes e como
+// fallback), espelhando o par state/stream que já existe pro público.
+func (a *API) handleLiveAdminState(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	snapshot, err := a.buildAdminLiveSnapshot(r.Context(), eventID)
+	if err != nil {
+		log.Printf("api: montar snapshot administrativo: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}
+
+// handleLiveAdminStream espelha handleLiveStream, mas pro organizador
+// autenticado: snapshot administrativo (inclui a caixa de Q&A privada) + a
+// mesma fila de reações ao vivo que os participantes veem.
+func (a *API) handleLiveAdminStream(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	flusher, isFlusher := w.(http.Flusher)
+	if !isFlusher {
+		writeError(w, http.StatusInternalServerError, "Streaming não suportado.")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	writeSnapshot := func() bool {
+		snapshot, err := a.buildAdminLiveSnapshot(r.Context(), eventID)
+		if err != nil {
+			log.Printf("api: montar snapshot administrativo: %v", err)
+			return false
+		}
+		data, err := json.Marshal(snapshot)
+		if err != nil {
+			log.Printf("api: serializar snapshot administrativo: %v", err)
+			return false
+		}
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+
+	if !writeSnapshot() {
+		return
+	}
+
+	sub, unsubscribe := a.live.Subscribe(eventID)
+	defer unsubscribe()
+	reactionSub, unsubscribeReactions := a.live.SubscribeReactions(eventID)
+	defer unsubscribeReactions()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-sub:
+			if !writeSnapshot() {
+				return
+			}
+		case ev := <-reactionSub:
+			if !writeReactionSSE(w, flusher, ev) {
+				return
+			}
+		}
+	}
+}
+
 // --- Público (sem login, PIN + e-mail) ---
 
 type liveJoinRequest struct {
@@ -129,9 +319,10 @@ type liveJoinRequest struct {
 	Email   string `json:"email"`
 }
 
-// handleLiveJoin autoriza o acesso à apresentação pública com PIN + e-mail.
-// PIN errado nunca autoriza. Com o PIN certo: e-mail de quem já respondeu
-// vira "participante", qualquer outro e-mail vira "observador" (só assiste).
+// handleLiveJoin autoriza o acesso à apresentação pública com PIN e,
+// opcionalmente, e-mail. PIN errado nunca autoriza. Com o PIN certo: e-mail
+// de quem já respondeu vira "participante"; e-mail em branco (entrada como
+// convidado) ou de quem não respondeu vira "observador" (só assiste).
 func (a *API) handleLiveJoin(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseEventID(w, r)
 	if !ok {
@@ -149,7 +340,7 @@ func (a *API) handleLiveJoin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Informe o PIN do evento.")
 		return
 	}
-	if !isValidEmail(email) {
+	if email != "" && !isValidEmail(email) {
 		writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
 		return
 	}
@@ -171,14 +362,16 @@ func (a *API) handleLiveJoin(w http.ResponseWriter, r *http.Request) {
 
 	role := auth.LiveRoleObserver
 	var participantID int64
-	participant, err := a.store.FindParticipantByEventAndEmail(r.Context(), eventID, email)
-	if err == nil {
-		role = auth.LiveRoleParticipant
-		participantID = participant.ID
-	} else if !errors.Is(err, store.ErrNotFound) {
-		log.Printf("api: buscar participante para entrada na apresentação: %v", err)
-		writeError(w, http.StatusInternalServerError, "Erro interno.")
-		return
+	if email != "" {
+		participant, err := a.store.FindParticipantByEventAndEmail(r.Context(), eventID, email)
+		if err == nil {
+			role = auth.LiveRoleParticipant
+			participantID = participant.ID
+		} else if !errors.Is(err, store.ErrNotFound) {
+			log.Printf("api: buscar participante para entrada na apresentação: %v", err)
+			writeError(w, http.StatusInternalServerError, "Erro interno.")
+			return
+		}
 	}
 
 	token, err := auth.NewLiveViewerToken(a.cfg.JWTSecret, eventID, participantID, role, liveViewerTokenHours)
@@ -188,6 +381,96 @@ func (a *API) handleLiveJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "role": role})
+}
+
+type liveReactRequest struct {
+	Emoji string `json:"emoji"`
+}
+
+// handleLiveReact transmite uma reação de emoji pra quem estiver assistindo
+// (participantes + organizador), sem gravar nada no banco — é efêmera por
+// decisão de produto.
+func (a *API) handleLiveReact(w http.ResponseWriter, r *http.Request) {
+	eventID, _, ok := a.resolveLiveViewer(w, r)
+	if !ok {
+		return
+	}
+	var req liveReactRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !allowedReactionEmojis[req.Emoji] {
+		writeError(w, http.StatusBadRequest, "Emoji não permitido.")
+		return
+	}
+	event, err := a.store.FindEventByID(r.Context(), eventID)
+	if err != nil {
+		log.Printf("api: buscar evento para reação: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	if !event.InteractionsEnabled {
+		writeError(w, http.StatusForbidden, "As interações estão desativadas no momento.")
+		return
+	}
+	a.live.BroadcastReaction(eventID, req.Emoji)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type liveSubmitQARequest struct {
+	Text string `json:"text"`
+}
+
+// handleLiveSubmitQA grava uma pergunta/recado de um participante pro
+// organizador. Fica só na caixa de entrada privada do organizador — nunca é
+// exposta a outros participantes nem no snapshot público.
+func (a *API) handleLiveSubmitQA(w http.ResponseWriter, r *http.Request) {
+	eventID, claims, ok := a.resolveLiveViewer(w, r)
+	if !ok {
+		return
+	}
+	var req liveSubmitQARequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	text := strings.TrimSpace(req.Text)
+	if text == "" {
+		writeError(w, http.StatusBadRequest, "Escreva uma mensagem.")
+		return
+	}
+	if len(text) > maxLiveQATextLength {
+		writeError(w, http.StatusBadRequest, "Mensagem muito longa (máximo "+strconv.Itoa(maxLiveQATextLength)+" caracteres).")
+		return
+	}
+	event, err := a.store.FindEventByID(r.Context(), eventID)
+	if err != nil {
+		log.Printf("api: buscar evento para q&a: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	if !event.InteractionsEnabled {
+		writeError(w, http.StatusForbidden, "As interações estão desativadas no momento.")
+		return
+	}
+
+	var participantID int64
+	if claims.Role == auth.LiveRoleParticipant && claims.ParticipantID != "" {
+		participantID, _ = strconv.ParseInt(claims.ParticipantID, 10, 64)
+	}
+	if _, err := a.store.CreateLiveQAMessage(r.Context(), store.LiveQAMessage{
+		ID:            a.ids.NextID(),
+		EventID:       eventID,
+		ParticipantID: participantID,
+		Text:          text,
+	}); err != nil {
+		log.Printf("api: gravar mensagem de q&a: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	a.live.Touch(eventID)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 // resolveLiveViewer valida o token de visitante (query param) e confere que
@@ -267,6 +550,8 @@ func (a *API) handleLiveStream(w http.ResponseWriter, r *http.Request) {
 
 	sub, unsubscribe := a.live.Subscribe(eventID)
 	defer unsubscribe()
+	reactionSub, unsubscribeReactions := a.live.SubscribeReactions(eventID)
+	defer unsubscribeReactions()
 
 	for {
 		select {
@@ -276,8 +561,27 @@ func (a *API) handleLiveStream(w http.ResponseWriter, r *http.Request) {
 			if !writeSnapshot() {
 				return
 			}
+		case ev := <-reactionSub:
+			if !writeReactionSSE(w, flusher, ev) {
+				return
+			}
 		}
 	}
+}
+
+// writeReactionSSE escreve um evento SSE nomeado ("reaction"), separado dos
+// frames default de snapshot — o frontend escuta com
+// EventSource.addEventListener('reaction', ...) ao lado do onmessage normal.
+func writeReactionSSE(w http.ResponseWriter, flusher http.Flusher, ev live.ReactionEvent) bool {
+	data, err := json.Marshal(map[string]string{"emoji": ev.Emoji})
+	if err != nil {
+		return false
+	}
+	if _, err := fmt.Fprintf(w, "event: reaction\ndata: %s\n\n", data); err != nil {
+		return false
+	}
+	flusher.Flush()
+	return true
 }
 
 // --- Snapshot: ponto crítico de segurança ---
@@ -310,11 +614,68 @@ type liveGroupDTO struct {
 }
 
 type liveSnapshotDTO struct {
-	EventTitle        string               `json:"eventTitle"`
-	Questions         []liveQuestionDTO    `json:"questions"`
-	CurrentQuestionID string               `json:"currentQuestionId"`
-	Pending           []liveParticipantDTO `json:"pending"`
-	Groups            []liveGroupDTO       `json:"groups"`
+	EventTitle          string               `json:"eventTitle"`
+	Questions           []liveQuestionDTO    `json:"questions"`
+	CurrentQuestionID   string               `json:"currentQuestionId"`
+	Pending             []liveParticipantDTO `json:"pending"`
+	Groups              []liveGroupDTO       `json:"groups"`
+	Blanked             bool                 `json:"blanked"`
+	Message             string               `json:"message"`
+	InteractionsEnabled bool                 `json:"interactionsEnabled"`
+}
+
+type liveQAMessageDTO struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Text      string `json:"text"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type liveAdminSnapshotDTO struct {
+	Blanked             bool               `json:"blanked"`
+	Message             string             `json:"message"`
+	InteractionsEnabled bool               `json:"interactionsEnabled"`
+	QAInbox             []liveQAMessageDTO `json:"qaInbox"`
+}
+
+// buildAdminLiveSnapshot é deliberadamente enxuto: o painel do organizador já
+// mantém pergunta atual/revelação localmente (api.events.live.*, otimista) —
+// não duplica isso aqui. Só cobre o que só existe do lado do servidor:
+// blank/aviso/interações (pra restaurar depois de um F5) e a caixa de Q&A
+// privada.
+func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAdminSnapshotDTO, error) {
+	event, err := a.store.FindEventByID(ctx, eventID)
+	if err != nil {
+		return liveAdminSnapshotDTO{}, fmt.Errorf("buscar evento: %w", err)
+	}
+	state := a.live.Get(eventID)
+	messages, err := a.store.ListLiveQAMessagesByEvent(ctx, eventID)
+	if err != nil {
+		return liveAdminSnapshotDTO{}, fmt.Errorf("listar mensagens de q&a: %w", err)
+	}
+
+	qaDTOs := make([]liveQAMessageDTO, 0, len(messages))
+	for _, m := range messages {
+		email := ""
+		if m.ParticipantID != 0 {
+			if p, err := a.store.FindParticipantByID(ctx, m.ParticipantID); err == nil {
+				email = p.Email
+			}
+		}
+		qaDTOs = append(qaDTOs, liveQAMessageDTO{
+			ID:        strconv.FormatInt(m.ID, 10),
+			Email:     email,
+			Text:      m.Text,
+			CreatedAt: m.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return liveAdminSnapshotDTO{
+		Blanked:             state.Blanked,
+		Message:             state.Message,
+		InteractionsEnabled: event.InteractionsEnabled,
+		QAInbox:             qaDTOs,
+	}, nil
 }
 
 func toLiveParticipantDTO(p store.Participant) liveParticipantDTO {
@@ -365,10 +726,13 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 	// Pending/Groups sempre inicializados como slice vazio (nunca nil) — um
 	// nil aqui serializa como JSON null, e o frontend espera sempre um array.
 	snapshot := liveSnapshotDTO{
-		EventTitle: event.Title,
-		Questions:  qDTOs,
-		Pending:    []liveParticipantDTO{},
-		Groups:     []liveGroupDTO{},
+		EventTitle:          event.Title,
+		Questions:           qDTOs,
+		Pending:             []liveParticipantDTO{},
+		Groups:              []liveGroupDTO{},
+		Blanked:             state.Blanked,
+		Message:             state.Message,
+		InteractionsEnabled: event.InteractionsEnabled,
 	}
 	if current == nil {
 		return snapshot, nil

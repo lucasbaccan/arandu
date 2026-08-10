@@ -24,24 +24,26 @@ const (
 var pinRe = regexp.MustCompile(`^[a-zA-Z0-9_\-]{1,25}$`)
 
 type eventDTO struct {
-	ID          string `json:"id"`
-	OwnerID     string `json:"ownerId"`
-	Title       string `json:"title"`
-	PINCode     string `json:"pinCode"`
-	Status      string `json:"status"`
-	ShowRanking bool   `json:"configShowRanking"`
-	CreatedAt   string `json:"createdAt"`
+	ID                  string `json:"id"`
+	OwnerID             string `json:"ownerId"`
+	Title               string `json:"title"`
+	PINCode             string `json:"pinCode"`
+	Status              string `json:"status"`
+	ShowRanking         bool   `json:"configShowRanking"`
+	InteractionsEnabled bool   `json:"interactionsEnabled"`
+	CreatedAt           string `json:"createdAt"`
 }
 
 func toEventDTO(e store.Event) eventDTO {
 	return eventDTO{
-		ID:          strconv.FormatInt(e.ID, 10),
-		OwnerID:     strconv.FormatInt(e.OwnerID, 10),
-		Title:       e.Title,
-		PINCode:     e.PINCode,
-		Status:      e.Status,
-		ShowRanking: e.ShowRanking,
-		CreatedAt:   e.CreatedAt.Format(time.RFC3339),
+		ID:                  strconv.FormatInt(e.ID, 10),
+		OwnerID:             strconv.FormatInt(e.OwnerID, 10),
+		Title:               e.Title,
+		PINCode:             e.PINCode,
+		Status:              e.Status,
+		ShowRanking:         e.ShowRanking,
+		InteractionsEnabled: e.InteractionsEnabled,
+		CreatedAt:           e.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -87,11 +89,12 @@ func (a *API) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 			pin = generatePIN()
 		}
 		ev, err := a.store.CreateEvent(r.Context(), store.Event{
-			ID:      a.ids.NextID(),
-			OwnerID: ownerID,
-			Title:   req.Title,
-			PINCode: pin,
-			Status:  eventStatusPreparation,
+			ID:                  a.ids.NextID(),
+			OwnerID:             ownerID,
+			Title:               req.Title,
+			PINCode:             pin,
+			Status:              eventStatusPreparation,
+			InteractionsEnabled: true,
 		})
 		if errors.Is(err, store.ErrPinTaken) && !customPIN {
 			continue

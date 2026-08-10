@@ -56,6 +56,53 @@ func TestPublicGetEventNotFound(t *testing.T) {
 	}
 }
 
+func TestPublicResolvePINNotFound(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	rec := doJSON(t, h, http.MethodGet, "/api/public/events/by-pin?pin=NAOEXISTE", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status esperado 404, got %d", rec.Code)
+	}
+}
+
+func TestPublicResolvePINEmpty(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	rec := doJSON(t, h, http.MethodGet, "/api/public/events/by-pin?pin=", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status esperado 404, got %d", rec.Code)
+	}
+}
+
+func TestPublicResolvePINFindsEvent(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	rec := doJSON(t, h, http.MethodPost, "/api/events", map[string]string{
+		"title": "Evento com PIN", "pinCode": "ACHAME123",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("criar evento: status %d: %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		Event eventDTO `json:"event"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode evento: %v", err)
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/public/events/by-pin?pin=achame123", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode resposta: %v", err)
+	}
+	if resp.ID != created.Event.ID {
+		t.Errorf("id esperado %s, got %s", created.Event.ID, resp.ID)
+	}
+}
+
 func TestPublicGetEvent(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)

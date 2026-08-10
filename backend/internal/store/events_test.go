@@ -131,6 +131,61 @@ func TestUpdateEvent(t *testing.T) {
 	}
 }
 
+func TestSetInteractionsEnabled(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	createOwner(t, s, 1, "a@x.com")
+	if _, err := s.CreateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "Evento", PINCode: "111", Status: "PREPARATION", InteractionsEnabled: true}); err != nil {
+		t.Fatalf("criar evento: %v", err)
+	}
+
+	if err := s.SetInteractionsEnabled(ctx, 10, false); err != nil {
+		t.Fatalf("desligar interações: %v", err)
+	}
+	got, err := s.FindEventByID(ctx, 10)
+	if err != nil {
+		t.Fatalf("buscar evento: %v", err)
+	}
+	if got.InteractionsEnabled {
+		t.Errorf("esperava interações desligadas, got %+v", got)
+	}
+
+	if err := s.SetInteractionsEnabled(ctx, 10, true); err != nil {
+		t.Fatalf("ligar interações: %v", err)
+	}
+	got, err = s.FindEventByID(ctx, 10)
+	if err != nil {
+		t.Fatalf("buscar evento: %v", err)
+	}
+	if !got.InteractionsEnabled {
+		t.Errorf("esperava interações ligadas, got %+v", got)
+	}
+}
+
+func TestUpdateEventDoesNotTouchInteractionsEnabled(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	createOwner(t, s, 1, "a@x.com")
+	if _, err := s.CreateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "Evento", PINCode: "111", Status: "PREPARATION", InteractionsEnabled: true}); err != nil {
+		t.Fatalf("criar evento: %v", err)
+	}
+	if err := s.SetInteractionsEnabled(ctx, 10, false); err != nil {
+		t.Fatalf("desligar interações: %v", err)
+	}
+
+	if _, err := s.UpdateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "Depois", PINCode: "222", Status: "PREPARATION"}); err != nil {
+		t.Fatalf("atualizar evento: %v", err)
+	}
+
+	got, err := s.FindEventByID(ctx, 10)
+	if err != nil {
+		t.Fatalf("buscar evento: %v", err)
+	}
+	if got.InteractionsEnabled {
+		t.Errorf("UpdateEvent não deveria reverter interactions_enabled, got %+v", got)
+	}
+}
+
 func TestUpdateEventNotFoundAndPinTaken(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

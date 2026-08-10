@@ -1,14 +1,57 @@
 <script>
   import { navigate } from '../lib/router.js';
+  import { api } from '../lib/api.js';
   import Button from '../components/Button.svelte';
+  import Input from '../components/Input.svelte';
+
+  let code = '';
+  let codeError = '';
+  let checking = false;
+
+  async function joinWithCode() {
+    codeError = '';
+    const trimmed = code.trim();
+    if (!trimmed) {
+      codeError = 'Informe o código do evento.';
+      return;
+    }
+    checking = true;
+    try {
+      const { id } = await api.public.events.resolvePin(trimmed);
+      navigate(`/audience/${id}?pin=${encodeURIComponent(trimmed)}`);
+    } catch (e) {
+      codeError = e.status === 404 ? 'Código não encontrado.' : e.message;
+    } finally {
+      checking = false;
+    }
+  }
 </script>
 
 <main class="home">
   <div class="home-content">
-    <img class="home-logo" src="/img/porandu-logo-sem-bg.png" alt="Porandu" />
+    <img class="home-logo" src="/img/arandu-logo.png" alt="Arandu" />
     <p class="home-tagline">Dinâmicas de grupo ao vivo</p>
+
+    <form class="code-form" novalidate on:submit|preventDefault={joinWithCode}>
+      <Input
+        label="Código do evento"
+        bind:value={code}
+        error={codeError}
+        placeholder="Ex: DEV-TEAM"
+        uppercase
+        required
+      />
+      <Button type="submit" block disabled={checking}>
+        {checking ? 'Verificando…' : 'Entrar na apresentação'}
+      </Button>
+    </form>
+
+    <div class="home-divider">
+      <span>ou</span>
+    </div>
+
     <div class="home-actions">
-      <Button on:click={() => navigate('/login')}>Entrar</Button>
+      <Button variant="secondary" on:click={() => navigate('/login')}>Entrar</Button>
       <Button variant="secondary" on:click={() => navigate('/register')}>
         Criar conta
       </Button>
@@ -40,11 +83,36 @@
     height: auto;
   }
 
+  .code-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(280px, 85vw);
+    margin-top: 8px;
+  }
+
+  .home-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(240px, 70vw);
+    margin: 4px 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .home-divider::before,
+  .home-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
   .home-actions {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-top: 8px;
   }
 
   .home-actions :global(.btn) {

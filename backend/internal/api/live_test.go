@@ -173,6 +173,408 @@ func TestLiveJoinObserverWhenEmailNotAParticipant(t *testing.T) {
 	}
 }
 
+func TestLiveJoinAsGuestWithoutEmail(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+
+	token, role, code := liveJoin(t, h, eventID, pin, "")
+	if code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d", code)
+	}
+	if role != auth.LiveRoleObserver {
+		t.Errorf("role esperado observador, got %s", role)
+	}
+	claims, err := auth.VerifyLiveViewerToken("test-secret", token)
+	if err != nil {
+		t.Fatalf("verificar token: %v", err)
+	}
+	if claims.ParticipantID != "" {
+		t.Errorf("convidado nao deveria ter participantId, got %s", claims.ParticipantID)
+	}
+}
+
+func getLiveAdminState(t *testing.T, h http.Handler, eventID string, cookie *http.Cookie) liveAdminSnapshotDTO {
+	t.Helper()
+	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/state", nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin state: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var snap liveAdminSnapshotDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("decode admin state: %v", err)
+	}
+	return snap
+}
+
+func TestLiveSetBlankedAppearsInPublicSnapshot(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/blank", map[string]bool{"blanked": true}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("blank: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if snap := getLiveState(t, h, eventID, token); !snap.Blanked {
+		t.Fatalf("esperava blanked=true no snapshot público, got %+v", snap)
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/blank", map[string]bool{"blanked": false}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unblank: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if snap := getLiveState(t, h, eventID, token); snap.Blanked {
+		t.Fatalf("esperava blanked=false no snapshot público, got %+v", snap)
+	}
+}
+
+func TestLiveSetMessageAppearsInSnapshotAndClears(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{"message": "Voltamos em 5 min"}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("mensagem: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if snap := getLiveState(t, h, eventID, token); snap.Message != "Voltamos em 5 min" {
+		t.Fatalf("esperava mensagem no snapshot público, got %+v", snap)
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{"message": ""}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("limpar mensagem: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if snap := getLiveState(t, h, eventID, token); snap.Message != "" {
+		t.Fatalf("esperava mensagem limpa no snapshot público, got %+v", snap)
+	}
+}
+
+func TestLiveSetMessageRejectsTooLong(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{
+		"message": strings.Repeat("a", maxLiveMessageLength+1),
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("mensagem muito longa: status esperado 400, got %d", rec.Code)
+	}
+}
+
+func TestLiveSetInteractionsDefaultsTrueAndToggles(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	if snap := getLiveState(t, h, eventID, token); !snap.InteractionsEnabled {
+		t.Fatalf("esperava interações ligadas por padrão, got %+v", snap)
+	}
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/interactions", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("desligar interações: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if snap := getLiveState(t, h, eventID, token); snap.InteractionsEnabled {
+		t.Fatalf("esperava interações desligadas, got %+v", snap)
+	}
+}
+
+func TestLiveBlankMessageInteractionsRequireOwnership(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)
+	other := registerUser2(t, h)
+
+	routes := []struct {
+		path string
+		body any
+	}{
+		{"/api/events/" + eventID + "/live/blank", map[string]bool{"blanked": true}},
+		{"/api/events/" + eventID + "/live/message", map[string]string{"message": "oi"}},
+		{"/api/events/" + eventID + "/live/interactions", map[string]bool{"enabled": false}},
+	}
+	for _, rt := range routes {
+		rec := doJSON(t, h, http.MethodPost, rt.path, rt.body, []*http.Cookie{other})
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s dono errado: status esperado 404, got %d", rt.path, rec.Code)
+		}
+		rec = doJSON(t, h, http.MethodPost, rt.path, rt.body, nil)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s sem sessao: status esperado 401, got %d", rt.path, rec.Code)
+		}
+	}
+}
+
+func TestLiveReactRejectsUnlistedEmoji(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+token, map[string]string{"emoji": "🍕"}, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("emoji fora da lista: status esperado 400, got %d", rec.Code)
+	}
+}
+
+func TestLiveReactAcceptsAllowedEmoji(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+token, map[string]string{"emoji": "👍"}, nil)
+	if rec.Code != http.StatusOK {
+		t.Errorf("emoji permitido: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestLiveReactRequiresInteractionsEnabled(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/interactions", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("desligar interações: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+token, map[string]string{"emoji": "👍"}, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("interações desligadas: status esperado 403, got %d", rec.Code)
+	}
+}
+
+func TestLiveSubmitQAPersistsAndVisibleToOrganizer(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, role, _ := liveJoin(t, h, eventID, pin, "ana@exemplo.com")
+	if role != auth.LiveRoleParticipant {
+		t.Fatalf("esperava ana como participante, got role=%s", role)
+	}
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "Posso ir ao banheiro?"}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit qa: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap := getLiveAdminState(t, h, eventID, cookie)
+	if len(snap.QAInbox) != 1 {
+		t.Fatalf("esperava 1 mensagem na caixa, got %+v", snap.QAInbox)
+	}
+	if snap.QAInbox[0].Email != "ana@exemplo.com" || snap.QAInbox[0].Text != "Posso ir ao banheiro?" {
+		t.Errorf("mensagem divergente: %+v", snap.QAInbox[0])
+	}
+}
+
+func TestLiveSubmitQAGuestHasNoEmail(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, role, _ := liveJoin(t, h, eventID, pin, "")
+	if role != auth.LiveRoleObserver {
+		t.Fatalf("esperava convidado como observador, got role=%s", role)
+	}
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "Oi!"}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit qa: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap := getLiveAdminState(t, h, eventID, cookie)
+	if len(snap.QAInbox) != 1 || snap.QAInbox[0].Email != "" {
+		t.Fatalf("esperava mensagem de convidado sem e-mail, got %+v", snap.QAInbox)
+	}
+}
+
+func TestLiveSubmitQARejectsEmptyOrTooLong(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	cases := []struct {
+		name string
+		text string
+	}{
+		{"vazio", ""},
+		{"so espacos", "   "},
+		{"muito longa", strings.Repeat("a", maxLiveQATextLength+1)},
+	}
+	for _, tc := range cases {
+		rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": tc.text}, nil)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status esperado 400, got %d", tc.name, rec.Code)
+		}
+	}
+}
+
+func TestLiveSubmitQARequiresInteractionsEnabled(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/interactions", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("desligar interações: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "oi"}, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("interações desligadas: status esperado 403, got %d", rec.Code)
+	}
+
+	snap := getLiveAdminState(t, h, eventID, cookie)
+	if len(snap.QAInbox) != 0 {
+		t.Fatalf("nao deveria ter gravado nada com interações desligadas, got %+v", snap.QAInbox)
+	}
+}
+
+func TestLiveDismissQARemovesFromInbox(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "oi"}, nil)
+	snap := getLiveAdminState(t, h, eventID, cookie)
+	if len(snap.QAInbox) != 1 {
+		t.Fatalf("esperava 1 mensagem antes de dispensar, got %+v", snap.QAInbox)
+	}
+	messageID := snap.QAInbox[0].ID
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/qa/"+messageID+"/dismiss", nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dismiss: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap = getLiveAdminState(t, h, eventID, cookie)
+	if len(snap.QAInbox) != 0 {
+		t.Fatalf("esperava caixa vazia apos dispensar, got %+v", snap.QAInbox)
+	}
+}
+
+func TestLiveDismissQARejectsMessageFromAnotherEvent(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookieA, eventA, _, _, _, pinA, _, _ := setupLiveEvent(t, h)
+	cookieB, eventB, _, _, _, _, _, _ := setupLiveEvent(t, h)
+
+	tokenA, _, _ := liveJoin(t, h, eventA, pinA, "curioso@exemplo.com")
+	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventA+"/live/qa?token="+tokenA, map[string]string{"text": "oi"}, nil)
+	snap := getLiveAdminState(t, h, eventA, cookieA)
+	if len(snap.QAInbox) != 1 {
+		t.Fatalf("esperava 1 mensagem, got %+v", snap.QAInbox)
+	}
+	messageID := snap.QAInbox[0].ID
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventB+"/live/qa/"+messageID+"/dismiss", nil, []*http.Cookie{cookieB})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("mensagem de outro evento: status esperado 404, got %d", rec.Code)
+	}
+}
+
+// readSSEFrame lê um bloco de evento SSE (linhas "event:"/"data:" seguidas de
+// linha em branco) e devolve o nome do evento (vazio pro default) e o
+// payload de data. Complementa o readEvent local de TestLiveStreamPushesUpdates,
+// que só lida com o caso simples (sem "event:" nomeado).
+func readSSEFrame(t *testing.T, reader *bufio.Reader) (eventName, data string) {
+	t.Helper()
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("ler evento SSE: %v", err)
+		}
+		trimmed := strings.TrimRight(line, "\n")
+		if trimmed == "" {
+			if data != "" {
+				return eventName, data
+			}
+			continue
+		}
+		if v, ok := strings.CutPrefix(trimmed, "event: "); ok {
+			eventName = v
+			continue
+		}
+		if v, ok := strings.CutPrefix(trimmed, "data: "); ok {
+			data = v
+		}
+	}
+}
+
+func TestLiveAdminStreamPushesReactionsAndQAUpdates(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	server := httptest.NewServer(h)
+	defer server.Close()
+	client := server.Client()
+
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	viewerToken, _, code := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+	if code != http.StatusOK {
+		t.Fatalf("join: status %d", code)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events/"+eventID+"/live/stream", nil)
+	if err != nil {
+		t.Fatalf("montar request: %v", err)
+	}
+	req.AddCookie(cookie)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("conectar no stream administrativo: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d", resp.StatusCode)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+
+	name, data := readSSEFrame(t, reader)
+	if name != "" {
+		t.Fatalf("esperava frame default (snapshot) primeiro, got event=%q", name)
+	}
+	var initial liveAdminSnapshotDTO
+	if err := json.Unmarshal([]byte(data), &initial); err != nil {
+		t.Fatalf("decode snapshot inicial: %v", err)
+	}
+	if len(initial.QAInbox) != 0 {
+		t.Fatalf("esperava caixa de q&a vazia inicialmente, got %+v", initial.QAInbox)
+	}
+
+	reactRec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+viewerToken, map[string]string{"emoji": "🎉"}, nil)
+	if reactRec.Code != http.StatusOK {
+		t.Fatalf("reagir: status esperado 200, got %d: %s", reactRec.Code, reactRec.Body.String())
+	}
+
+	name, data = readSSEFrame(t, reader)
+	if name != "reaction" {
+		t.Fatalf("esperava evento nomeado 'reaction', got %q (data=%s)", name, data)
+	}
+	var reaction struct {
+		Emoji string `json:"emoji"`
+	}
+	if err := json.Unmarshal([]byte(data), &reaction); err != nil {
+		t.Fatalf("decode reação: %v", err)
+	}
+	if reaction.Emoji != "🎉" {
+		t.Errorf("emoji esperado 🎉, got %q", reaction.Emoji)
+	}
+
+	qaRec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+viewerToken, map[string]string{"text": "Uma pergunta"}, nil)
+	if qaRec.Code != http.StatusOK {
+		t.Fatalf("submit qa: status esperado 200, got %d: %s", qaRec.Code, qaRec.Body.String())
+	}
+
+	name, data = readSSEFrame(t, reader)
+	if name != "" {
+		t.Fatalf("esperava frame default (snapshot atualizado), got event=%q", name)
+	}
+	var updated liveAdminSnapshotDTO
+	if err := json.Unmarshal([]byte(data), &updated); err != nil {
+		t.Fatalf("decode snapshot atualizado: %v", err)
+	}
+	if len(updated.QAInbox) != 1 || updated.QAInbox[0].Text != "Uma pergunta" {
+		t.Fatalf("esperava a nova mensagem no snapshot atualizado, got %+v", updated.QAInbox)
+	}
+}
+
 func TestLiveJoinWrongPIN(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)

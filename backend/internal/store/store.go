@@ -103,6 +103,17 @@ func Migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_participants_event ON participants(event_id);
 		CREATE INDEX IF NOT EXISTS idx_answers_question ON answers(question_id);
 		CREATE INDEX IF NOT EXISTS idx_answers_participant ON answers(participant_id);
+
+		CREATE TABLE IF NOT EXISTS live_qa_messages (
+			id             INTEGER PRIMARY KEY,
+			event_id       INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+			participant_id INTEGER REFERENCES participants(id) ON DELETE CASCADE,
+			text           TEXT    NOT NULL,
+			dismissed      BOOLEAN NOT NULL DEFAULT 0,
+			created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_live_qa_messages_event ON live_qa_messages(event_id);
 	`)
 	if err != nil {
 		return fmt.Errorf("store: migração: %w", err)
@@ -122,6 +133,14 @@ func Migrate(db *sql.DB) error {
 			ON participants(edit_token) WHERE edit_token != '';
 	`); err != nil {
 		return fmt.Errorf("store: migração (índice edit_token): %w", err)
+	}
+
+	// Bancos criados antes de interactions_enabled existir: adiciona sem
+	// quebrar dados existentes, default true (reações/Q&A ligados por padrão).
+	if _, err := db.Exec(`ALTER TABLE events ADD COLUMN interactions_enabled BOOLEAN NOT NULL DEFAULT 1`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("store: migração (interactions_enabled): %w", err)
+		}
 	}
 
 	return nil

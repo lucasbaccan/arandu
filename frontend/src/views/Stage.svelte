@@ -1,10 +1,15 @@
 <script>
   export let id = '';
 
+  import { onDestroy } from 'svelte';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import Button from '../components/Button.svelte';
+  import Input from '../components/Input.svelte';
+  import Switch from '../components/Switch.svelte';
   import PresentationStage from '../components/PresentationStage.svelte';
+  import ReactionBurstLayer from '../components/ReactionBurstLayer.svelte';
+  import { fireReaction } from '../lib/reactionStore.js';
 
   let loading = true;
   let error = '';
@@ -13,6 +18,17 @@
   let questions = [];
   let participants = [];
   let currentIndex = 0;
+
+  let blanked = false;
+  let interactionsEnabled = true;
+  let message = '';
+  let messageDraft = '';
+  let qaInbox = [];
+  let adminEventSource = null;
+
+  onDestroy(() => {
+    if (adminEventSource) adminEventSource.close();
+  });
 
   // Modo apresentação: some com os controles e números de admin (contagens,
   // pergunta X de Y, botões) pra o organizador poder compartilhar a tela
@@ -25,6 +41,13 @@
   }
 
   function handleKeydown(e) {
+    // Atalhos são globais (svelte:window), mas não podem competir com
+    // digitação normal em campos de texto — ex: o aviso pra tela dos
+    // participantes, onde espaço/R/P precisam virar caracteres, não ações.
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) {
+      return;
+    }
     if (e.key === 'Escape') {
       if (presentationMode) presentationMode = false;
       return;
@@ -60,6 +83,7 @@
       participants = ps;
       revealed = Object.fromEntries(qs.map((q) => [q.id, new Set()]));
       if (qs.length > 0) syncQuestion(qs[0].id);
+      connectAdminStream();
     } catch (e) {
       error = e.message;
     } finally {
@@ -73,9 +97,57 @@
 
   // Espelha o estado ao vivo pro servidor (best-effort — não bloqueia nem
   // quebra a UI local se a rede falhar), pra quem está assistindo em
-  // /live/:id ver a mesma coisa em tempo real.
+  // /audience/:id ver a mesma coisa em tempo real.
   function syncQuestion(questionId) {
     api.events.live.setQuestion(id, questionId).catch(() => {});
+  }
+
+  // Conexão só de leitura: traz de volta blank/aviso/interações se a página
+  // recarregar, e entrega as reações e mensagens de Q&A que chegam ao vivo.
+  function connectAdminStream() {
+    if (adminEventSource) adminEventSource.close();
+    adminEventSource = new EventSource(api.events.live.adminStreamUrl(id));
+    adminEventSource.onmessage = (e) => {
+      const snap = JSON.parse(e.data);
+      blanked = snap.blanked;
+      interactionsEnabled = snap.interactionsEnabled;
+      message = snap.message;
+      messageDraft = snap.message;
+      qaInbox = snap.qaInbox;
+    };
+    adminEventSource.addEventListener('reaction', (e) => {
+      fireReaction(JSON.parse(e.data).emoji);
+    });
+  }
+
+  function toggleBlanked() {
+    blanked = !blanked;
+    api.events.live.setBlanked(id, blanked).catch(() => {});
+  }
+
+  function toggleInteractions() {
+    interactionsEnabled = !interactionsEnabled;
+    api.events.live.setInteractionsEnabled(id, interactionsEnabled).catch(() => {});
+  }
+
+  function sendMessage() {
+    message = messageDraft.trim();
+    api.events.live.setMessage(id, message).catch(() => {});
+  }
+
+  function clearMessage() {
+    message = '';
+    messageDraft = '';
+    api.events.live.setMessage(id, '').catch(() => {});
+  }
+
+  function dismissQA(messageId) {
+    qaInbox = qaInbox.filter((m) => m.id !== messageId);
+    api.events.live.dismissQA(id, messageId).catch(() => {});
+  }
+
+  function openAudienceScreen() {
+    window.open(`/audience/${id}?pin=${encodeURIComponent(event.pinCode.toUpperCase())}`, '_blank');
   }
 
   $: currentQuestion = questions[currentIndex];
@@ -172,6 +244,8 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
+<ReactionBurstLayer />
+
 <main class="present-page" class:presentation-mode={presentationMode}>
   {#if loading}
     <p class="text-muted">Carregando…</p>
@@ -186,6 +260,50 @@
           {participants.length}
           {participants.length === 1 ? 'pessoa respondeu' : 'pessoas responderam'}
         </span>
+      </div>
+
+      <div class="present-controls">
+        <div class="control-row">
+          <Switch checked={blanked} on:change={toggleBlanked} />
+          <span>Tela em branco</span>
+        </div>
+        <div class="control-row">
+          <Switch checked={interactionsEnabled} on:change={toggleInteractions} />
+          <span>Interações dos participantes</span>
+        </div>
+        <div class="message-row">
+          <Input
+            label="Aviso pra tela dos participantes"
+            bind:value={messageDraft}
+            placeholder="Ex: Voltamos em 5 minutos"
+          />
+          <Button on:click={sendMessage} disabled={messageDraft.trim() === message}>
+            Enviar aviso
+          </Button>
+          <Button variant="secondary" on:click={clearMessage} disabled={!message}>
+            Limpar
+          </Button>
+        </div>
+        <Button variant="secondary" on:click={openAudienceScreen}>
+          Abrir tela de apresentação
+        </Button>
+      </div>
+
+      <div class="qa-inbox">
+        <p class="qa-inbox-title">Perguntas dos participantes</p>
+        {#if qaInbox.length === 0}
+          <p class="text-muted">Nenhuma mensagem ainda.</p>
+        {:else}
+          {#each qaInbox as m (m.id)}
+            <div class="qa-item">
+              <div class="qa-item-body">
+                <span class="qa-item-email">{m.email || 'Convidado'}</span>
+                <span class="qa-item-text">{m.text}</span>
+              </div>
+              <Button variant="secondary" on:click={() => dismissQA(m.id)}>Dispensar</Button>
+            </div>
+          {/each}
+        {/if}
       </div>
     {/if}
 
@@ -288,5 +406,74 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+  }
+
+  .present-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .message-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .message-row :global(.field) {
+    flex: 1;
+  }
+
+  .qa-inbox {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .qa-inbox-title {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .qa-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .qa-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .qa-item-email {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .qa-item-text {
+    word-break: break-word;
   }
 </style>
