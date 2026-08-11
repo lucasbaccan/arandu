@@ -82,7 +82,7 @@
   }
 
   .back-logo img {
-    width: min(180px, 55vw);
-    height: auto;
+    width: auto;
+    height: 200px;
   }
 </style>

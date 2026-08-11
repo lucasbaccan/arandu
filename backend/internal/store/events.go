@@ -64,6 +64,49 @@ func (s *Store) ListEventsByOwner(ctx context.Context, ownerID int64) ([]Event, 
 	return events, nil
 }
 
+// EventSummary é um Event com os contadores usados na lista de eventos do
+// organizador (quantas perguntas, quantas pessoas já responderam).
+type EventSummary struct {
+	Event
+	QuestionCount    int
+	ParticipantCount int
+}
+
+func (s *Store) ListEventSummariesByOwner(ctx context.Context, ownerID int64) ([]EventSummary, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT e.id, e.owner_id, e.title, e.pin_code, e.status, e.config_show_ranking, e.interactions_enabled, e.created_at,
+		 (SELECT COUNT(*) FROM questions q WHERE q.event_id = e.id),
+		 (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id)
+		 FROM events e WHERE e.owner_id = ? ORDER BY e.created_at DESC`,
+		ownerID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: listar eventos com contadores: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []EventSummary
+	for rows.Next() {
+		var es EventSummary
+		var createdAt string
+		if err := rows.Scan(
+			&es.ID, &es.OwnerID, &es.Title, &es.PINCode, &es.Status, &es.ShowRanking, &es.InteractionsEnabled, &createdAt,
+			&es.QuestionCount, &es.ParticipantCount,
+		); err != nil {
+			return nil, fmt.Errorf("store: ler evento com contadores: %w", err)
+		}
+		es.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("store: parse created_at: %w", err)
+		}
+		summaries = append(summaries, es)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: iterar eventos com contadores: %w", err)
+	}
+	return summaries, nil
+}
+
 // FindEventByID busca o evento por ID, sem checar dono (uso público/participante).
 func (s *Store) FindEventByID(ctx context.Context, id int64) (Event, error) {
 	row := s.db.QueryRowContext(ctx,

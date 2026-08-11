@@ -139,12 +139,22 @@ describe('Preview da apresentação', () => {
   it('carrega a primeira pergunta com todos os participantes pendentes de revelar', async () => {
     const view = mount();
 
-    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-    expect(view.getByText('Pergunta 1 de 2')).toBeInTheDocument();
+    expect(await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' })).toBeInTheDocument();
+    expect(view.getByText('1 / 2')).toBeInTheDocument();
     expect(view.getByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
     expect(view.getByLabelText('Revelar resposta de bob@exemplo.com')).toBeInTheDocument();
     expect(view.getByText('Go')).toBeInTheDocument();
     expect(view.getByText('JS')).toBeInTheDocument();
+  });
+
+  it('pula direto pra uma pergunta clicando nela no trilho', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    await fireEvent.click(view.getByText('Deixe um recado'));
+
+    expect(await view.findByText('2 / 2')).toBeInTheDocument();
+    expect(api.events.live.setQuestion).toHaveBeenCalledWith('42', 'q2');
   });
 
   // jsdom não roda requestAnimationFrame por padrão, então a transição out:fade
@@ -153,7 +163,7 @@ describe('Preview da apresentação', () => {
   // (participante aparece na zona certa) em vez da ausência no grupo "pendente".
   it('revela um participante clicando no rosto, movendo para a opção que ele escolheu', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
 
@@ -165,7 +175,7 @@ describe('Preview da apresentação', () => {
 
   it('clicar de novo no rosto revelado desrevela e volta pra pendente', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
     const revealedFace = await view.findByLabelText('Desrevelar resposta de ana@exemplo.com');
@@ -183,9 +193,9 @@ describe('Preview da apresentação', () => {
 
   it('revelar todos move todo mundo para as respectivas opções', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
-    await fireEvent.click(view.getByRole('button', { name: 'Revelar todos' }));
+    await fireEvent.click(view.getByRole('button', { name: 'Revelar tudo' }));
 
     const goZone = view.getByText('Go').closest('.zone');
     const jsZone = view.getByText('JS').closest('.zone');
@@ -199,23 +209,23 @@ describe('Preview da apresentação', () => {
 
   it('reiniciar revelação volta todos para pendentes', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
     await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
-    await waitFor(() => expect(view.getByRole('button', { name: 'Reiniciar revelação' })).not.toBeDisabled());
+    await waitFor(() => expect(view.getByRole('button', { name: 'Reiniciar' })).not.toBeDisabled());
 
-    await fireEvent.click(view.getByRole('button', { name: 'Reiniciar revelação' }));
+    await fireEvent.click(view.getByRole('button', { name: 'Reiniciar' }));
 
     expect(await view.findByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
   });
 
   it('navega para a próxima pergunta, de resposta aberta', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
-    await fireEvent.click(view.getByRole('button', { name: 'Próxima' }));
+    await fireEvent.click(view.getByLabelText('Próxima pergunta'));
 
-    expect(await view.findByText('Deixe um recado')).toBeInTheDocument();
-    expect(view.getByText('Pergunta 2 de 2')).toBeInTheDocument();
+    expect(await view.findByRole('heading', { name: 'Deixe um recado' })).toBeInTheDocument();
+    expect(view.getByText('2 / 2')).toBeInTheDocument();
 
     // as caixas de resposta já aparecem antes de qualquer revelação
     const bubble = view.getByText('Boa sorte!').closest('.zone');
@@ -229,9 +239,9 @@ describe('Preview da apresentação', () => {
 
   it('agrupa respostas abertas iguais (após trim e capitalização) num único balão', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
-    await fireEvent.click(view.getByRole('button', { name: 'Próxima' }));
-    await view.findByText('Deixe um recado');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+    await fireEvent.click(view.getByLabelText('Próxima pergunta'));
+    await view.findByRole('heading', { name: 'Deixe um recado' });
 
     // ana respondeu "Boa sorte!" e carla respondeu "  boa sorte!  " —
     // devem cair no mesmo balão, já normalizado.
@@ -246,9 +256,9 @@ describe('Preview da apresentação', () => {
 
   it('sai do preview voltando para a tela do evento', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
-    await fireEvent.click(view.getByRole('button', { name: 'Sair do preview' }));
+    await fireEvent.click(view.getByLabelText('Voltar para o evento'));
 
     expect(navigate).toHaveBeenCalledWith('/events/42');
   });
@@ -262,50 +272,50 @@ describe('Preview da apresentação', () => {
 
   it('modo apresentação esconde os controles e números de admin, mas mantém pergunta e respostas', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
-    expect(view.queryByRole('button', { name: 'Sair do preview' })).not.toBeInTheDocument();
+    expect(view.queryByLabelText('Voltar para o evento')).not.toBeInTheDocument();
     expect(view.queryByText('pessoas responderam', { exact: false })).not.toBeInTheDocument();
-    expect(view.queryByText('Pergunta 1 de 2')).not.toBeInTheDocument();
-    expect(view.queryByRole('button', { name: 'Revelar todos' })).not.toBeInTheDocument();
-    expect(view.queryByRole('button', { name: 'Reiniciar revelação' })).not.toBeInTheDocument();
-    expect(view.queryByRole('button', { name: 'Anterior' })).not.toBeInTheDocument();
-    expect(view.queryByRole('button', { name: 'Próxima' })).not.toBeInTheDocument();
+    expect(view.queryByText('1 / 2')).not.toBeInTheDocument();
+    expect(view.queryByRole('button', { name: 'Revelar tudo' })).not.toBeInTheDocument();
+    expect(view.queryByRole('button', { name: 'Reiniciar' })).not.toBeInTheDocument();
+    expect(view.queryByLabelText('Pergunta anterior')).not.toBeInTheDocument();
+    expect(view.queryByLabelText('Próxima pergunta')).not.toBeInTheDocument();
 
     // conteúdo essencial continua visível e clicável
-    expect(view.getByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(view.getByRole('heading', { name: 'Qual sua linguagem favorita?' })).toBeInTheDocument();
     expect(view.getByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
     expect(view.getByText('Go')).toBeInTheDocument();
   });
 
   it('Esc sai do modo apresentação e volta os controles', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
-    expect(view.queryByRole('button', { name: 'Próxima' })).not.toBeInTheDocument();
+    expect(view.queryByLabelText('Próxima pergunta')).not.toBeInTheDocument();
 
     await fireEvent.keyDown(window, { key: 'Escape' });
 
-    expect(await view.findByRole('button', { name: 'Próxima' })).toBeInTheDocument();
+    expect(await view.findByLabelText('Próxima pergunta')).toBeInTheDocument();
   });
 
   it('setas do teclado navegam entre perguntas mesmo no modo apresentação', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
     await fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(await view.findByText('Deixe um recado')).toBeInTheDocument();
 
     await fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' })).toBeInTheDocument();
   });
 
   it('tecla R revela todos mesmo no modo apresentação', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
     await fireEvent.keyDown(window, { key: 'r' });
@@ -322,7 +332,7 @@ describe('Preview da apresentação', () => {
   it('abre a tela de apresentação numa nova aba com o PIN na URL', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.click(view.getByRole('button', { name: 'Abrir tela de apresentação' }));
 
@@ -332,7 +342,7 @@ describe('Preview da apresentação', () => {
 
   it('alterna tela em branco e chama a API', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.click(view.getAllByRole('switch')[0]);
 
@@ -341,7 +351,7 @@ describe('Preview da apresentação', () => {
 
   it('alterna interações e chama a API', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     const switches = view.getAllByRole('switch');
     await fireEvent.click(switches[2]);
@@ -351,7 +361,7 @@ describe('Preview da apresentação', () => {
 
   it('alterna esconder respostas da plateia e chama a API', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     const switches = view.getAllByRole('switch');
     await fireEvent.click(switches[1]);
@@ -361,7 +371,7 @@ describe('Preview da apresentação', () => {
 
   it('envia e limpa uma mensagem de aviso', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.input(view.getByLabelText('Aviso pra tela dos participantes'), {
       target: { value: 'Voltamos em 5 min' }
@@ -375,7 +385,7 @@ describe('Preview da apresentação', () => {
 
   it('espaço, R e P digitados no campo de aviso não disparam os atalhos globais', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     const input = view.getByLabelText('Aviso pra tela dos participantes');
     await fireEvent.keyDown(input, { key: ' ' });
@@ -383,17 +393,17 @@ describe('Preview da apresentação', () => {
     await fireEvent.keyDown(input, { key: 'p' });
 
     // espaço não deveria ter avançado pra próxima pergunta (goNext)
-    expect(view.getByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-    expect(view.queryByText('Deixe um recado')).not.toBeInTheDocument();
+    expect(view.getByRole('heading', { name: 'Qual sua linguagem favorita?' })).toBeInTheDocument();
+    expect(view.queryByRole('heading', { name: 'Deixe um recado' })).not.toBeInTheDocument();
     // R não deveria ter revelado ninguém
     expect(view.getByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
     // P não deveria ter entrado em modo apresentação
-    expect(view.getByRole('button', { name: 'Sair do preview' })).toBeInTheDocument();
+    expect(view.getByLabelText('Voltar para o evento')).toBeInTheDocument();
   });
 
   it('mostra e dispensa mensagens da caixa de Q&A', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     FakeEventSource.instances[0].onmessage({
       data: JSON.stringify({
@@ -413,7 +423,7 @@ describe('Preview da apresentação', () => {
 
   it('recebe reações via SSE', async () => {
     const view = mount();
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     FakeEventSource.instances[0].emit('reaction', { data: JSON.stringify({ emoji: '🎉' }) });
 

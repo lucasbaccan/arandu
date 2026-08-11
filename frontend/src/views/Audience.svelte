@@ -221,7 +221,7 @@
 
   .live-logo {
     display: block;
-    height: 56px;
+    height: 88px;
     width: auto;
     margin: 0 auto;
   }

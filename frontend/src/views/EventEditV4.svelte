@@ -1,14 +1,14 @@
 <script>
   export let id = '';
 
+  import { tick } from 'svelte';
   import { flip } from 'svelte/animate';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { showToast } from '../lib/toastStore.js';
   import Button from '../components/Button.svelte';
-  import Input from '../components/Input.svelte';
   import CopyButton from '../components/CopyButton.svelte';
-  import Switch from '../components/Switch.svelte';
+  import Segmented from '../components/Segmented.svelte';
   import QuestionForm, { MIN_OPTIONS, MAX_OPTIONS } from '../components/QuestionForm.svelte';
   import ResponsesPanel from '../components/ResponsesPanel.svelte';
 
@@ -19,6 +19,11 @@
     PRESENTING: 'Ao vivo',
     FINISHED: 'Finalizado'
   };
+
+  const answerStatusOptions = [
+    { value: 'OPEN_FOR_ANSWERS', label: 'Coletando' },
+    { value: 'CLOSED_FOR_ANSWERS', label: 'Fechado' }
+  ];
 
   let loading = true;
   let error = '';
@@ -80,49 +85,134 @@
   }
   load();
 
-  function validate() {
-    if (!title.trim()) return 'Informe o título do evento.';
-    if (!/^[a-zA-Z0-9_-]{1,25}$/.test(pinCode.trim())) {
-      return 'O PIN deve ter 1 a 25 caracteres: letras, números, _ ou -.';
+  // --- edição inline: título ---
+  let editingTitle = false;
+  let titleDraft = '';
+  let titleSaving = false;
+  let titleError = '';
+  let titleInputEl;
+
+  async function startEditTitle() {
+    titleDraft = title;
+    titleError = '';
+    editingTitle = true;
+    await tick();
+    titleInputEl?.focus();
+    titleInputEl?.select();
+  }
+
+  function cancelEditTitle() {
+    editingTitle = false;
+    titleError = '';
+  }
+
+  async function saveTitle() {
+    const trimmed = titleDraft.trim();
+    if (!trimmed) {
+      titleError = 'Informe o título do evento.';
+      return;
     }
-    return '';
+    titleSaving = true;
+    try {
+      await api.events.update(id, { title: trimmed, pinCode: '', configShowRanking: showRanking });
+      title = trimmed;
+      editingTitle = false;
+      showToast('Título atualizado!');
+    } catch (e) {
+      titleError = e.message;
+    } finally {
+      titleSaving = false;
+    }
+  }
+
+  function onTitleKeydown(e) {
+    if (e.key === 'Enter') saveTitle();
+    if (e.key === 'Escape') cancelEditTitle();
+  }
+
+  // --- edição inline: PIN ---
+  let editingPin = false;
+  let pinDraft = '';
+  let pinSaving = false;
+  let pinError = '';
+  let pinInputEl;
+
+  async function startEditPin() {
+    pinDraft = pinCode;
+    pinError = '';
+    editingPin = true;
+    await tick();
+    pinInputEl?.focus();
+    pinInputEl?.select();
+  }
+
+  function cancelEditPin() {
+    editingPin = false;
+    pinError = '';
+  }
+
+  async function savePin() {
+    const trimmed = pinDraft.trim();
+    if (!/^[a-zA-Z0-9_-]{1,25}$/.test(trimmed)) {
+      pinError = 'O PIN deve ter 1 a 25 caracteres: letras, números, _ ou -.';
+      return;
+    }
+    pinSaving = true;
+    try {
+      const { event } = await api.events.update(id, {
+        title: title.trim(),
+        pinCode: trimmed,
+        configShowRanking: showRanking
+      });
+      pinCode = event.pinCode;
+      editingPin = false;
+      showToast('PIN atualizado!');
+    } catch (e) {
+      pinError = e.message;
+    } finally {
+      pinSaving = false;
+    }
+  }
+
+  function onPinKeydown(e) {
+    if (e.key === 'Enter') savePin();
+    if (e.key === 'Escape') cancelEditPin();
   }
 
   async function handleSubmit() {
-    error = validate();
-    if (error) return;
     submitting = true;
     try {
       await api.events.update(id, {
         title: title.trim(),
-        pinCode: pinCode.trim(),
+        pinCode: '',
         configShowRanking: showRanking
       });
       showToast('Alterações salvas!');
     } catch (e) {
       showToast(e.message, 'error');
-      error = e.message;
     } finally {
       submitting = false;
     }
   }
 
   let statusBusy = false;
+  let segmentResyncToken = 0;
 
-  async function toggleAnswersOpen() {
-    const nextStatus = status === 'OPEN_FOR_ANSWERS' ? 'CLOSED_FOR_ANSWERS' : 'OPEN_FOR_ANSWERS';
+  async function setAnswerStatus(next) {
+    if (next === status || statusBusy) return;
     statusBusy = true;
     try {
       const { event } = await api.events.update(id, {
         title: title.trim(),
         pinCode: '',
         configShowRanking: showRanking,
-        status: nextStatus
+        status: next
       });
       status = event.status;
       showToast(status === 'OPEN_FOR_ANSWERS' ? 'Respostas abertas!' : 'Respostas encerradas.');
     } catch (e) {
       showToast(e.message, 'error');
+      segmentResyncToken += 1; // força o Segmented a re-sincronizar com o status real
     } finally {
       statusBusy = false;
     }
@@ -265,8 +355,6 @@
       e.dataTransfer.dropEffect = 'move';
     }
     const items = e.currentTarget.querySelectorAll(':scope > li.question-slot');
-    // Direction-aware: dragging past an item's midpoint swaps with it
-    // immediately, instead of requiring an overshoot into the next item.
     let target = dragIndex;
     for (let k = 0; k < items.length; k++) {
       if (k === dragIndex) continue;
@@ -310,11 +398,11 @@
 
 <div class="variant-bar">
   <span class="variant-bar-label">Comparar layout:</span>
-  <a class="variant-link current" href="/events/{id}" on:click|preventDefault={() => navigate(`/events/${id}`)}>Original</a>
+  <a class="variant-link" href="/events/{id}" on:click|preventDefault={() => navigate(`/events/${id}`)}>Original</a>
   <a class="variant-link" href="/eventos1/{id}" on:click|preventDefault={() => navigate(`/eventos1/${id}`)}>V1 · Status no topo</a>
   <a class="variant-link" href="/eventos2/{id}" on:click|preventDefault={() => navigate(`/eventos2/${id}`)}>V2 · Sidebar limpo</a>
   <a class="variant-link" href="/eventos3/{id}" on:click|preventDefault={() => navigate(`/eventos3/${id}`)}>V3 · Sem status aqui</a>
-  <a class="variant-link" href="/eventos4/{id}" on:click|preventDefault={() => navigate(`/eventos4/${id}`)}>V4 · Segmentado + stats</a>
+  <a class="variant-link current" href="/eventos4/{id}" on:click|preventDefault={() => navigate(`/eventos4/${id}`)}>V4 · Segmentado + stats</a>
 </div>
 
 <main class="page page-wide">
@@ -328,7 +416,7 @@
     </div>
   {:else}
     <div class="edit-wrap">
-      <div class="dash-head">
+      <div class="dash-head hero">
         <div class="dash-brand">
           <a
             class="dash-logo-link"
@@ -339,13 +427,89 @@
             <img class="dash-logo" src="/img/arandu-completo.png" alt="Arandu" />
           </a>
           <div>
-            <h1 class="dash-title">{title || 'Editar evento'}</h1>
-            <p class="dash-user">
+            <div class="title-edit-row">
+              {#if editingTitle}
+                <input
+                  class="title-edit-input"
+                  bind:value={titleDraft}
+                  bind:this={titleInputEl}
+                  on:keydown={onTitleKeydown}
+                  disabled={titleSaving}
+                />
+                <button
+                  class="icon-btn inline-edit-btn"
+                  title="Salvar título"
+                  aria-label="Salvar título"
+                  disabled={titleSaving}
+                  on:click={saveTitle}
+                >✓</button>
+                <button
+                  class="icon-btn inline-edit-btn"
+                  title="Cancelar"
+                  aria-label="Cancelar edição do título"
+                  disabled={titleSaving}
+                  on:click={cancelEditTitle}
+                >×</button>
+              {:else}
+                <h1 class="dash-title">{title || 'Editar evento'}</h1>
+                <button
+                  class="icon-btn inline-edit-btn"
+                  title="Editar título"
+                  aria-label="Editar título"
+                  on:click={startEditTitle}
+                >✎</button>
+              {/if}
+            </div>
+            {#if titleError}<p class="form-error inline-edit-error">{titleError}</p>{/if}
+
+            <p class="dash-user status-row">
               <span class="badge badge-{status.toLowerCase()}">{statusLabel(status)}</span>
+              {#if status === 'OPEN_FOR_ANSWERS' || status === 'CLOSED_FOR_ANSWERS'}
+                {#key segmentResyncToken}
+                  <Segmented
+                    options={answerStatusOptions}
+                    value={status}
+                    disabled={statusBusy}
+                    on:change={(e) => setAnswerStatus(e.detail)}
+                  />
+                {/key}
+              {/if}
               <span class="text-muted pin-inline">
-                · PIN: <strong>#{pinCode.toUpperCase()}</strong>
-                <CopyButton text={pinCode.toUpperCase()} label="Copiar PIN" />
+                · PIN:
+                {#if editingPin}
+                  <input
+                    class="pin-edit-input"
+                    bind:value={pinDraft}
+                    bind:this={pinInputEl}
+                    on:keydown={onPinKeydown}
+                    disabled={pinSaving}
+                  />
+                  <button
+                    class="icon-btn inline-edit-btn"
+                    title="Salvar PIN"
+                    aria-label="Salvar PIN"
+                    disabled={pinSaving}
+                    on:click={savePin}
+                  >✓</button>
+                  <button
+                    class="icon-btn inline-edit-btn"
+                    title="Cancelar"
+                    aria-label="Cancelar edição do PIN"
+                    disabled={pinSaving}
+                    on:click={cancelEditPin}
+                  >×</button>
+                {:else}
+                  <strong>#{pinCode.toUpperCase()}</strong>
+                  <CopyButton text={pinCode.toUpperCase()} label="Copiar PIN" />
+                  <button
+                    class="icon-btn inline-edit-btn"
+                    title="Editar PIN"
+                    aria-label="Editar PIN"
+                    on:click={startEditPin}
+                  >✎</button>
+                {/if}
               </span>
+              {#if pinError}<span class="form-error inline-edit-error">{pinError}</span>{/if}
               <span class="text-muted pin-inline">
                 · <a href={answerLink} target="_blank" rel="noopener">Link de participação</a>
                 <CopyButton text={answerLink} label="Copiar link de participação" />
@@ -365,53 +529,26 @@
         </Button>
       </div>
 
+      <div class="stats-row">
+        <div class="stat-card stat-purple">
+          <span class="stat-value">{questions.length}</span>
+          <span class="stat-label">Pergunta{questions.length === 1 ? '' : 's'}</span>
+        </div>
+        <div class="stat-card stat-cyan">
+          <span class="stat-value">{participantCount}</span>
+          <span class="stat-label">{participantCount === 1 ? 'Resposta' : 'Respostas'}</span>
+        </div>
+      </div>
+
       <div class="edit-layout">
         <div class="card panel settings-panel">
           <h2>Configurações do evento</h2>
-          <p class="text-muted questions-count">
-            {questions.length} pergunta{questions.length === 1 ? '' : 's'} adicionada{questions.length === 1 ? '' : 's'}
-          </p>
-          <p class="text-muted responses-count">
-            {participantCount} {participantCount === 1 ? 'pessoa respondeu' : 'pessoas responderam'}
-          </p>
-
-          <div class="answers-switch">
-            <div>
-              <strong>Respostas {status === 'OPEN_FOR_ANSWERS' ? 'abertas' : 'fechadas'}</strong>
-              <p class="text-muted">Participantes só respondem enquanto estiver aberto.</p>
-            </div>
-            <Switch
-              checked={status === 'OPEN_FOR_ANSWERS'}
-              disabled={statusBusy}
-              on:change={toggleAnswersOpen}
-            />
-          </div>
 
           <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
-            <Input
-              label="Título"
-              bind:value={title}
-              placeholder="Ex: Conecta DevOps 2026"
-              autocomplete="off"
-              required
-            />
-
-            <Input
-              label="PIN"
-              bind:value={pinCode}
-              placeholder="Ex: dev-team"
-              hint="1 a 25 caracteres: letras, números, _ ou -"
-              uppercase
-            />
-
             <label class="field check">
               <input type="checkbox" bind:checked={showRanking} />
               <span>Exibir ranking de pontos</span>
             </label>
-
-            {#if error}
-              <p class="form-error">{error}</p>
-            {/if}
 
             <div class="form-actions">
               <Button type="submit" disabled={submitting}>
@@ -474,14 +611,6 @@
               on:dragover={onDragOver}
               on:drop={onDrop}
             >
-              <!--
-                The question rows and the "insert here" dividers are rendered as two
-                separate sibling each-blocks (Svelte's animate:flip requires the
-                animated element to be the each-block's immediate, sole child — it
-                can't share an iteration with the divider li). Visual interleaving
-                is done purely with the CSS `order` property below: divider "after
-                position p" gets order 2p, question i gets order 2i+1.
-              -->
               <li class="insert-slot" style="order: 0" class:active={insertAt === 0}>
                 {#if insertAt === 0}
                   <QuestionForm
@@ -706,6 +835,115 @@
     opacity: 0.8;
   }
 
+  .dash-head.hero {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 24px;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    min-width: 140px;
+  }
+
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .stat-purple {
+    background: var(--tint-purple);
+  }
+
+  .stat-cyan {
+    background: var(--tint-cyan);
+  }
+
+  .title-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .title-edit-input {
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-family: inherit;
+    background: var(--bg-input);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 4px 10px;
+    outline: none;
+    min-width: 220px;
+  }
+
+  .title-edit-input:focus {
+    border-color: var(--accent);
+  }
+
+  .pin-edit-input {
+    font-size: 0.85rem;
+    font-family: inherit;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--bg-input);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 2px 6px;
+    outline: none;
+    width: 120px;
+  }
+
+  .pin-edit-input:focus {
+    border-color: var(--accent);
+  }
+
+  .inline-edit-error {
+    margin: 2px 0 0;
+    font-size: 0.78rem;
+  }
+
+  .icon-btn.inline-edit-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+    border: none;
+    background: transparent;
+    flex-shrink: 0;
+  }
+
+  .icon-btn.inline-edit-btn:hover:not(:disabled) {
+    background: var(--bg-input);
+    color: var(--text);
+  }
+
+  .status-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
   .pin-inline {
     display: inline-flex;
     align-items: center;
@@ -777,36 +1015,6 @@
 
   .questions-panel {
     gap: 16px;
-  }
-
-  .questions-count {
-    margin: -10px 0 0;
-    font-size: 0.85rem;
-  }
-
-  .responses-count {
-    margin: 2px 0 0;
-    font-size: 0.85rem;
-  }
-
-  .answers-switch {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-  }
-
-  .answers-switch strong {
-    font-size: 0.9rem;
-  }
-
-  .answers-switch p {
-    margin: 2px 0 0;
-    font-size: 0.8rem;
   }
 
   .empty-note {
@@ -1020,5 +1228,4 @@
     gap: 6px;
     flex-shrink: 0;
   }
-
 </style>

@@ -127,6 +127,6 @@ describe('App (guardas de rota)', () => {
     user.set({ id: '1', name: 'Ana' });
     authReady.set(true);
 
-    expect(await screen.findByText('Olá, Ana')).toBeInTheDocument();
+    expect(await screen.findByTitle('Ana')).toBeInTheDocument();
   });
 });

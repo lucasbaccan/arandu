@@ -31,12 +31,13 @@ describe('Dashboard (meus eventos)', () => {
     vi.clearAllMocks();
   });
 
-  it('mostra o nome do usuário logado', async () => {
+  it('mostra o avatar com a inicial do usuário logado', async () => {
     user.set({ id: '1', name: 'Ana' });
     api.events.list.mockResolvedValue({ events: [] });
     const view = mountDashboard();
 
-    expect(await view.findByText('Olá, Ana')).toBeInTheDocument();
+    const avatar = await view.findByTitle('Ana');
+    expect(avatar).toHaveTextContent('A');
   });
 
   it('mostra estado vazio com atalho para criar evento', async () => {
@@ -58,14 +59,18 @@ describe('Dashboard (meus eventos)', () => {
           title: 'Conecta DevOps',
           pinCode: '123456',
           status: 'PREPARATION',
-          createdAt: '2026-08-02T12:00:00Z'
+          createdAt: '2026-08-02T12:00:00Z',
+          questionCount: 3,
+          participantCount: 0
         },
         {
           id: '2',
           title: 'Retro',
           pinCode: '654321',
           status: 'PRESENTING',
-          createdAt: '2026-08-01T00:00:00Z'
+          createdAt: '2026-08-01T00:00:00Z',
+          questionCount: 2,
+          participantCount: 5
         }
       ]
     });
@@ -73,10 +78,10 @@ describe('Dashboard (meus eventos)', () => {
 
     expect(await view.findByText('Conecta DevOps')).toBeInTheDocument();
     expect(view.getByText('Retro')).toBeInTheDocument();
-    expect(view.getByText('123456')).toBeInTheDocument();
+    expect(view.getByText('#123456')).toBeInTheDocument();
     expect(view.getByText('Em preparação')).toBeInTheDocument();
     expect(view.getByText('Ao vivo')).toBeInTheDocument();
-    expect(view.getByText('· criado em 02/08/2026')).toBeInTheDocument();
+    expect(view.getByText('02/08/2026')).toBeInTheDocument();
   });
 
   it('mostra erro da API', async () => {
@@ -89,7 +94,7 @@ describe('Dashboard (meus eventos)', () => {
     ).toBeInTheDocument();
   });
 
-  it('abre o evento ao clicar no card', async () => {
+  it('abre o evento ao clicar na linha', async () => {
     user.set({ id: '1', name: 'Ana' });
     api.events.list.mockResolvedValue({
       events: [
@@ -98,7 +103,9 @@ describe('Dashboard (meus eventos)', () => {
           title: 'Conecta DevOps',
           pinCode: '123456',
           status: 'PREPARATION',
-          createdAt: '2026-08-02T00:00:00Z'
+          createdAt: '2026-08-02T00:00:00Z',
+          questionCount: 1,
+          participantCount: 0
         }
       ]
     });
@@ -108,43 +115,53 @@ describe('Dashboard (meus eventos)', () => {
     await fireEvent.click(view.getByText('Conecta DevOps'));
 
     expect(navigate).toHaveBeenCalledWith('/events/1');
+  });
+
+  it('filtra eventos pela busca de título ou PIN', async () => {
+    user.set({ id: '1', name: 'Ana' });
+    api.events.list.mockResolvedValue({
+      events: [
+        {
+          id: '1',
+          title: 'Conecta DevOps',
+          pinCode: 'DEV123',
+          status: 'PREPARATION',
+          createdAt: '2026-08-02T00:00:00Z',
+          questionCount: 1,
+          participantCount: 0
+        },
+        {
+          id: '2',
+          title: 'Retro',
+          pinCode: 'RETRO1',
+          status: 'PRESENTING',
+          createdAt: '2026-08-01T00:00:00Z',
+          questionCount: 2,
+          participantCount: 5
+        }
+      ]
+    });
+    const view = mountDashboard();
+    await view.findByText('Conecta DevOps');
+
+    await fireEvent.input(view.getByPlaceholderText('Buscar por título ou PIN'), {
+      target: { value: 'retro' }
+    });
+
+    expect(view.queryByText('Conecta DevOps')).not.toBeInTheDocument();
+    expect(view.getByText('Retro')).toBeInTheDocument();
   });
 
   it('sai da conta e volta para a home', async () => {
     user.set({ id: '1', name: 'Ana' });
     api.events.list.mockResolvedValue({ events: [] });
     const view = mountDashboard();
-    await view.findByText('Olá, Ana');
+    await view.findByTitle('Ana');
 
-    await fireEvent.click(view.getByRole('button', { name: 'Sair' }));
+    await fireEvent.click(view.getByTitle('Ana'));
+    await fireEvent.click(view.getByRole('menuitem', { name: 'Sair' }));
 
     await waitFor(() => expect(api.logout).toHaveBeenCalled());
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
-  });
-
-  async function mountWithOneEvent() {
-    user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockResolvedValue({
-      events: [
-        {
-          id: '1',
-          title: 'Conecta DevOps',
-          pinCode: '123456',
-          status: 'PREPARATION',
-          createdAt: '2026-08-02T00:00:00Z'
-        }
-      ]
-    });
-    const view = mountDashboard();
-    await view.findByText('Conecta DevOps');
-    return view;
-  }
-
-  it('clicar no corpo do card continua abrindo a tela de configurações', async () => {
-    const view = await mountWithOneEvent();
-
-    await fireEvent.click(view.getByText('Conecta DevOps'));
-
-    expect(navigate).toHaveBeenCalledWith('/events/1');
   });
 });

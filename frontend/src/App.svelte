@@ -10,6 +10,10 @@
   import Dashboard from './views/Dashboard.svelte';
   import EventCreate from './views/EventCreate.svelte';
   import EventEdit from './views/EventEdit.svelte';
+  import EventEditV1 from './views/EventEditV1.svelte';
+  import EventEditV2 from './views/EventEditV2.svelte';
+  import EventEditV3 from './views/EventEditV3.svelte';
+  import EventEditV4 from './views/EventEditV4.svelte';
   import Answer from './views/Answer.svelte';
   import Stage from './views/Stage.svelte';
   import Audience from './views/Audience.svelte';
@@ -18,6 +22,10 @@
   onMount(initAuth);
 
   $: eventMatch = /^\/events\/(\d+)$/.exec($route);
+  $: eventosV1Match = /^\/eventos1\/(\d+)$/.exec($route);
+  $: eventosV2Match = /^\/eventos2\/(\d+)$/.exec($route);
+  $: eventosV3Match = /^\/eventos3\/(\d+)$/.exec($route);
+  $: eventosV4Match = /^\/eventos4\/(\d+)$/.exec($route);
   $: answerMatch = /^\/answer\/(\d+)$/.exec($route);
   $: stageMatch = /^\/stage\/(\d+)$/.exec($route);
   $: audienceMatch = /^\/audience\/(\d+)$/.exec($route);
@@ -25,7 +33,14 @@
   $: if ($authReady) {
     if ($route === '/' && $user) navigate('/dashboard');
     if (
-      ($route === '/dashboard' || $route === '/events/new' || eventMatch || stageMatch) &&
+      ($route === '/dashboard' ||
+        $route === '/events/new' ||
+        eventMatch ||
+        eventosV1Match ||
+        eventosV2Match ||
+        eventosV3Match ||
+        eventosV4Match ||
+        stageMatch) &&
       !$user
     ) {
       navigate('/');
@@ -56,6 +71,14 @@
     <EventCreate />
   {:else if eventMatch}
     <EventEdit id={eventMatch[1]} />
+  {:else if eventosV1Match}
+    <EventEditV1 id={eventosV1Match[1]} />
+  {:else if eventosV2Match}
+    <EventEditV2 id={eventosV2Match[1]} />
+  {:else if eventosV3Match}
+    <EventEditV3 id={eventosV3Match[1]} />
+  {:else if eventosV4Match}
+    <EventEditV4 id={eventosV4Match[1]} />
   {:else if answerMatch}
     <Answer id={answerMatch[1]} />
   {:else if stageMatch}

@@ -31,9 +31,9 @@ describe('Tela inicial', () => {
     vi.clearAllMocks();
   });
 
-  it('navega para o login ao clicar em Entrar', async () => {
+  it('navega para o login ao clicar em Entrar na conta', async () => {
     render(Home);
-    await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Entrar na conta' }));
     expect(navigate).toHaveBeenCalledWith('/login');
   });
 
@@ -43,10 +43,9 @@ describe('Tela inicial', () => {
     expect(navigate).toHaveBeenCalledWith('/register');
   });
 
-  it('valida código vazio antes de checar', async () => {
+  it('desabilita o botão Entrar enquanto o código estiver vazio', async () => {
     render(Home);
-    await fireEvent.click(screen.getByRole('button', { name: 'Entrar na apresentação' }));
-    expect(await screen.findByText('Informe o código do evento.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeDisabled();
     expect(api.public.events.resolvePin).not.toHaveBeenCalled();
   });
 
@@ -54,8 +53,8 @@ describe('Tela inicial', () => {
     api.public.events.resolvePin.mockResolvedValue({ id: '42' });
     render(Home);
 
-    await fireEvent.input(screen.getByLabelText('Código do evento'), { target: { value: 'dev-team' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Entrar na apresentação' }));
+    await fireEvent.input(screen.getByPlaceholderText('EX: DEV-TEAM'), { target: { value: 'dev-team' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(api.public.events.resolvePin).toHaveBeenCalledWith('dev-team');
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/audience/42?pin=dev-team'));
@@ -65,8 +64,8 @@ describe('Tela inicial', () => {
     api.public.events.resolvePin.mockRejectedValue(new ApiErrorLike(404, 'Código não encontrado.'));
     render(Home);
 
-    await fireEvent.input(screen.getByLabelText('Código do evento'), { target: { value: 'naoexiste' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Entrar na apresentação' }));
+    await fireEvent.input(screen.getByPlaceholderText('EX: DEV-TEAM'), { target: { value: 'naoexiste' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(await screen.findByText('Código não encontrado.')).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();

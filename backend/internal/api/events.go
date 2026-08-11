@@ -32,6 +32,8 @@ type eventDTO struct {
 	ShowRanking         bool   `json:"configShowRanking"`
 	InteractionsEnabled bool   `json:"interactionsEnabled"`
 	CreatedAt           string `json:"createdAt"`
+	QuestionCount       int    `json:"questionCount"`
+	ParticipantCount    int    `json:"participantCount"`
 }
 
 func toEventDTO(e store.Event) eventDTO {
@@ -45,6 +47,13 @@ func toEventDTO(e store.Event) eventDTO {
 		InteractionsEnabled: e.InteractionsEnabled,
 		CreatedAt:           e.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+func toEventSummaryDTO(es store.EventSummary) eventDTO {
+	dto := toEventDTO(es.Event)
+	dto.QuestionCount = es.QuestionCount
+	dto.ParticipantCount = es.ParticipantCount
+	return dto
 }
 
 type createEventRequest struct {
@@ -116,7 +125,7 @@ func (a *API) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	ownerID := userIDFromContext(r.Context())
-	events, err := a.store.ListEventsByOwner(r.Context(), ownerID)
+	events, err := a.store.ListEventSummariesByOwner(r.Context(), ownerID)
 	if err != nil {
 		log.Printf("api: listar eventos: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao listar eventos.")
@@ -124,7 +133,7 @@ func (a *API) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	dtos := make([]eventDTO, 0, len(events))
 	for _, e := range events {
-		dtos = append(dtos, toEventDTO(e))
+		dtos = append(dtos, toEventSummaryDTO(e))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"events": dtos})
 }

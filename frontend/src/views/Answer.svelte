@@ -346,7 +346,7 @@
 <style>
   .answer-logo {
     display: block;
-    height: 56px;
+    height: 200px;
     width: auto;
     margin: 0 auto;
   }

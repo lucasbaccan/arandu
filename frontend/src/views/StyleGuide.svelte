@@ -306,7 +306,7 @@
       <div class="pin-chip" title="Código de acesso">
         <span class="pin-chip-label">PIN</span>
         <div class="pin-chip-value">
-          <strong>DEV123</strong>
+          <strong>#DEV123</strong>
           <CopyButton text="DEV123" label="Copiar PIN" />
         </div>
       </div>

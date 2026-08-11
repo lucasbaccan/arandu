@@ -77,7 +77,7 @@ describe('Editar evento', () => {
     const view = mount();
 
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
-    expect(view.getByText('123456')).toBeInTheDocument();
+    expect(view.getByText('#123456')).toBeInTheDocument();
     expect(view.getByText('Em preparação')).toBeInTheDocument();
     expect(view.getByLabelText('Exibir ranking de pontos').checked).toBe(true);
   });
@@ -138,7 +138,7 @@ describe('Editar evento', () => {
         configShowRanking: true
       })
     );
-    expect(view.getByText('DEV-TEAM')).toBeInTheDocument();
+    expect(view.getByText('#DEV-TEAM')).toBeInTheDocument();
   });
 
   it('rejeita PIN inválido', async () => {
