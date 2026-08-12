@@ -146,17 +146,34 @@ func (a *API) Handler() http.Handler {
 // cors libera origens configuradas em CORS_ORIGINS (separadas por vírgula),
 // necessário quando o frontend roda em outro domínio (ex: Vercel). Como o
 // backend usa cookies de sessão, Allow-Credentials é sempre true e o Origin
-// é ecoado (nunca "*"). Sem CORS_ORIGINS, nenhum header CORS é emitido.
+// é ecoado (nunca "*"). Entradas com prefixo "*." (ex: *.vercel.app) liberam
+// qualquer subdomínio daquele sufixo — útil para previews com URL dinâmica.
+// Sem CORS_ORIGINS, nenhum header CORS é emitido.
 func (a *API) cors(next http.Handler) http.Handler {
 	allowed := map[string]bool{}
+	var suffixes []string
 	for _, o := range strings.Split(a.cfg.CORSOrigins, ",") {
-		if o = strings.TrimSpace(o); o != "" {
+		if o = strings.TrimSpace(o); o == "" {
+			continue
+		}
+		if strings.HasPrefix(o, "*.") {
+			suffixes = append(suffixes, strings.TrimPrefix(o, "*"))
+		} else {
 			allowed[o] = true
 		}
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin != "" && (allowed["*"] || allowed[origin]) {
+		ok := origin != "" && (allowed["*"] || allowed[origin])
+		if !ok {
+			for _, s := range suffixes {
+				if strings.HasSuffix(origin, s) {
+					ok = true
+					break
+				}
+			}
+		}
+		if ok {
 			h := w.Header()
 			h.Set("Access-Control-Allow-Origin", origin)
 			h.Add("Vary", "Origin")
