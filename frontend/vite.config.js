@@ -1,11 +1,15 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
+const backendPort = process.env.BACKEND_PORT || '8080';
+
 export default defineConfig({
   plugins: [svelte()],
   server: {
+    host: '0.0.0.0',
+    allowedHosts: ['oracle.lucasbaccan.com.br'],
     proxy: {
-      '/api': 'http://localhost:8080'
+      '/api': `http://localhost:${backendPort}`
     }
   },
   build: {

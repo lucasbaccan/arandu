@@ -27,32 +27,32 @@ backend-dev: ## Backend Go com auto-reload (air; serve o frontend do dist em dev
 
 frontend-watch: ## Recompila o frontend a cada mudança (vite build --watch)
 	@echo "🏗️  Observando o frontend (vite build --watch)..."
-	@cd frontend && npm run build:watch
+	@cd frontend && BACKEND_PORT=$(PORT) npm run build:watch
 
 frontend-dev: ## Frontend Svelte com HMR (vite; exposto em $(HOST)) — opcional
-	@echo "🎨 Frontend com HMR (vite) em http://localhost:$(FRONTEND_PORT) (e http://IP-da-rede:$(FRONTEND_PORT))"
-	@cd frontend && npm run dev -- --host $(HOST) --port $(FRONTEND_PORT)
+	@echo "🎨 Frontend com HMR (vite) em http://localhost:$(FRONTEND_PORT) (e http://IP-da-rede:$(FRONTEND_PORT)) — proxy /api -> :$(PORT)"
+	@cd frontend && BACKEND_PORT=$(PORT) npm run dev -- --host $(HOST) --port $(FRONTEND_PORT)
 
 run: ## Roda o binário compilado (API + frontend buildado)
 	@echo "▶️  Rodando o servidor compilado em http://$(HOST):$(PORT)"
-	@cd backend && HOST=$(HOST) PORT=$(PORT) ./bin/server
+	@cd backend && HOST=$(HOST) PORT=$(PORT) ./bin/arandu
 
 build: ## Compila backend e frontend (binário para o sistema atual)
 	@echo "🏗️  Compilando frontend..."
 	@cd frontend && npm run build
 	@echo "🏗️  Compilando backend..."
-	@cd backend && go build -o bin/server ./cmd/server
-	@echo "✅ Build concluído! (backend/bin/server + frontend embutido)"
+	@cd backend && go build -o bin/arandu ./cmd/server
+	@echo "✅ Build concluído! (backend/bin/arandu + frontend embutido)"
 
-build-windows: ## Compila o frontend e o backend para Windows (server.exe) — rode no WSL
+build-windows: ## Compila o frontend e o backend para Windows (arandu.exe) — rode no WSL
 	@echo "🏗️  Compilando frontend..."
 	@cd frontend && npm run build
 	@echo "🏗️  Compilando backend para Windows (GOOS=windows)..."
-	@cd backend && GOOS=windows GOARCH=amd64 go build -o bin/server.exe ./cmd/server
-	@echo "✅ server.exe gerado em backend/bin/server.exe"
-	@echo "💡 Para rodar no Windows: backend\\bin\\server.exe  (ou os comandos manuais:)"
+	@cd backend && GOOS=windows GOARCH=amd64 go build -o bin/arandu.exe ./cmd/server
+	@echo "✅ arandu.exe gerado em backend/bin/arandu.exe"
+	@echo "💡 Para rodar no Windows: backend\\bin\\arandu.exe  (ou os comandos manuais:)"
 	@echo "   cd frontend && npm run build"
-	@echo "   cd backend && GOOS=windows GOARCH=amd64 go build -o bin/server.exe ./cmd/server"
+	@echo "   cd backend && GOOS=windows GOARCH=amd64 go build -o bin/arandu.exe ./cmd/server"
 
 test: ## Testes de backend e frontend
 	@echo "🧪 Rodando testes do backend..."
@@ -78,6 +78,8 @@ clean:
 
 stop: ## Encerra servidores de dev órfãos (quando o air não está mais rodando)
 	@echo "⏹️  Encerrando servidores órfãos..."
-	@-pkill -f "backend/tmp/server" 2>/dev/null; pkill -f "air" 2>/dev/null; pkill -f "vite" 2>/dev/null
+	@-pkill -f "arandu" 2>/dev/null; pkill -f "air" 2>/dev/null; pkill -f "vite" 2>/dev/null
+	@-fuser -k -TERM $(PORT)/tcp $(FRONTEND_PORT)/tcp 2>/dev/null
 	@sleep 1
+	@-fuser -k -KILL $(PORT)/tcp $(FRONTEND_PORT)/tcp 2>/dev/null
 	@echo "✅ Portas liberadas ($(PORT) e $(FRONTEND_PORT)). Rode 'make dev' para subir de novo."

@@ -7,3 +7,6 @@ frontend/node_modules/
 backend/web/dist/*
 !backend/web/dist/PLACEHOLDER
 *.log
+
+# Cache do Vite
+.vite/

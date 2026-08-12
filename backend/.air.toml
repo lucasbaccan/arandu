@@ -2,8 +2,8 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  cmd = "go build -o ./tmp/server ./cmd/server"
-  entrypoint = "./tmp/server"
+  cmd = "go build -o ./tmp/arandu ./cmd/server"
+  entrypoint = "./tmp/arandu"
   include_ext = ["go", "mod", "sum"]
   exclude_dir = ["frontend", "tmp", "bin", "data", "dist", "web"]
   delay = 1000

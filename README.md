@@ -67,18 +67,19 @@ Abra **http://localhost:8080** — o Go serve a API e o frontend, e qualquer alt
 
 ```bash
 make test          # testes Go + frontend
-make build         # binário completo para o sistema atual (backend/bin/server)
-make build-windows # binário Windows (backend/bin/server.exe)
+make build         # binário completo para o sistema atual (backend/bin/arandu)
+make build-windows # binário Windows (backend/bin/arandu.exe)
 make run           # roda o binário compilado
 make stop          # encerra servidores de dev órfãos
+make seed          # popula o banco com dados fake (usuário demo@demo.com / senha demo)
 ```
 
 ### Rodando o binário
 
 ```bash
-./server --yes              # assume os padrões (0.0.0.0:8080, ./data/app.db), sem perguntar
-./server -port 9090         # configura via flags
-./server                    # sem flags/env: menu interativo pergunta host, porta e banco
+./arandu --yes              # assume os padrões (0.0.0.0:8080, ./data/app.db), sem perguntar
+./arandu -port 9090         # configura via flags
+./arandu                    # sem flags/env: menu interativo pergunta host, porta e banco
 ```
 
 ### Variáveis de ambiente
