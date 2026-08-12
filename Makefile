@@ -6,12 +6,20 @@ AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
 HOST ?= 0.0.0.0
 PORT ?= 8888
 FRONTEND_PORT ?= 5173
-# Cross-site (frontend na Vercel): cookie SameSite=None exige Secure (HTTPS).
-# Para dev local via HTTP puro, rode: make COOKIE_SECURE=false COOKIE_SAMESITE=lax dev
+# Produção (frontend na Vercel): cookie SameSite=None exige Secure (HTTPS).
+# O target `dev` sobrescreve estas três para liberar CORS e usar cookie de dev.
 COOKIE_SECURE ?= true
 COOKIE_SAMESITE ?= none
-# Origens liberadas no CORS (vírgula; sufixo "*." libera subdomínios)
+# Origens liberadas no CORS (vírgula; sufixo "*." libera subdomínios; "*" = qualquer)
 CORS_ORIGINS ?= https://*.vercel.app,https://*.vercel.run,http://localhost:5173,http://127.0.0.1:5173
+
+# Dev local via HTTP: CORS aberto p/ testar o v0 sem restrição de origem,
+# cookie sem Secure/SameSite=None (navegador rejeita None sem Secure).
+# `export` é necessário: o dev chama backend-dev via sub-make ($(MAKE)),
+# e target-specific vars não propagam para sub-makes (só o ambiente propaga).
+dev: export CORS_ORIGINS := *
+dev: export COOKIE_SECURE := false
+dev: export COOKIE_SAMESITE := lax
 
 deps: ## Instala dependências (Go + npm)
 	@echo "📦 Baixando dependências do Go..."
@@ -29,7 +37,7 @@ dev: ## Sobe backend (serve o frontend buildado) + rebuild automático do fronte
 backend-dev: ## Backend Go com auto-reload (air; serve o frontend do dist em dev)
 	@test -x "$(AIR)" || { echo "🛠️  Instalando air..."; go install github.com/air-verse/air@latest; }
 	@echo "⚙️  Backend com auto-reload em http://$(HOST):$(PORT) (frontend servido pelo Go)"
-	@set -a; [ -f ./.env ] && . ./.env; set +a; cd backend && HOST="$${HOST:-$(HOST)}" PORT="$${PORT:-$(PORT)}" FRONTEND_DIR=./web/dist COOKIE_SECURE="$${COOKIE_SECURE:-$(COOKIE_SECURE)}" COOKIE_SAMESITE="$${COOKIE_SAMESITE:-$(COOKIE_SAMESITE)}" CORS_ORIGINS="$${CORS_ORIGINS:-$(CORS_ORIGINS)}" "$(AIR)"
+	@set -a; [ -f ./.env ] && . ./.env; set +a; cd backend && HOST="$${HOST:-$(HOST)}" PORT="$${PORT:-$(PORT)}" FRONTEND_DIR=./web/dist COOKIE_SECURE="$(COOKIE_SECURE)" COOKIE_SAMESITE="$(COOKIE_SAMESITE)" CORS_ORIGINS="$(CORS_ORIGINS)" "$(AIR)"
 
 frontend-watch: ## Recompila o frontend a cada mudança (vite build --watch)
 	@echo "🏗️  Observando o frontend (vite build --watch)..."
