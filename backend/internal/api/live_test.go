@@ -7,11 +7,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"devopsconecta/backend/internal/auth"
+	"devopsconecta/backend/internal/config"
+	"devopsconecta/backend/internal/ids"
+	"devopsconecta/backend/internal/live"
+	"devopsconecta/backend/internal/store"
 )
 
 var liveEventCounter int
@@ -252,6 +257,47 @@ func TestLiveSetAnswersHiddenAppearsInPublicSnapshot(t *testing.T) {
 	}
 }
 
+// TestLiveSetNamesHiddenAppearsInPresentationSnapshot confere que o switch
+// "Ocultar nomes" é estado do servidor (pra chegar na janela de
+// apresentação) e não exige PIN nem token de visitante pra ler de volta —
+// só a sessão autenticada do dono, igual aos outros switches admin.
+func TestLiveSetNamesHiddenAppearsInPresentationSnapshot(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)
+
+	getPresentationState := func() liveSnapshotDTO {
+		rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/presentation/state", nil, []*http.Cookie{cookie})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("presentation state: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var snap liveSnapshotDTO
+		if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+			t.Fatalf("decode presentation state: %v", err)
+		}
+		return snap
+	}
+
+	if getPresentationState().NamesHidden {
+		t.Fatalf("esperava namesHidden=false por padrao")
+	}
+
+	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-names", map[string]bool{"hidden": true}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hide-names: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !getPresentationState().NamesHidden {
+		t.Fatalf("esperava namesHidden=true no snapshot de apresentação")
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-names", map[string]bool{"hidden": false}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("show-names: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if getPresentationState().NamesHidden {
+		t.Fatalf("esperava namesHidden=false no snapshot de apresentação")
+	}
+}
+
 func TestLiveSetMessageAppearsInSnapshotAndClears(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
@@ -315,8 +361,10 @@ func TestLiveBlankMessageInteractionsRequireOwnership(t *testing.T) {
 	}{
 		{"/api/events/" + eventID + "/live/blank", map[string]bool{"blanked": true}},
 		{"/api/events/" + eventID + "/live/hide-answers", map[string]bool{"hidden": true}},
+		{"/api/events/" + eventID + "/live/hide-names", map[string]bool{"hidden": true}},
 		{"/api/events/" + eventID + "/live/message", map[string]string{"message": "oi"}},
 		{"/api/events/" + eventID + "/live/interactions", map[string]bool{"enabled": false}},
+		{"/api/events/" + eventID + "/live/reset-all", nil},
 	}
 	for _, rt := range routes {
 		rec := doJSON(t, h, http.MethodPost, rt.path, rt.body, []*http.Cookie{other})
@@ -930,5 +978,427 @@ func TestLiveStreamPushesUpdates(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("esperava ana revelada apos o push do SSE, got %+v", updated.Groups)
+	}
+}
+
+// TestLivePresentationStateRequiresOwnership confere que a janela de
+// apresentação (só o organizador pode abrir, sem PIN nem token de
+// visitante) exige a mesma sessão autenticada e posse do evento que o resto
+// do painel administrativo.
+func TestLivePresentationStateRequiresOwnership(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)
+	other := registerUser2(t, h)
+
+	for _, path := range []string{
+		"/api/events/" + eventID + "/live/presentation/state",
+		"/api/events/" + eventID + "/live/presentation/stream",
+	} {
+		rec := doJSON(t, h, http.MethodGet, path, nil, nil)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s sem sessao: status esperado 401, got %d", path, rec.Code)
+		}
+		rec = doJSON(t, h, http.MethodGet, path, nil, []*http.Cookie{other})
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s dono errado: status esperado 404, got %d", path, rec.Code)
+		}
+	}
+}
+
+// TestLivePresentationStateMatchesLiveSnapshot confere que a janela de
+// apresentação enxerga a mesma pergunta/opções/participantes que a plateia
+// vê no snapshot público — só que autenticada como o organizador, sem PIN.
+func TestLivePresentationStateMatchesLiveSnapshot(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/presentation/state", nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var snap liveSnapshotDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("decode snapshot de apresentação: %v", err)
+	}
+	if snap.CurrentQuestionID != questionID {
+		t.Fatalf("esperava pergunta atual %s, got %s", questionID, snap.CurrentQuestionID)
+	}
+	if len(snap.Pending) != 2 {
+		t.Fatalf("esperava 2 pendentes, got %d", len(snap.Pending))
+	}
+
+	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{cookie})
+	if revealRec.Code != http.StatusOK {
+		t.Fatalf("revelar: status esperado 200, got %d: %s", revealRec.Code, revealRec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/presentation/state", nil, []*http.Cookie{cookie})
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("decode snapshot atualizado: %v", err)
+	}
+	found := false
+	for _, g := range snap.Groups {
+		for _, p := range g.Participants {
+			if p.ID == anaID {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("esperava ana revelada no snapshot de apresentação, got %+v", snap.Groups)
+	}
+}
+
+// TestLivePresentationStreamPushesUpdates confere que o SSE da janela de
+// apresentação empurra o snapshot atualizado quando o organizador revela
+// alguém — mesma mecânica do stream público, sem token de visitante.
+func TestLivePresentationStreamPushesUpdates(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	server := httptest.NewServer(h)
+	defer server.Close()
+	client := server.Client()
+
+	cookie, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events/"+eventID+"/live/presentation/stream", nil)
+	if err != nil {
+		t.Fatalf("montar request: %v", err)
+	}
+	req.AddCookie(cookie)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("conectar no stream de apresentação: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d", resp.StatusCode)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+
+	_, data := readSSEFrame(t, reader)
+	var initial liveSnapshotDTO
+	if err := json.Unmarshal([]byte(data), &initial); err != nil {
+		t.Fatalf("decode snapshot inicial: %v", err)
+	}
+	if len(initial.Pending) != 2 {
+		t.Fatalf("snapshot inicial deveria ter 2 pendentes, got %d", len(initial.Pending))
+	}
+
+	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{cookie})
+	if revealRec.Code != http.StatusOK {
+		t.Fatalf("revelar: status esperado 200, got %d: %s", revealRec.Code, revealRec.Body.String())
+	}
+
+	_, data = readSSEFrame(t, reader)
+	var updated liveSnapshotDTO
+	if err := json.Unmarshal([]byte(data), &updated); err != nil {
+		t.Fatalf("decode snapshot atualizado: %v", err)
+	}
+	found := false
+	for _, g := range updated.Groups {
+		for _, p := range g.Participants {
+			if p.ID == anaID {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("esperava ana revelada apos o push do SSE, got %+v", updated.Groups)
+	}
+}
+
+// TestLivePresentationStreamPushesReactions confere que a janela de
+// apresentação também recebe as reações de emoji da plateia via SSE —
+// mesma fila não-coalescente que o stream público e o administrativo usam.
+func TestLivePresentationStreamPushesReactions(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	server := httptest.NewServer(h)
+	defer server.Close()
+	client := server.Client()
+
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	viewerToken, _, code := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+	if code != http.StatusOK {
+		t.Fatalf("join: status %d", code)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events/"+eventID+"/live/presentation/stream", nil)
+	if err != nil {
+		t.Fatalf("montar request: %v", err)
+	}
+	req.AddCookie(cookie)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("conectar no stream de apresentação: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d", resp.StatusCode)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	name, data := readSSEFrame(t, reader)
+	if name != "" {
+		t.Fatalf("esperava frame default (snapshot) primeiro, got event=%q", name)
+	}
+
+	reactRec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+viewerToken, map[string]string{"emoji": "🎉"}, nil)
+	if reactRec.Code != http.StatusOK {
+		t.Fatalf("reagir: status esperado 200, got %d: %s", reactRec.Code, reactRec.Body.String())
+	}
+
+	name, data = readSSEFrame(t, reader)
+	if name != "reaction" {
+		t.Fatalf("esperava evento nomeado 'reaction', got %q (data=%s)", name, data)
+	}
+	var reaction struct {
+		Emoji string `json:"emoji"`
+	}
+	if err := json.Unmarshal([]byte(data), &reaction); err != nil {
+		t.Fatalf("decode reação: %v", err)
+	}
+	if reaction.Emoji != "🎉" {
+		t.Errorf("emoji esperado 🎉, got %q", reaction.Emoji)
+	}
+}
+
+// TestLiveSnapshotShowsOpenTextGroupsBeforeReveal é regressão de um bug
+// real: perguntas de resposta aberta só criavam um balde (bubble) no
+// snapshot depois que alguém era revelado — diferente de múltipla escolha,
+// cujas opções já existem de antemão e sempre aparecem (mesmo com 0
+// pessoas). Isso fazia a tela pública/de apresentação parecer vazia pra
+// perguntas abertas mesmo com "esconder respostas" desligado.
+func TestLiveSnapshotShowsOpenTextGroupsBeforeReveal(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	pin := "OPENTXT1"
+
+	rec := createEvent(t, h, cookie, map[string]string{"title": "Evento Aberto", "pinCode": pin})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("criar evento: status %d: %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		Event eventDTO `json:"event"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode evento: %v", err)
+	}
+	eventID := created.Event.ID
+
+	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+		"title": "Uma palavra sobre o time?", "type": "OPEN_TEXT", "options": []string{},
+	}, []*http.Cookie{cookie})
+	var q struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &q); err != nil {
+		t.Fatalf("decode pergunta: %v", err)
+	}
+	questionID := q.Question.ID
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+		"title": "Evento Aberto", "status": "OPEN_FOR_ANSWERS",
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("abrir respostas: status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com", "name": "Ana",
+		"answers": []map[string]string{{"questionId": questionID, "text": "Incrível"}},
+	}, nil)
+
+	token, _, code := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+	if code != http.StatusOK {
+		t.Fatalf("join: status %d", code)
+	}
+
+	// Ninguém foi revelado ainda — mas o balde "Incrível" já deveria
+	// aparecer (vazio), igual uma opção de múltipla escolha apareceria.
+	snap := getLiveState(t, h, eventID, token)
+	if len(snap.Groups) != 1 {
+		t.Fatalf("esperava 1 balde de resposta aberta antes de qualquer revelação, got %+v", snap.Groups)
+	}
+	if snap.Groups[0].Label != "Incrível" {
+		t.Fatalf("esperava balde \"Incrível\", got %q", snap.Groups[0].Label)
+	}
+	if len(snap.Groups[0].Participants) != 0 {
+		t.Fatalf("esperava balde vazio (ninguém revelado ainda), got %+v", snap.Groups[0].Participants)
+	}
+
+	respRec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	if err := json.Unmarshal(respRec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode responses: %v", err)
+	}
+	if len(resp.Participants) != 1 {
+		t.Fatalf("esperava 1 participante, got %+v", resp.Participants)
+	}
+	anaID := resp.Participants[0].ID
+
+	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{cookie})
+	if revealRec.Code != http.StatusOK {
+		t.Fatalf("revelar: status esperado 200, got %d: %s", revealRec.Code, revealRec.Body.String())
+	}
+
+	snap = getLiveState(t, h, eventID, token)
+	if len(snap.Groups) != 1 {
+		t.Fatalf("esperava continuar com 1 balde, got %+v", snap.Groups)
+	}
+	if len(snap.Groups[0].Participants) != 1 || snap.Groups[0].Participants[0].ID != anaID {
+		t.Fatalf("esperava ana dentro do balde apos revelar, got %+v", snap.Groups[0].Participants)
+	}
+}
+
+func getAdminState(t *testing.T, h http.Handler, eventID string, cookie *http.Cookie) liveAdminSnapshotDTO {
+	t.Helper()
+	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/state", nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin state: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var snap liveAdminSnapshotDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("decode admin state: %v", err)
+	}
+	return snap
+}
+
+// TestLiveAdminStateExposesCurrentQuestionAndRevealedForResume é regressão
+// da feature "retomar de onde parou": o painel do organizador (/stage)
+// gerencia pergunta atual e revelação localmente de forma otimista, mas
+// precisa buscar o estado do servidor ao carregar (F5, ou reabrir a aba) pra
+// não voltar sempre pra pergunta 1 com tudo pendente.
+func TestLiveAdminStateExposesCurrentQuestionAndRevealedForResume(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h)
+
+	initial := getAdminState(t, h, eventID, cookie)
+	if initial.CurrentQuestionID != "" {
+		t.Fatalf("esperava currentQuestionId vazio antes de qualquer /live/question, got %q", initial.CurrentQuestionID)
+	}
+	if len(initial.Revealed) != 0 {
+		t.Fatalf("esperava revealed vazio antes de qualquer revelação, got %+v", initial.Revealed)
+	}
+
+	setQRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/question", map[string]string{"questionId": questionID}, []*http.Cookie{cookie})
+	if setQRec.Code != http.StatusOK {
+		t.Fatalf("definir pergunta atual: status %d: %s", setQRec.Code, setQRec.Body.String())
+	}
+	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{cookie})
+	if revealRec.Code != http.StatusOK {
+		t.Fatalf("revelar: status %d: %s", revealRec.Code, revealRec.Body.String())
+	}
+
+	resumed := getAdminState(t, h, eventID, cookie)
+	if resumed.CurrentQuestionID != questionID {
+		t.Fatalf("esperava currentQuestionId %s, got %s", questionID, resumed.CurrentQuestionID)
+	}
+	revealedForQuestion := resumed.Revealed[questionID]
+	if len(revealedForQuestion) != 1 || revealedForQuestion[0] != anaID {
+		t.Fatalf("esperava só ana revelada em %s, got %+v", questionID, resumed.Revealed)
+	}
+
+	// reset-all limpa a revelação de todas as perguntas, mas não mexe na
+	// pergunta atual.
+	resetRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reset-all", nil, []*http.Cookie{cookie})
+	if resetRec.Code != http.StatusOK {
+		t.Fatalf("reset-all: status %d: %s", resetRec.Code, resetRec.Body.String())
+	}
+	afterReset := getAdminState(t, h, eventID, cookie)
+	if afterReset.CurrentQuestionID != questionID {
+		t.Fatalf("reset-all não deveria mudar a pergunta atual, got %q", afterReset.CurrentQuestionID)
+	}
+	if len(afterReset.Revealed[questionID]) != 0 {
+		t.Fatalf("esperava revelação zerada apos reset-all, got %+v", afterReset.Revealed)
+	}
+}
+
+// TestLiveStateSurvivesServerRestart é regressão de um bug real: o estado ao
+// vivo (live.Manager) só vivia em memória, então reiniciar o processo — um
+// deploy, um crash, "air" recompilando em dev — apagava revelação, pergunta
+// atual, tela em branco, aviso e os switches, mesmo já tendo sido salvos
+// durante a apresentação. Simula o restart abrindo um live.Manager novo (do
+// zero, sem nenhum estado em memória) sobre o MESMO arquivo SQLite.
+func TestLiveStateSurvivesServerRestart(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "restart.db")
+	cfg := config.Config{
+		Port: "8080", JWTSecret: "test-secret", SessionHours: 24,
+		MinPasswordLength: 3, SnowflakeNode: 1,
+	}
+
+	db1, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("abrir store: %v", err)
+	}
+	if err := store.Migrate(db1); err != nil {
+		t.Fatalf("migrar store: %v", err)
+	}
+	h1 := New(cfg, store.New(db1), ids.NewGenerator(1), live.NewManager()).Handler()
+
+	cookie, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h1)
+
+	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/question", map[string]string{"questionId": questionID}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+		t.Fatalf("definir pergunta atual: status %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{"questionId": questionID, "participantId": anaID}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+		t.Fatalf("revelar: status %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/blank", map[string]bool{"blanked": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+		t.Fatalf("blank: status %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{"message": "Voltamos já"}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+		t.Fatalf("message: status %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/hide-answers", map[string]bool{"hidden": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+		t.Fatalf("hide-answers: status %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/hide-names", map[string]bool{"hidden": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+		t.Fatalf("hide-names: status %d: %s", rec.Code, rec.Body.String())
+	}
+	db1.Close()
+
+	// "Reinicia o servidor": store + live.Manager novos, do zero, sobre o
+	// mesmo arquivo de banco.
+	db2, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("reabrir store: %v", err)
+	}
+	defer db2.Close()
+	h2 := New(cfg, store.New(db2), ids.NewGenerator(1), live.NewManager()).Handler()
+
+	snap := getAdminState(t, h2, eventID, cookie)
+	if snap.CurrentQuestionID != questionID {
+		t.Errorf("esperava currentQuestionId %s sobreviver ao restart, got %q", questionID, snap.CurrentQuestionID)
+	}
+	revealedForQuestion := snap.Revealed[questionID]
+	if len(revealedForQuestion) != 1 || revealedForQuestion[0] != anaID {
+		t.Errorf("esperava só ana revelada sobreviver ao restart, got %+v", snap.Revealed)
+	}
+	if !snap.Blanked {
+		t.Error("esperava blanked=true sobreviver ao restart")
+	}
+	if snap.Message != "Voltamos já" {
+		t.Errorf("esperava message sobreviver ao restart, got %q", snap.Message)
+	}
+	if !snap.AnswersHidden {
+		t.Error("esperava answersHidden=true sobreviver ao restart")
+	}
+	if !snap.NamesHidden {
+		t.Error("esperava namesHidden=true sobreviver ao restart")
 	}
 }

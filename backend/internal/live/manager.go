@@ -25,6 +25,10 @@ type EventState struct {
 	// quem já foi revelado nelas) da tela pública — a pergunta e a fila de
 	// pendentes continuam visíveis. Diferente de Blanked, que some com tudo.
 	AnswersHidden bool
+	// NamesHidden, quando true, esconde a legenda de nome sob cada rosto na
+	// janela de apresentação e na tela da plateia — o painel do próprio
+	// organizador (/stage) sempre mostra os nomes, independente disso.
+	NamesHidden bool
 }
 
 func newEventState() *EventState {
@@ -46,6 +50,7 @@ func (s *EventState) clone() EventState {
 		Blanked:           s.Blanked,
 		Message:           s.Message,
 		AnswersHidden:     s.AnswersHidden,
+		NamesHidden:       s.NamesHidden,
 	}
 }
 
@@ -88,10 +93,26 @@ func (e *eventEntry) notify() {
 type Manager struct {
 	mu     sync.Mutex
 	events map[int64]*eventEntry
+	// loader, se definido, busca o estado persistido (banco) na primeira vez
+	// que um evento é acessado neste processo — é o que permite retomar
+	// revelação/pergunta atual depois de um restart do servidor, em vez de
+	// sempre começar com newEventState() em branco. Ver SetLoader.
+	loader func(eventID int64) EventState
 }
 
 func NewManager() *Manager {
 	return &Manager{events: make(map[int64]*eventEntry)}
+}
+
+// SetLoader liga a persistência: chamada uma vez, normalmente logo após
+// NewManager, com uma função que busca o estado salvo no banco. Fica fora do
+// construtor de propósito — mantém este pacote sem depender de internal/store
+// (quem liga os dois é a camada de API) e os testes deste pacote continuam
+// funcionando sem loader (estado em branco, como sempre foi).
+func (m *Manager) SetLoader(loader func(eventID int64) EventState) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.loader = loader
 }
 
 func (m *Manager) entry(eventID int64) *eventEntry {
@@ -99,8 +120,16 @@ func (m *Manager) entry(eventID int64) *eventEntry {
 	defer m.mu.Unlock()
 	e, ok := m.events[eventID]
 	if !ok {
+		state := newEventState()
+		if m.loader != nil {
+			loaded := m.loader(eventID)
+			if loaded.Revealed == nil {
+				loaded.Revealed = make(map[int64]map[int64]bool)
+			}
+			state = &loaded
+		}
 		e = &eventEntry{
-			state:        newEventState(),
+			state:        state,
 			subs:         make(map[chan struct{}]struct{}),
 			reactionSubs: make(map[chan ReactionEvent]struct{}),
 		}
@@ -172,6 +201,17 @@ func (m *Manager) Reset(eventID, questionID int64) {
 	e.notify()
 }
 
+// ResetAll limpa a revelação de todas as perguntas do evento de uma vez —
+// usado pelo botão "Reiniciar tudo" em /stage, pra recomeçar a apresentação
+// do zero sem precisar zerar pergunta por pergunta.
+func (m *Manager) ResetAll(eventID int64) {
+	e := m.entry(eventID)
+	e.mu.Lock()
+	e.state.Revealed = make(map[int64]map[int64]bool)
+	e.mu.Unlock()
+	e.notify()
+}
+
 func (m *Manager) SetBlanked(eventID int64, blanked bool) {
 	e := m.entry(eventID)
 	e.mu.Lock()
@@ -184,6 +224,14 @@ func (m *Manager) SetAnswersHidden(eventID int64, hidden bool) {
 	e := m.entry(eventID)
 	e.mu.Lock()
 	e.state.AnswersHidden = hidden
+	e.mu.Unlock()
+	e.notify()
+}
+
+func (m *Manager) SetNamesHidden(eventID int64, hidden bool) {
+	e := m.entry(eventID)
+	e.mu.Lock()
+	e.state.NamesHidden = hidden
 	e.mu.Unlock()
 	e.notify()
 }

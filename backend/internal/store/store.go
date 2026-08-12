@@ -115,6 +115,24 @@ func Migrate(db *sql.DB) error {
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_live_qa_messages_event ON live_qa_messages(event_id);
+
+		CREATE TABLE IF NOT EXISTS event_live_state (
+			event_id            INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
+			current_question_id INTEGER NOT NULL DEFAULT 0,
+			blanked             BOOLEAN NOT NULL DEFAULT 0,
+			message             TEXT    NOT NULL DEFAULT '',
+			answers_hidden      BOOLEAN NOT NULL DEFAULT 0,
+			names_hidden        BOOLEAN NOT NULL DEFAULT 0
+		);
+
+		CREATE TABLE IF NOT EXISTS revealed_answers (
+			event_id       INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+			question_id    INTEGER NOT NULL,
+			participant_id INTEGER NOT NULL,
+			PRIMARY KEY (event_id, question_id, participant_id)
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_revealed_answers_event ON revealed_answers(event_id);
 	`)
 	if err != nil {
 		return fmt.Errorf("store: migração: %w", err)

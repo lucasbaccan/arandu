@@ -71,6 +71,19 @@ func TestResetClearsOnlyThatQuestion(t *testing.T) {
 	}
 }
 
+func TestResetAllClearsEveryQuestion(t *testing.T) {
+	m := NewManager()
+	m.Reveal(1, 10, 100)
+	m.Reveal(1, 20, 200)
+
+	m.ResetAll(1)
+
+	state := m.Get(1)
+	if len(state.Revealed[10]) != 0 || len(state.Revealed[20]) != 0 {
+		t.Fatalf("esperava todas as perguntas limpas, got %+v", state.Revealed)
+	}
+}
+
 func TestSetCurrentQuestion(t *testing.T) {
 	m := NewManager()
 	m.SetCurrentQuestion(1, 10)
@@ -115,6 +128,18 @@ func TestSetAnswersHiddenTogglesFlag(t *testing.T) {
 	m.SetAnswersHidden(1, false)
 	if m.Get(1).AnswersHidden {
 		t.Fatal("esperava AnswersHidden false")
+	}
+}
+
+func TestSetNamesHiddenTogglesFlag(t *testing.T) {
+	m := NewManager()
+	m.SetNamesHidden(1, true)
+	if !m.Get(1).NamesHidden {
+		t.Fatal("esperava NamesHidden true")
+	}
+	m.SetNamesHidden(1, false)
+	if m.Get(1).NamesHidden {
+		t.Fatal("esperava NamesHidden false")
 	}
 }
 

@@ -56,6 +56,30 @@ type API struct {
 }
 
 func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *live.Manager) *API {
+	// Liga a persistência do estado ao vivo (pergunta atual, revelação,
+	// blank/aviso/ocultar) — sem isso, um restart do servidor (deploy, crash,
+	// `air` recompilando em dev) apagava tudo, mesmo já tendo sido salvo
+	// durante a apresentação. Ver live.Manager.SetLoader.
+	liveManager.SetLoader(func(eventID int64) live.EventState {
+		ctx := context.Background()
+		revealed, err := st.ListRevealedByEvent(ctx, eventID)
+		if err != nil {
+			log.Printf("api: carregar revelações salvas do evento %d: %v", eventID, err)
+			revealed = make(map[int64]map[int64]bool)
+		}
+		liveState, err := st.GetEventLiveState(ctx, eventID)
+		if err != nil {
+			log.Printf("api: carregar estado ao vivo salvo do evento %d: %v", eventID, err)
+		}
+		return live.EventState{
+			CurrentQuestionID: liveState.CurrentQuestionID,
+			Revealed:          revealed,
+			Blanked:           liveState.Blanked,
+			Message:           liveState.Message,
+			AnswersHidden:     liveState.AnswersHidden,
+			NamesHidden:       liveState.NamesHidden,
+		}
+	})
 	return &API{cfg: cfg, store: st, ids: gen, live: liveManager}
 }
 
@@ -84,13 +108,17 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/events/{id}/live/unreveal", a.requireAuth(a.handleLiveUnreveal))
 	mux.HandleFunc("POST /api/events/{id}/live/reveal-all", a.requireAuth(a.handleLiveRevealAll))
 	mux.HandleFunc("POST /api/events/{id}/live/reset", a.requireAuth(a.handleLiveReset))
+	mux.HandleFunc("POST /api/events/{id}/live/reset-all", a.requireAuth(a.handleLiveResetAll))
 	mux.HandleFunc("POST /api/events/{id}/live/blank", a.requireAuth(a.handleLiveSetBlanked))
 	mux.HandleFunc("POST /api/events/{id}/live/hide-answers", a.requireAuth(a.handleLiveSetAnswersHidden))
+	mux.HandleFunc("POST /api/events/{id}/live/hide-names", a.requireAuth(a.handleLiveSetNamesHidden))
 	mux.HandleFunc("POST /api/events/{id}/live/message", a.requireAuth(a.handleLiveSetMessage))
 	mux.HandleFunc("POST /api/events/{id}/live/interactions", a.requireAuth(a.handleLiveSetInteractions))
 	mux.HandleFunc("POST /api/events/{id}/live/qa/{messageId}/dismiss", a.requireAuth(a.handleLiveDismissQA))
 	mux.HandleFunc("GET /api/events/{id}/live/state", a.requireAuth(a.handleLiveAdminState))
 	mux.HandleFunc("GET /api/events/{id}/live/stream", a.requireAuth(a.handleLiveAdminStream))
+	mux.HandleFunc("GET /api/events/{id}/live/presentation/state", a.requireAuth(a.handleLivePresentationState))
+	mux.HandleFunc("GET /api/events/{id}/live/presentation/stream", a.requireAuth(a.handleLivePresentationStream))
 	mux.HandleFunc("GET /api/public/events/by-pin", a.handlePublicResolvePIN)
 	mux.HandleFunc("GET /api/public/events/{id}", a.handlePublicGetEvent)
 	mux.HandleFunc("GET /api/public/events/{id}/participant", a.handlePublicGetParticipant)

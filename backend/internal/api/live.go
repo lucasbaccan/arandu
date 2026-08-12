@@ -51,6 +51,11 @@ func (a *API) handleLiveSetQuestion(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ID de pergunta inválido.")
 		return
 	}
+	if err := a.store.SetEventCurrentQuestion(r.Context(), eventID, questionID); err != nil {
+		log.Printf("api: salvar pergunta atual: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
 	a.live.SetCurrentQuestion(eventID, questionID)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -76,6 +81,11 @@ func (a *API) handleLiveReveal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Dados inválidos.")
 		return
 	}
+	if err := a.store.RevealAnswer(r.Context(), eventID, questionID, participantID); err != nil {
+		log.Printf("api: salvar revelação: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
 	a.live.Reveal(eventID, questionID, participantID)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -94,6 +104,11 @@ func (a *API) handleLiveUnreveal(w http.ResponseWriter, r *http.Request) {
 	participantID, err2 := strconv.ParseInt(req.ParticipantID, 10, 64)
 	if err1 != nil || err2 != nil || questionID <= 0 || participantID <= 0 {
 		writeError(w, http.StatusBadRequest, "Dados inválidos.")
+		return
+	}
+	if err := a.store.UnrevealAnswer(r.Context(), eventID, questionID, participantID); err != nil {
+		log.Printf("api: salvar desrevelação: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
 	}
 	a.live.Unreveal(eventID, questionID, participantID)
@@ -129,6 +144,11 @@ func (a *API) handleLiveRevealAll(w http.ResponseWriter, r *http.Request) {
 	for i, p := range participants {
 		ids[i] = p.ID
 	}
+	if err := a.store.RevealAllAnswers(r.Context(), eventID, questionID, ids); err != nil {
+		log.Printf("api: salvar revelar todos: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
 	a.live.RevealAll(eventID, questionID, ids)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -152,7 +172,28 @@ func (a *API) handleLiveReset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ID de pergunta inválido.")
 		return
 	}
+	if err := a.store.ResetRevealedForQuestion(r.Context(), eventID, questionID); err != nil {
+		log.Printf("api: salvar reinício da revelação: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
 	a.live.Reset(eventID, questionID)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleLiveResetAll limpa a revelação de todas as perguntas do evento de
+// uma vez — botão "Reiniciar tudo" em /stage.
+func (a *API) handleLiveResetAll(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	if err := a.store.ResetRevealedForEvent(r.Context(), eventID); err != nil {
+		log.Printf("api: salvar reinício de toda a revelação: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	a.live.ResetAll(eventID)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -168,6 +209,11 @@ func (a *API) handleLiveSetBlanked(w http.ResponseWriter, r *http.Request) {
 	var req liveSetBlankedRequest
 	if err := readJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := a.store.SetEventBlanked(r.Context(), eventID, req.Blanked); err != nil {
+		log.Printf("api: salvar tela em branco: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
 	}
 	a.live.SetBlanked(eventID, req.Blanked)
@@ -188,7 +234,39 @@ func (a *API) handleLiveSetAnswersHidden(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := a.store.SetEventAnswersHidden(r.Context(), eventID, req.Hidden); err != nil {
+		log.Printf("api: salvar ocultar respostas: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
 	a.live.SetAnswersHidden(eventID, req.Hidden)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+type liveSetNamesHiddenRequest struct {
+	Hidden bool `json:"hidden"`
+}
+
+// handleLiveSetNamesHidden liga/desliga a legenda de nome sob cada rosto na
+// janela de apresentação (/stage/{id}/present) e na tela da plateia
+// (/audience/{id}) — o painel do organizador (/stage) sempre mostra os
+// nomes, esse switch não afeta ele.
+func (a *API) handleLiveSetNamesHidden(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	var req liveSetNamesHiddenRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := a.store.SetEventNamesHidden(r.Context(), eventID, req.Hidden); err != nil {
+		log.Printf("api: salvar ocultar nomes: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	a.live.SetNamesHidden(eventID, req.Hidden)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -209,6 +287,11 @@ func (a *API) handleLiveSetMessage(w http.ResponseWriter, r *http.Request) {
 	msg := strings.TrimSpace(req.Message)
 	if len(msg) > maxLiveMessageLength {
 		writeError(w, http.StatusBadRequest, "Mensagem muito longa (máximo "+strconv.Itoa(maxLiveMessageLength)+" caracteres).")
+		return
+	}
+	if err := a.store.SetEventMessage(r.Context(), eventID, msg); err != nil {
+		log.Printf("api: salvar aviso: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
 	}
 	a.live.SetMessage(eventID, msg)
@@ -316,6 +399,87 @@ func (a *API) handleLiveAdminStream(w http.ResponseWriter, r *http.Request) {
 		data, err := json.Marshal(snapshot)
 		if err != nil {
 			log.Printf("api: serializar snapshot administrativo: %v", err)
+			return false
+		}
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+
+	if !writeSnapshot() {
+		return
+	}
+
+	sub, unsubscribe := a.live.Subscribe(eventID)
+	defer unsubscribe()
+	reactionSub, unsubscribeReactions := a.live.SubscribeReactions(eventID)
+	defer unsubscribeReactions()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-sub:
+			if !writeSnapshot() {
+				return
+			}
+		case ev := <-reactionSub:
+			if !writeReactionSSE(w, flusher, ev) {
+				return
+			}
+		}
+	}
+}
+
+// handleLivePresentationState é o par autenticado de handleLiveState: mesmo
+// snapshot somente-leitura (pergunta atual, pendentes, grupos revelados) que
+// a plateia vê, mas restrito ao dono do evento — sem PIN nem token de
+// visitante. Alimenta a janela "Modo apresentação", que só o organizador
+// pode abrir.
+func (a *API) handleLivePresentationState(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	snapshot, err := a.buildLiveSnapshot(r.Context(), eventID)
+	if err != nil {
+		log.Printf("api: montar snapshot de apresentação: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}
+
+// handleLivePresentationStream espelha handleLiveStream (mesmo snapshot,
+// atualizado a cada mudança), mas autenticado pro dono do evento — a janela
+// de apresentação não tem token de visitante nem PIN.
+func (a *API) handleLivePresentationStream(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	flusher, isFlusher := w.(http.Flusher)
+	if !isFlusher {
+		writeError(w, http.StatusInternalServerError, "Streaming não suportado.")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	writeSnapshot := func() bool {
+		snapshot, err := a.buildLiveSnapshot(r.Context(), eventID)
+		if err != nil {
+			log.Printf("api: montar snapshot de apresentação: %v", err)
+			return false
+		}
+		data, err := json.Marshal(snapshot)
+		if err != nil {
+			log.Printf("api: serializar snapshot de apresentação: %v", err)
 			return false
 		}
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
@@ -662,6 +826,7 @@ type liveSnapshotDTO struct {
 	Message             string               `json:"message"`
 	InteractionsEnabled bool                 `json:"interactionsEnabled"`
 	AnswersHidden       bool                 `json:"answersHidden"`
+	NamesHidden         bool                 `json:"namesHidden"`
 }
 
 type liveQAMessageDTO struct {
@@ -673,18 +838,23 @@ type liveQAMessageDTO struct {
 }
 
 type liveAdminSnapshotDTO struct {
-	Blanked             bool               `json:"blanked"`
-	Message             string             `json:"message"`
-	InteractionsEnabled bool               `json:"interactionsEnabled"`
-	AnswersHidden       bool               `json:"answersHidden"`
-	QAInbox             []liveQAMessageDTO `json:"qaInbox"`
+	Blanked             bool                `json:"blanked"`
+	Message             string              `json:"message"`
+	InteractionsEnabled bool                `json:"interactionsEnabled"`
+	AnswersHidden       bool                `json:"answersHidden"`
+	NamesHidden         bool                `json:"namesHidden"`
+	CurrentQuestionID   string              `json:"currentQuestionId"`
+	// Revealed mapeia questionID (string) -> participantIDs (string) já
+	// revelados nessa pergunta — deixa o painel do organizador retomar de
+	// onde parou depois de um F5 ou ao reabrir /stage, em vez de sempre
+	// recomeçar do zero.
+	Revealed map[string][]string `json:"revealed"`
+	QAInbox  []liveQAMessageDTO  `json:"qaInbox"`
 }
 
-// buildAdminLiveSnapshot é deliberadamente enxuto: o painel do organizador já
-// mantém pergunta atual/revelação localmente (api.events.live.*, otimista) —
-// não duplica isso aqui. Só cobre o que só existe do lado do servidor:
-// blank/aviso/interações (pra restaurar depois de um F5) e a caixa de Q&A
-// privada.
+// buildAdminLiveSnapshot cobre o que só existe do lado do servidor:
+// blank/aviso/interações/revelação (pra restaurar depois de um F5 ou ao
+// reabrir /stage) e a caixa de Q&A privada.
 func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAdminSnapshotDTO, error) {
 	event, err := a.store.FindEventByID(ctx, eventID)
 	if err != nil {
@@ -715,11 +885,28 @@ func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAd
 		})
 	}
 
+	revealed := make(map[string][]string, len(state.Revealed))
+	for questionID, set := range state.Revealed {
+		ids := make([]string, 0, len(set))
+		for participantID := range set {
+			ids = append(ids, strconv.FormatInt(participantID, 10))
+		}
+		revealed[strconv.FormatInt(questionID, 10)] = ids
+	}
+
+	currentQuestionID := ""
+	if state.CurrentQuestionID != 0 {
+		currentQuestionID = strconv.FormatInt(state.CurrentQuestionID, 10)
+	}
+
 	return liveAdminSnapshotDTO{
 		Blanked:             state.Blanked,
 		Message:             state.Message,
 		InteractionsEnabled: event.InteractionsEnabled,
 		AnswersHidden:       state.AnswersHidden,
+		NamesHidden:         state.NamesHidden,
+		CurrentQuestionID:   currentQuestionID,
+		Revealed:            revealed,
 		QAInbox:             qaDTOs,
 	}, nil
 }
@@ -780,6 +967,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 		Message:             state.Message,
 		InteractionsEnabled: event.InteractionsEnabled,
 		AnswersHidden:       state.AnswersHidden,
+		NamesHidden:         state.NamesHidden,
 	}
 	if current == nil {
 		return snapshot, nil
@@ -789,9 +977,23 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 	revealed := state.Revealed[current.ID]
 	pending := make([]liveParticipantDTO, 0, len(participants))
 	revealedAnswers := make([]revealedLiveAnswer, 0, len(participants))
+	// allOpenTexts só é preenchido pra perguntas de resposta aberta: ao
+	// contrário de múltipla escolha (cujas opções já existem de antemão e
+	// sempre aparecem, mesmo com 0 pessoas), os "baldes" de resposta aberta
+	// só existem pelo que foi digitado — então pra eles aparecerem na tela
+	// antes de qualquer revelação (igual às opções fixas), é preciso saber
+	// o texto de todo mundo que respondeu, revelado ou não. A identidade de
+	// quem ainda não foi revelado nunca é anexada a esse texto no payload —
+	// só usamos aqui pra descobrir quais baldes existem.
+	var allOpenTexts []string
 	for _, p := range participants {
 		if !revealed[p.ID] {
 			pending = append(pending, toLiveParticipantDTO(p))
+			if current.Type == questionTypeOpenText {
+				if text, ok := freeTextAnswerFor(ctx, a.store, p.ID, current.ID); ok {
+					allOpenTexts = append(allOpenTexts, text)
+				}
+			}
 			continue
 		}
 		answers, err := a.store.ListAnswersByParticipant(ctx, p.ID)
@@ -812,17 +1014,45 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 			continue
 		}
 		revealedAnswers = append(revealedAnswers, revealedLiveAnswer{participant: p, optionID: found.OptionID, text: found.FreeText})
+		if current.Type == questionTypeOpenText {
+			allOpenTexts = append(allOpenTexts, found.FreeText)
+		}
 	}
 
 	snapshot.Pending = pending
-	snapshot.Groups = buildLiveGroups(current, revealedAnswers)
+	snapshot.Groups = buildLiveGroups(current, revealedAnswers, allOpenTexts)
 	return snapshot, nil
 }
 
-func buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer) []liveGroupDTO {
+// freeTextAnswerFor busca a resposta de texto livre de um participante pra
+// uma pergunta específica, sem expor o restante das respostas dele.
+func freeTextAnswerFor(ctx context.Context, st *store.Store, participantID, questionID int64) (string, bool) {
+	answers, err := st.ListAnswersByParticipant(ctx, participantID)
+	if err != nil {
+		return "", false
+	}
+	for i := range answers {
+		if answers[i].QuestionID == questionID {
+			return answers[i].FreeText, true
+		}
+	}
+	return "", false
+}
+
+func buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer, allOpenTexts []string) []liveGroupDTO {
 	if q.Type == questionTypeOpenText {
-		order := make([]string, 0, len(revealed))
-		byLabel := make(map[string]*liveGroupDTO, len(revealed))
+		order := make([]string, 0, len(allOpenTexts))
+		byLabel := make(map[string]*liveGroupDTO, len(allOpenTexts))
+		for _, text := range allOpenTexts {
+			label := normalizeOpenText(text)
+			if label == "" {
+				label = "—"
+			}
+			if _, ok := byLabel[label]; !ok {
+				byLabel[label] = &liveGroupDTO{Label: label, Participants: []liveParticipantDTO{}}
+				order = append(order, label)
+			}
+		}
 		for _, r := range revealed {
 			label := normalizeOpenText(r.text)
 			if label == "" {
@@ -830,6 +1060,8 @@ func buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer
 			}
 			g, ok := byLabel[label]
 			if !ok {
+				// não deveria acontecer (allOpenTexts inclui os revelados
+				// também), mas cria o balde se faltar por algum motivo.
 				g = &liveGroupDTO{Label: label, Participants: []liveParticipantDTO{}}
 				byLabel[label] = g
 				order = append(order, label)
