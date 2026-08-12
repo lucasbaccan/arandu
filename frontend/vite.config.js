@@ -16,7 +16,9 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: '../backend/web/dist',
+    // Na Vercel (env VERCEL=1) o dist fica dentro do frontend; localmente vai
+    // para ../backend/web/dist para o binário Go embutir via //go:embed.
+    outDir: process.env.VERCEL ? 'dist' : '../backend/web/dist',
     emptyOutDir: true
   },
   test: {

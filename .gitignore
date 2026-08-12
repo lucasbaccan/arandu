@@ -10,3 +10,6 @@ backend/web/dist/*
 
 # Cache do Vite
 .vite/
+
+# Dist do build Vercel (frontend separado)
+frontend/dist/
