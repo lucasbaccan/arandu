@@ -156,8 +156,9 @@ func (a *API) cors(next http.Handler) http.Handler {
 		if o = strings.TrimSpace(o); o == "" {
 			continue
 		}
-		if strings.HasPrefix(o, "*.") {
-			suffixes = append(suffixes, strings.TrimPrefix(o, "*"))
+		if strings.Contains(o, "*.") {
+			// "*." pode vir com esquema (https://*.vercel.app) — o sufixo é tudo após o "*"
+			suffixes = append(suffixes, o[strings.Index(o, "*")+1:])
 		} else {
 			allowed[o] = true
 		}
