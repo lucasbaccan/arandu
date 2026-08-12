@@ -77,16 +77,22 @@ describe('Editar evento', () => {
     const view = mount();
 
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
-    expect(view.getByText('#123456')).toBeInTheDocument();
+    expect(view.getByText('123456')).toBeInTheDocument();
     expect(view.getByText('Em preparação')).toBeInTheDocument();
-    expect(view.getByLabelText('Exibir ranking de pontos').checked).toBe(true);
+    expect(view.getByRole('switch', { name: 'Exibir ranking de pontos' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
   });
 
   it('mostra a quantidade de pessoas que responderam', async () => {
     api.events.get.mockResolvedValue({ event });
     const view = mount([], 3);
 
-    expect(await view.findByText('3 pessoas responderam')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(view.getByText('3')).toBeInTheDocument();
+      expect(view.getByText('pessoas responderam')).toBeInTheDocument();
+    });
   });
 
   it('exige título ao salvar', async () => {
@@ -138,7 +144,7 @@ describe('Editar evento', () => {
         configShowRanking: true
       })
     );
-    expect(view.getByText('#DEV-TEAM')).toBeInTheDocument();
+    expect(view.getByText('DEV-TEAM')).toBeInTheDocument();
   });
 
   it('rejeita PIN inválido', async () => {
@@ -229,19 +235,19 @@ describe('Editar evento', () => {
     });
 
     // painel de configurações (barra lateral) deve ficar sempre visível
-    expect(view.getByText('Configurações do evento')).toBeInTheDocument();
+    expect(view.getByLabelText('Título')).toBeInTheDocument();
     expect(view.getByText('Nenhuma pergunta ainda.')).toBeInTheDocument();
     expect(view.queryByText('ana@exemplo.com')).not.toBeInTheDocument();
 
     await fireEvent.click(view.getByRole('tab', { name: 'Respostas' }));
 
-    expect(await view.findByText('ana@exemplo.com')).toBeInTheDocument();
-    expect(view.getByText('Configurações do evento')).toBeInTheDocument();
+    expect((await view.findAllByText('ana@exemplo.com')).length).toBeGreaterThan(0);
+    expect(view.getByLabelText('Título')).toBeInTheDocument();
     expect(view.queryByText('Nenhuma pergunta ainda.')).not.toBeInTheDocument();
 
     await fireEvent.click(view.getByRole('tab', { name: 'Perguntas' }));
 
-    expect(view.getByText('Configurações do evento')).toBeInTheDocument();
+    expect(view.getByLabelText('Título')).toBeInTheDocument();
     expect(view.getByText('Nenhuma pergunta ainda.')).toBeInTheDocument();
     expect(view.queryByText('ana@exemplo.com')).not.toBeInTheDocument();
   });
