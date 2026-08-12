@@ -5,9 +5,15 @@ export class ApiError extends Error {
   }
 }
 
+// Base URL da API — configurável via VITE_BACKEND_URL (ex: https://api.oracle.lucasbaccan.com.br)
+// quando o frontend roda separado do backend (ex: Vercel). Sem a env, usa paths
+// relativos (backend serve o frontend no mesmo domínio).
+const API_BASE = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '');
+const apiUrl = (path) => `${API_BASE}${path}`;
+
 async function request(path, options = {}) {
-  const res = await fetch(path, {
-    credentials: 'same-origin',
+  const res = await fetch(apiUrl(path), {
+    credentials: 'include',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -90,11 +96,11 @@ export const api = {
       setInteractionsEnabled: (id, enabled) =>
         request(`/api/events/${id}/live/interactions`, { method: 'POST', body: { enabled } }),
       adminState: (id) => request(`/api/events/${id}/live/state`),
-      adminStreamUrl: (id) => `/api/events/${id}/live/stream`,
+      adminStreamUrl: (id) => apiUrl(`/api/events/${id}/live/stream`),
       dismissQA: (id, messageId) =>
         request(`/api/events/${id}/live/qa/${messageId}/dismiss`, { method: 'POST' }),
       presentationState: (id) => request(`/api/events/${id}/live/presentation/state`),
-      presentationStreamUrl: (id) => `/api/events/${id}/live/presentation/stream`
+      presentationStreamUrl: (id) => apiUrl(`/api/events/${id}/live/presentation/stream`)
     }
   },
   public: {
@@ -109,7 +115,7 @@ export const api = {
         state: (id, token) =>
           request(`/api/public/events/${id}/live/state?token=${encodeURIComponent(token)}`),
         streamUrl: (id, token) =>
-          `/api/public/events/${id}/live/stream?token=${encodeURIComponent(token)}`,
+          apiUrl(`/api/public/events/${id}/live/stream?token=${encodeURIComponent(token)}`),
         react: (id, token, emoji) =>
           request(`/api/public/events/${id}/live/react?token=${encodeURIComponent(token)}`, {
             method: 'POST',
