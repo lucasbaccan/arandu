@@ -19,6 +19,8 @@ type Config struct {
 	MinPasswordLength int
 	DatabasePath      string
 	CookieSecure      bool
+	CookieSameSite    string
+	CORSOrigins       string
 	SnowflakeNode     int
 	ViteDevURL        string
 	FrontendDir       string
@@ -33,6 +35,8 @@ func Load() Config {
 		MinPasswordLength: getEnvInt("MIN_PASSWORD_LENGTH", 3),
 		DatabasePath:      getEnv("DATABASE_PATH", DefaultDB),
 		CookieSecure:      getEnvBool("COOKIE_SECURE", false),
+		CookieSameSite:    getEnv("COOKIE_SAMESITE", "lax"),
+		CORSOrigins:       getEnv("CORS_ORIGINS", ""),
 		SnowflakeNode:     getEnvInt("SNOWFLAKE_NODE", 0),
 		ViteDevURL:        getEnv("VITE_DEV_URL", ""),
 		FrontendDir:       getEnv("FRONTEND_DIR", ""),

@@ -140,7 +140,51 @@ func (a *API) Handler() http.Handler {
 		mux.Handle("/", spa)
 	}
 
-	return withLogging(mux)
+	return withLogging(a.cors(mux))
+}
+
+// cors libera origens configuradas em CORS_ORIGINS (separadas por vírgula),
+// necessário quando o frontend roda em outro domínio (ex: Vercel). Como o
+// backend usa cookies de sessão, Allow-Credentials é sempre true e o Origin
+// é ecoado (nunca "*"). Sem CORS_ORIGINS, nenhum header CORS é emitido.
+func (a *API) cors(next http.Handler) http.Handler {
+	allowed := map[string]bool{}
+	for _, o := range strings.Split(a.cfg.CORSOrigins, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			allowed[o] = true
+		}
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && (allowed["*"] || allowed[origin]) {
+			h := w.Header()
+			h.Set("Access-Control-Allow-Origin", origin)
+			h.Add("Vary", "Origin")
+			h.Set("Access-Control-Allow-Credentials", "true")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
+			h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// sameSiteMode converte COOKIE_SAMESITE (lax|none|strict) para http.SameSite.
+// "none" é o necessário para o frontend em outro domínio (Vercel) receber o
+// cookie de sessão — e exige COOKIE_SECURE=true (navegadores rejeitam
+// SameSite=None sem Secure).
+func (a *API) sameSiteMode() http.SameSite {
+	switch strings.ToLower(a.cfg.CookieSameSite) {
+	case "none":
+		return http.SameSiteNoneMode
+	case "strict":
+		return http.SameSiteStrictMode
+	default:
+		return http.SameSiteLaxMode
+	}
 }
 
 func (a *API) spa() http.Handler {
@@ -291,7 +335,7 @@ func (a *API) setSession(w http.ResponseWriter, userID int64) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   a.cfg.CookieSecure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: a.sameSiteMode(),
 		MaxAge:   a.cfg.SessionHours * 3600,
 	})
 }
