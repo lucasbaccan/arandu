@@ -26,8 +26,8 @@
       class="face"
       class:static={!onFaceClick}
       disabled={!onFaceClick}
-      title={p.email}
-      aria-label={onFaceClick ? `Revelar resposta de ${p.email}` : p.email}
+      title={p.name || p.email}
+      aria-label={onFaceClick ? `Revelar resposta de ${p.name || p.email}` : p.name || p.email}
       on:click={() => onFaceClick && onFaceClick(p)}
       animate:flip={{ duration: 350 }}
       out:fade={{ duration: 150 }}
@@ -35,7 +35,7 @@
       {#if p.photo}
         <img src={p.photo} alt="" />
       {:else}
-        <span class="face-placeholder">{p.email[0].toUpperCase()}</span>
+        <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
       {/if}
     </button>
   {/each}
@@ -66,8 +66,8 @@
               class="face"
               class:static={!onFaceClick}
               disabled={!onFaceClick}
-              title={p.email}
-              aria-label={onFaceClick ? `Desrevelar resposta de ${p.email}` : p.email}
+              title={p.name || p.email}
+              aria-label={onFaceClick ? `Desrevelar resposta de ${p.name || p.email}` : p.name || p.email}
               on:click={() => onFaceClick && onFaceClick(p)}
               animate:flip={{ duration: 350 }}
               in:fly={{ y: -30, duration: 350 }}
@@ -75,7 +75,7 @@
               {#if p.photo}
                 <img src={p.photo} alt="" />
               {:else}
-                <span class="face-placeholder">{p.email[0].toUpperCase()}</span>
+                <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
               {/if}
             </button>
           {/each}

@@ -224,6 +224,7 @@ func TestSubmitAnswersSuccess(t *testing.T) {
 
 	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "Participante@Exemplo.com",
+		"name":  "Participante",
 		"photo": "",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
@@ -255,6 +256,7 @@ func TestSubmitAnswersReusesParticipant(t *testing.T) {
 	body := func(optionID string) map[string]any {
 		return map[string]any{
 			"email": "ana@exemplo.com",
+			"name":  "Ana",
 			"answers": []map[string]string{
 				{"questionId": groupQID, "optionId": optionID},
 				{"questionId": openQID, "text": "Pizza"},
@@ -295,6 +297,7 @@ func TestSubmitAnswersReturnsEditToken(t *testing.T) {
 
 	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -322,6 +325,7 @@ func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
 
 	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -346,6 +350,7 @@ func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
 	// reenvio via token, sem informar e-mail: deve atualizar o mesmo participante.
 	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"editToken": first.EditToken,
+		"name":      "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optBID},
 			{"questionId": openQID, "text": "Sushi"},
@@ -404,6 +409,7 @@ func TestPublicGetParticipantByToken(t *testing.T) {
 
 	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"photo": "data:image/jpeg;base64,Zm9vCg==",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
@@ -455,6 +461,7 @@ func TestPublicGetParticipantWrongEvent(t *testing.T) {
 
 	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID1+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -480,6 +487,7 @@ func TestSubmitAnswersValidation(t *testing.T) {
 	valid := func() map[string]any {
 		return map[string]any{
 			"email": "ana@exemplo.com",
+			"name":  "Ana",
 			"answers": []map[string]string{
 				{"questionId": groupQID, "optionId": optAID},
 				{"questionId": openQID, "text": "Pizza"},
@@ -494,6 +502,7 @@ func TestSubmitAnswersValidation(t *testing.T) {
 	}{
 		{"email vazio", func(m map[string]any) { m["email"] = "" }, http.StatusBadRequest},
 		{"email inválido", func(m map[string]any) { m["email"] = "não-é-email" }, http.StatusBadRequest},
+		{"nome vazio", func(m map[string]any) { m["name"] = "" }, http.StatusBadRequest},
 		{"faltando resposta", func(m map[string]any) {
 			m["answers"] = []map[string]string{{"questionId": groupQID, "optionId": optAID}}
 		}, http.StatusBadRequest},

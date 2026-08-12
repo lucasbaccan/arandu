@@ -144,12 +144,14 @@
                   {#if p.photo}
                     <img class="avatar" src={p.photo} alt="" />
                   {:else}
-                    <span class="avatar avatar-placeholder">{p.email[0].toUpperCase()}</span>
+                    <span class="avatar avatar-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
                   {/if}
                 </span>
                 <span class="participant-info">
-                  <strong>{p.email}</strong>
-                  <span class="text-muted">{formatDateTime(p.createdAt)}</span>
+                  <strong>{p.name || p.email}</strong>
+                  <span class="text-muted">
+                    {p.name ? p.email + ' · ' : ''}{formatDateTime(p.createdAt)}
+                  </span>
                 </span>
                 <span class="chevron" class:open={expandedId === p.id} aria-hidden="true">›</span>
               </button>
@@ -157,7 +159,7 @@
                 type="button"
                 class="icon-btn photo-edit-btn"
                 title="Editar foto"
-                aria-label={`Editar foto de ${p.email}`}
+                aria-label={`Editar foto de ${p.name || p.email}`}
                 on:click={() => startEditPhoto(p)}
               >✎</button>
             </div>
@@ -231,7 +233,7 @@
                           type="button"
                           class="icon-btn"
                           title="Editar resposta"
-                          aria-label={`Editar resposta de ${p.email} para ${a.questionTitle}`}
+                          aria-label={`Editar resposta de ${p.name || p.email} para ${a.questionTitle}`}
                           on:click={() => startEdit(p.id, a)}
                         >✎</button>
                       </div>

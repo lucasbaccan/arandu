@@ -23,6 +23,7 @@ type answerDTO struct {
 type participantResponseDTO struct {
 	ID        string      `json:"id"`
 	Email     string      `json:"email"`
+	Name      string      `json:"name"`
 	Photo     string      `json:"photo"`
 	EditToken string      `json:"editToken"`
 	CreatedAt string      `json:"createdAt"`
@@ -96,6 +97,7 @@ func (a *API) handleListResponses(w http.ResponseWriter, r *http.Request) {
 		dtos = append(dtos, participantResponseDTO{
 			ID:        strconv.FormatInt(p.ID, 10),
 			Email:     p.Email,
+			Name:      p.Name,
 			Photo:     p.Photo,
 			EditToken: p.EditToken,
 			CreatedAt: p.CreatedAt.Format(time.RFC3339),

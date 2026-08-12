@@ -338,8 +338,8 @@
                       <button
                         type="button"
                         class="stage-face"
-                        title={p.email}
-                        aria-label={`Desrevelar resposta de ${p.email}`}
+                        title={p.name || p.email}
+                        aria-label={`Desrevelar resposta de ${p.name || p.email}`}
                         on:click={() => reveal(p)}
                         animate:flip={{ duration: 350 }}
                         in:fly={{ y: -30, duration: 350 }}
@@ -347,7 +347,7 @@
                         {#if p.photo}
                           <img src={p.photo} alt="" />
                         {:else}
-                          <span class="stage-face-placeholder">{p.email[0].toUpperCase()}</span>
+                          <span class="stage-face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
                         {/if}
                       </button>
                     {/each}
@@ -436,7 +436,7 @@
                 {#each qaInbox as m (m.id)}
                   <div class="qa-item">
                     <div class="qa-item-body">
-                      <span class="qa-item-email">{m.email || 'Convidado'}</span>
+                      <span class="qa-item-email">{m.name || m.email || 'Convidado'}</span>
                       <span class="qa-item-text">{m.text}</span>
                     </div>
                     <Button variant="secondary" size="sm" on:click={() => dismissQA(m.id)}>Dispensar</Button>

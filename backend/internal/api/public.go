@@ -41,6 +41,7 @@ type publicAnswerDTO struct {
 
 type publicParticipantDTO struct {
 	Email   string            `json:"email"`
+	Name    string            `json:"name"`
 	Photo   string            `json:"photo"`
 	Answers []publicAnswerDTO `json:"answers"`
 }
@@ -87,6 +88,7 @@ func (a *API) handlePublicGetParticipant(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"participant": publicParticipantDTO{
 			Email:   participant.Email,
+			Name:    participant.Name,
 			Photo:   participant.Photo,
 			Answers: adtos,
 		},
@@ -174,6 +176,7 @@ type submitAnswerRequest struct {
 
 type submitRequest struct {
 	Email     string                `json:"email"`
+	Name      string                `json:"name"`
 	Photo     string                `json:"photo"`
 	EditToken string                `json:"editToken"`
 	Answers   []submitAnswerRequest `json:"answers"`
@@ -224,6 +227,15 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
 			return
 		}
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "Informe seu nome.")
+		return
+	}
+	if len(req.Name) > maxNameLength {
+		writeError(w, http.StatusBadRequest, "Nome muito longo.")
+		return
 	}
 	if len(req.Photo) > maxPhotoDataURLLength {
 		writeError(w, http.StatusBadRequest, "Foto muito grande.")
@@ -312,6 +324,7 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		ID:      a.ids.NextID(),
 		EventID: id,
 		Email:   req.Email,
+		Name:    req.Name,
 		Photo:   req.Photo,
 	})
 	if err != nil {

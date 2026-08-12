@@ -68,10 +68,12 @@ func setupLiveEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventID,
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email":   "ana@exemplo.com",
+		"name":    "Ana",
 		"answers": []map[string]string{{"questionId": questionID, "optionId": optAID}},
 	}, nil)
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email":   "bia@exemplo.com",
+		"name":    "Bia",
 		"answers": []map[string]string{{"questionId": questionID, "optionId": optBID}},
 	}, nil)
 

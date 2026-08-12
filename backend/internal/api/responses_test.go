@@ -32,6 +32,7 @@ func TestListResponses(t *testing.T) {
 
 	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -42,6 +43,7 @@ func TestListResponses(t *testing.T) {
 	}
 	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "bia@exemplo.com",
+		"name":  "Bia",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optBID},
 			{"questionId": openQID, "text": "Sushi"},
@@ -90,6 +92,7 @@ func TestListResponsesReflectsCurrentQuestionOrder(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -149,6 +152,7 @@ func TestListResponsesIncludesEditToken(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -173,6 +177,7 @@ func TestUpdateParticipantPhoto(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -207,6 +212,7 @@ func TestUpdateParticipantPhotoValidation(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -254,6 +260,7 @@ func TestUpdateParticipantPhotoRequiresOwnership(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -287,6 +294,7 @@ func TestUpdateAnswerOptionQuestion(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},
@@ -330,6 +338,7 @@ func TestUpdateAnswerOpenTextCensor(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Texto ofensivo"},
@@ -366,6 +375,7 @@ func TestUpdateAnswerValidation(t *testing.T) {
 
 	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
 		"email": "ana@exemplo.com",
+		"name":  "Ana",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
 			{"questionId": openQID, "text": "Pizza"},

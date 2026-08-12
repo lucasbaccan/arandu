@@ -643,6 +643,7 @@ type liveQuestionDTO struct {
 type liveParticipantDTO struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
+	Name  string `json:"name"`
 	Photo string `json:"photo"`
 }
 
@@ -666,6 +667,7 @@ type liveSnapshotDTO struct {
 type liveQAMessageDTO struct {
 	ID        string `json:"id"`
 	Email     string `json:"email"`
+	Name      string `json:"name"`
 	Text      string `json:"text"`
 	CreatedAt string `json:"createdAt"`
 }
@@ -697,14 +699,17 @@ func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAd
 	qaDTOs := make([]liveQAMessageDTO, 0, len(messages))
 	for _, m := range messages {
 		email := ""
+		name := ""
 		if m.ParticipantID != 0 {
 			if p, err := a.store.FindParticipantByID(ctx, m.ParticipantID); err == nil {
 				email = p.Email
+				name = p.Name
 			}
 		}
 		qaDTOs = append(qaDTOs, liveQAMessageDTO{
 			ID:        strconv.FormatInt(m.ID, 10),
 			Email:     email,
+			Name:      name,
 			Text:      m.Text,
 			CreatedAt: m.CreatedAt.Format(time.RFC3339),
 		})
@@ -720,7 +725,7 @@ func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAd
 }
 
 func toLiveParticipantDTO(p store.Participant) liveParticipantDTO {
-	return liveParticipantDTO{ID: strconv.FormatInt(p.ID, 10), Email: p.Email, Photo: p.Photo}
+	return liveParticipantDTO{ID: strconv.FormatInt(p.ID, 10), Email: p.Email, Name: p.Name, Photo: p.Photo}
 }
 
 type revealedLiveAnswer struct {

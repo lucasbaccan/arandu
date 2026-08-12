@@ -14,6 +14,7 @@ type Participant struct {
 	ID        int64
 	EventID   int64
 	Email     string
+	Name      string
 	Photo     string
 	EditToken string
 	CreatedAt time.Time
@@ -50,12 +51,20 @@ func (s *Store) ensureEditToken(ctx context.Context, p *Participant) error {
 }
 
 // UpsertParticipant cria o participante ou reaproveita o existente (mesmo
-// evento + e-mail). A foto só é sobrescrita quando uma nova é enviada, para
-// não apagar uma foto já salva quando o participante reenvia sem trocar a
-// foto (ex: editando respostas pelo link de edição).
+// evento + e-mail). Nome e foto só são sobrescritos quando um novo valor é
+// enviado, para não apagar dados já salvos quando o participante reenvia sem
+// trocar nome/foto (ex: editando respostas pelo link de edição).
 func (s *Store) UpsertParticipant(ctx context.Context, p Participant) (Participant, error) {
 	existing, err := s.FindParticipantByEventAndEmail(ctx, p.EventID, p.Email)
 	if err == nil {
+		if p.Name != "" && p.Name != existing.Name {
+			if _, err := s.db.ExecContext(ctx,
+				`UPDATE participants SET name = ? WHERE id = ?`, p.Name, existing.ID,
+			); err != nil {
+				return Participant{}, fmt.Errorf("store: atualizar participante: %w", err)
+			}
+			existing.Name = p.Name
+		}
 		if p.Photo != "" && p.Photo != existing.Photo {
 			if _, err := s.db.ExecContext(ctx,
 				`UPDATE participants SET photo = ? WHERE id = ?`, p.Photo, existing.ID,
@@ -80,8 +89,8 @@ func (s *Store) UpsertParticipant(ctx context.Context, p Participant) (Participa
 	p.EditToken = token
 	p.CreatedAt = time.Now()
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO participants (id, event_id, email, photo, edit_token, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		p.ID, p.EventID, p.Email, p.Photo, p.EditToken, p.CreatedAt.Format(time.RFC3339),
+		`INSERT INTO participants (id, event_id, email, name, photo, edit_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		p.ID, p.EventID, p.Email, p.Name, p.Photo, p.EditToken, p.CreatedAt.Format(time.RFC3339),
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -96,7 +105,7 @@ func (s *Store) UpsertParticipant(ctx context.Context, p Participant) (Participa
 
 func (s *Store) FindParticipantByEventAndEmail(ctx context.Context, eventID int64, email string) (Participant, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, event_id, email, photo, edit_token, created_at FROM participants WHERE event_id = ? AND email = ?`,
+		`SELECT id, event_id, email, name, photo, edit_token, created_at FROM participants WHERE event_id = ? AND email = ?`,
 		eventID, email,
 	)
 	return scanParticipant(row)
@@ -107,7 +116,7 @@ func (s *Store) FindParticipantByEventAndToken(ctx context.Context, eventID int6
 		return Participant{}, ErrNotFound
 	}
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, event_id, email, photo, edit_token, created_at FROM participants WHERE event_id = ? AND edit_token = ?`,
+		`SELECT id, event_id, email, name, photo, edit_token, created_at FROM participants WHERE event_id = ? AND edit_token = ?`,
 		eventID, token,
 	)
 	return scanParticipant(row)
@@ -115,7 +124,7 @@ func (s *Store) FindParticipantByEventAndToken(ctx context.Context, eventID int6
 
 func (s *Store) FindParticipantByID(ctx context.Context, id int64) (Participant, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, event_id, email, photo, edit_token, created_at FROM participants WHERE id = ?`,
+		`SELECT id, event_id, email, name, photo, edit_token, created_at FROM participants WHERE id = ?`,
 		id,
 	)
 	return scanParticipant(row)
@@ -141,7 +150,7 @@ func (s *Store) UpdateParticipantPhoto(ctx context.Context, participantID int64,
 // ListParticipantsByEvent retorna os participantes de um evento, do mais antigo ao mais recente.
 func (s *Store) ListParticipantsByEvent(ctx context.Context, eventID int64) ([]Participant, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, event_id, email, photo, edit_token, created_at FROM participants WHERE event_id = ? ORDER BY created_at`,
+		`SELECT id, event_id, email, name, photo, edit_token, created_at FROM participants WHERE event_id = ? ORDER BY created_at`,
 		eventID,
 	)
 	if err != nil {
@@ -171,7 +180,7 @@ func (s *Store) ListParticipantsByEvent(ctx context.Context, eventID int64) ([]P
 func scanParticipant(row scanner) (Participant, error) {
 	var p Participant
 	var createdAt string
-	err := row.Scan(&p.ID, &p.EventID, &p.Email, &p.Photo, &p.EditToken, &createdAt)
+	err := row.Scan(&p.ID, &p.EventID, &p.Email, &p.Name, &p.Photo, &p.EditToken, &createdAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Participant{}, ErrNotFound
 	}

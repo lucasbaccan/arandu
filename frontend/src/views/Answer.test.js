@@ -41,6 +41,13 @@ function mockLoad({ answersOpen = true, questions = [groupQuestion, openQuestion
   });
 }
 
+async function identifyAndContinue(name = 'Ana', email = 'ana@exemplo.com') {
+  await userEvent.type(screen.getByLabelText('Como quer aparecer'), name);
+  await userEvent.type(screen.getByLabelText('E-mail'), email);
+  await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+}
+
 describe('Tela de respostas do participante', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,18 +58,21 @@ describe('Tela de respostas do participante', () => {
     render(Answer, { props: { id: '42' } });
 
     expect(await screen.findByText('Dinâmica de Testes')).toBeInTheDocument();
+    expect(screen.getByLabelText('Como quer aparecer')).toBeInTheDocument();
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Começar' })).toBeInTheDocument();
   });
 
-  it('exige e-mail válido antes de iniciar', async () => {
+  it('exige nome e e-mail válidos antes de iniciar', async () => {
     mockLoad();
     render(Answer, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
-    expect(await screen.findByText('Informe seu e-mail.')).toBeInTheDocument();
+    expect(await screen.findByText('Informe seu nome.')).toBeInTheDocument();
+    expect(screen.getByText('Informe seu e-mail.')).toBeInTheDocument();
 
+    await userEvent.type(screen.getByLabelText('Como quer aparecer'), 'Ana');
     await userEvent.type(screen.getByLabelText('E-mail'), 'não-é-email');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
@@ -77,11 +87,26 @@ describe('Tela de respostas do participante', () => {
     render(Answer, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
+    await userEvent.type(screen.getByLabelText('Como quer aparecer'), 'Ana');
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@my_domain.com');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
 
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
     expect(screen.queryByText('Qual sua linguagem favorita?')).not.toBeInTheDocument();
+  });
+
+  it('mostra e fecha a tela de privacidade a partir da identificação', async () => {
+    mockLoad();
+    render(Answer, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Privacidade e uso dos dados' }));
+    expect(
+      await screen.findByText('Seus dados servem para uma coisa só: a dinâmica')
+    ).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Entendi, continuar' }));
+    expect(await screen.findByLabelText('E-mail')).toBeInTheDocument();
   });
 
   it('mostra tela de respostas fechadas quando o evento não está aberto', async () => {
@@ -103,44 +128,60 @@ describe('Tela de respostas do participante', () => {
     expect(await screen.findByText('Evento não encontrado')).toBeInTheDocument();
   });
 
-  it('valida cada pergunta, envia as respostas e mostra a tela de agradecimento', async () => {
+  it('permite avançar sem responder, mas só libera o envio com tudo respondido', async () => {
     mockLoad();
     api.public.events.submit.mockResolvedValue({ ok: true });
     render(Answer, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
-    await userEvent.type(screen.getByLabelText('E-mail'), 'Participante@Exemplo.com');
-    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await identifyAndContinue('Ana', 'Participante@Exemplo.com');
     expect(
-      await screen.findByText('A dinâmica não será a mesma sem sua foto.')
+      await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' })
     ).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
 
-    expect(await screen.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-
-    // não deixa avançar sem selecionar uma opção
+    // avança mesmo sem selecionar uma opção
     await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
-    expect(await screen.findByText('Selecione uma opção para continuar.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Qual sua comida favorita?', { selector: 'h1' })
+    ).toBeInTheDocument();
 
-    await fireEvent.click(screen.getByLabelText('Go'));
-    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    // avança para a revisão mesmo com a última pergunta em branco
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    expect(await screen.findByText('Confira antes de enviar')).toBeInTheDocument();
 
-    expect(await screen.findByText('Qual sua comida favorita?')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Finalizar' })).toBeInTheDocument();
-
-    // texto só com espaços não deve ser aceito (trim)
-    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), '   ');
-    await fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
-    expect(await screen.findByText('Escreva uma resposta para continuar.')).toBeInTheDocument();
+    // sem todas as respostas, o envio fica bloqueado
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeDisabled();
     expect(api.public.events.submit).not.toHaveBeenCalled();
 
+    // volta pela lista de revisão e responde o que faltou
+    await fireEvent.click(screen.getByText('Qual sua linguagem favorita?'));
+    await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' });
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await screen.findByText('Qual sua comida favorita?', { selector: 'h1' });
+
+    // texto só com espaços não deve contar como resposta (trim)
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), '   ');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeDisabled();
+
+    await fireEvent.click(screen.getByText('Qual sua comida favorita?'));
+    await screen.findByText('Qual sua comida favorita?', { selector: 'h1' });
     await userEvent.clear(screen.getByPlaceholderText('Escreva sua resposta'));
     await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), '  Pizza  ');
-    await fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+
+    expect(await screen.findByText('Confira antes de enviar')).toBeInTheDocument();
+    expect(screen.getByText('Go')).toBeInTheDocument();
+    expect(screen.getByText('Pizza')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).not.toBeDisabled();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
 
     await waitFor(() =>
       expect(api.public.events.submit).toHaveBeenCalledWith('42', {
         email: 'Participante@Exemplo.com',
+        name: 'Ana',
         photo: '',
         editToken: '',
         answers: [
@@ -150,7 +191,7 @@ describe('Tela de respostas do participante', () => {
       })
     );
 
-    expect(await screen.findByText('Respostas enviadas!')).toBeInTheDocument();
+    expect(await screen.findByText('Prontinho, Ana!')).toBeInTheDocument();
   });
 
   it('mantém a resposta ao voltar para a pergunta anterior', async () => {
@@ -158,45 +199,41 @@ describe('Tela de respostas do participante', () => {
     render(Answer, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
-    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
-    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
-    await screen.findByText('Qual sua linguagem favorita?');
+    await identifyAndContinue();
+    await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' });
 
     await fireEvent.click(screen.getByLabelText('Go'));
     await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
-    await screen.findByText('Qual sua comida favorita?');
+    await screen.findByText('Qual sua comida favorita?', { selector: 'h1' });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
-    await screen.findByText('Qual sua linguagem favorita?');
+    await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' });
 
     expect(screen.getByLabelText('Go').checked).toBe(true);
   });
 
-  it('remove do tab as perguntas fora da tela, evitando o bug de foco/scroll no carrossel', async () => {
-    // Todas as perguntas ficam no DOM ao mesmo tempo (só a atual é deslocada
-    // para a área visível via transform); sem tabindex="-1" nas ocultas, um
-    // Tab movia o foco pra pergunta seguinte e o navegador rolava o
-    // carrossel pra mostrá-la, sem que o estado (Pergunta X de Y) mudasse.
+  it('permite editar uma resposta a partir da tela de revisão', async () => {
     mockLoad();
     render(Answer, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
-    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
-    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
-    await screen.findByText('Qual sua linguagem favorita?');
-
-    expect(screen.getByLabelText('Go')).toHaveAttribute('tabindex', '0');
-    expect(screen.getByLabelText('JS')).toHaveAttribute('tabindex', '0');
-    expect(screen.getByPlaceholderText('Escreva sua resposta')).toHaveAttribute('tabindex', '-1');
-
+    await identifyAndContinue();
     await fireEvent.click(screen.getByLabelText('Go'));
     await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
-    await screen.findByText('Qual sua comida favorita?');
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await screen.findByText('Confira antes de enviar');
 
-    expect(screen.getByPlaceholderText('Escreva sua resposta')).toHaveAttribute('tabindex', '0');
-    expect(screen.getByLabelText('Go')).toHaveAttribute('tabindex', '-1');
+    await fireEvent.click(screen.getByText('Qual sua linguagem favorita?'));
+    expect(await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Go').checked).toBe(true);
+
+    await fireEvent.click(screen.getByLabelText('JS'));
+    // pergunta 1 de 2: ainda não é a última, o botão continua "Próxima"
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await screen.findByText('Confira antes de enviar');
+    expect(screen.getByText('JS')).toBeInTheDocument();
   });
 
   it('permite responder de novo (mesmo dispositivo), pois a unicidade é por e-mail no servidor', async () => {
@@ -215,15 +252,15 @@ describe('Tela de respostas do participante', () => {
     render(Answer, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
-    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
-    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+    await identifyAndContinue();
     await fireEvent.click(screen.getByLabelText('Go'));
-    await fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await screen.findByText('Confira antes de enviar');
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
 
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
-    expect(screen.queryByText('Respostas enviadas!')).not.toBeInTheDocument();
+    expect(screen.queryByText('Confira antes de enviar')).not.toBeInTheDocument();
   });
 
   it('mostra o link de edição na tela de agradecimento', async () => {
@@ -232,21 +269,17 @@ describe('Tela de respostas do participante', () => {
     render(Answer, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
-    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
-    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
-
+    await identifyAndContinue();
     await fireEvent.click(screen.getByLabelText('Go'));
     await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
     await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
-    await fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await screen.findByText('Confira antes de enviar');
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
 
-    expect(await screen.findByText('Respostas enviadas!')).toBeInTheDocument();
+    expect(await screen.findByText('Prontinho, Ana!')).toBeInTheDocument();
     const linkInput = screen.getByDisplayValue(/\/answer\/42\?edit=tok123$/);
     expect(linkInput).toBeInTheDocument();
-    expect(
-      screen.getByText(/solicitá-lo ao responsável pelo evento/)
-    ).toBeInTheDocument();
   });
 
   it('pré-preenche as respostas ao acessar com um link de edição válido', async () => {
@@ -255,6 +288,7 @@ describe('Tela de respostas do participante', () => {
     api.public.events.getParticipant.mockResolvedValue({
       participant: {
         email: 'ana@exemplo.com',
+        name: 'Ana',
         photo: '',
         answers: [
           { questionId: 'q1', optionId: 'opt-go', text: '' },
@@ -264,7 +298,9 @@ describe('Tela de respostas do participante', () => {
     });
     render(Answer, { props: { id: '42' } });
 
-    expect(await screen.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' })
+    ).toBeInTheDocument();
     expect(api.public.events.getParticipant).toHaveBeenCalledWith('42', 'tok123');
     expect(screen.getByText('Editando suas respostas anteriores')).toBeInTheDocument();
     expect(screen.getByLabelText('Go').checked).toBe(true);

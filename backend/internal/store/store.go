@@ -84,6 +84,7 @@ func Migrate(db *sql.DB) error {
 			id         INTEGER PRIMARY KEY,
 			event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
 			email      TEXT    NOT NULL,
+			name       TEXT    NOT NULL DEFAULT '',
 			photo      TEXT    NOT NULL DEFAULT '',
 			edit_token TEXT    NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -140,6 +141,15 @@ func Migrate(db *sql.DB) error {
 	if _, err := db.Exec(`ALTER TABLE events ADD COLUMN interactions_enabled BOOLEAN NOT NULL DEFAULT 1`); err != nil {
 		if !strings.Contains(err.Error(), "duplicate column name") {
 			return fmt.Errorf("store: migração (interactions_enabled): %w", err)
+		}
+	}
+
+	// Bancos criados antes da coluna name existir: adiciona sem quebrar dados
+	// existentes (CREATE TABLE IF NOT EXISTS acima não altera tabelas já
+	// criadas). Participantes antigos ficam com name vazio até reenviarem.
+	if _, err := db.Exec(`ALTER TABLE participants ADD COLUMN name TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("store: migração (participants.name): %w", err)
 		}
 	}
 
