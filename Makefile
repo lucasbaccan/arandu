@@ -1,4 +1,4 @@
-.PHONY: dev backend-dev frontend-dev frontend-watch run build build-windows test clean stop tools deps
+.PHONY: dev backend-dev frontend-dev frontend-watch run build build-windows test clean stop tools deps seed
 
 GOBIN := $(shell go env GOBIN 2>/dev/null)
 AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
@@ -60,6 +60,11 @@ test: ## Testes de backend e frontend
 	@echo "🧪 Rodando testes do frontend..."
 	@cd frontend && npm test
 	@echo "🎉 Todos os testes passaram!"
+
+seed: ## Popula o banco com dados fake pra explorar o app (usuário demo@demo.com / senha demo)
+	@echo "🌱 Gerando dados de demonstração (usuário demo@demo.com / senha demo)..."
+	@cd backend && go run ./cmd/seed
+	@echo "✅ Dados de demonstração prontos!"
 
 tools: ## Instala ferramentas de desenvolvimento (air)
 	@echo "🛠️  Instalando air..."
