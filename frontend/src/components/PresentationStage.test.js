@@ -111,4 +111,37 @@ describe('PresentationStage', () => {
     // a fila de pendentes continua visível independente do hideZones
     expect(view.getByLabelText('bob@exemplo.com')).toBeInTheDocument();
   });
+
+  it('sem showNames (padrão), não mostra legenda de nome sob os rostos', () => {
+    const view = mount({
+      pending: [ana],
+      groups: [{ label: 'Go', participants: [bob] }]
+    });
+
+    expect(view.queryByText('ana@exemplo.com', { selector: '.face-name' })).not.toBeInTheDocument();
+    expect(view.queryByText('bob@exemplo.com', { selector: '.face-name' })).not.toBeInTheDocument();
+  });
+
+  it('com showNames, mostra o primeiro nome sob cada rosto (pendente e revelado)', () => {
+    const view = mount({
+      pending: [{ id: 'p3', name: 'Carla Dias', email: 'carla@exemplo.com', photo: '' }],
+      groups: [{ label: 'Go', participants: [{ id: 'p4', name: 'Diego Alves', email: 'diego@exemplo.com', photo: '' }] }],
+      showNames: true
+    });
+
+    expect(view.getByText('Carla')).toBeInTheDocument();
+    expect(view.getByText('Diego')).toBeInTheDocument();
+  });
+
+  it('rostos pendentes usam estilo tracejado, diferente dos revelados', () => {
+    const view = mount({
+      pending: [ana],
+      groups: [{ label: 'Go', participants: [bob] }]
+    });
+
+    const pendingFace = view.getByTitle('ana@exemplo.com');
+    const revealedFace = view.getByTitle('bob@exemplo.com');
+    expect(pendingFace.classList.contains('pending')).toBe(true);
+    expect(revealedFace.classList.contains('pending')).toBe(false);
+  });
 });

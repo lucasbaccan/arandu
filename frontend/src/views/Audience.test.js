@@ -233,6 +233,29 @@ describe('Tela pública da apresentação (Audience)', () => {
     expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
   });
 
+  it('mostra o nome sob cada rosto por padrão (pendente e revelado), e esconde quando o organizador ativa "Ocultar nomes"', async () => {
+    const withNames = {
+      pending: [{ id: 'p1', name: 'Ana Ribeiro', email: 'ana@exemplo.com', photo: '' }],
+      groups: [
+        { label: 'Go', participants: [{ id: 'p2', name: 'Bob Souza', email: 'bob@exemplo.com', photo: '' }] },
+        { label: 'JS', participants: [] }
+      ]
+    };
+    const view = mount('?pin=dev-team');
+    await joinAndWatch(view, withNames);
+
+    expect(await view.findByText('Ana')).toBeInTheDocument();
+    expect(view.getByText('Bob')).toBeInTheDocument();
+
+    FakeEventSource.instances[0].onmessage({
+      data: JSON.stringify({ ...snapshot, ...withNames, namesHidden: true })
+    });
+
+    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(view.queryByText('Ana')).not.toBeInTheDocument();
+    expect(view.queryByText('Bob')).not.toBeInTheDocument();
+  });
+
   it('mostra a barra de reações e envia ao clicar num emoji', async () => {
     const view = mount('?pin=dev-team');
     await joinAndWatch(view);

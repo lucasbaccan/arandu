@@ -178,6 +178,7 @@
         pending={snapshot.pending || []}
         groups={snapshot.groups || []}
         hideZones={snapshot.answersHidden}
+        showNames={!snapshot.namesHidden}
       />
     {/if}
 

@@ -120,6 +120,15 @@ describe('App (guardas de rota)', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 
+  it('redireciona para a home em /stage/123/present sem sessão', async () => {
+    route.set('/stage/123/present');
+    render(App);
+
+    authReady.set(true);
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
+  });
+
   it('exibe o dashboard quando logado e autenticado', async () => {
     route.set('/dashboard');
     render(App);

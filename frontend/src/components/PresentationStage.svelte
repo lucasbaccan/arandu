@@ -14,30 +14,44 @@
   // nelas) — usado pela plateia quando o organizador ativa "esconder
   // respostas". A fila de pendentes continua visível independente disso.
   export let hideZones = false;
+  // showNames: mostra a legenda de nome sob cada rosto, pendente ou
+  // revelado — controlado pelo switch "Ocultar nomes" (estado do servidor),
+  // refletido tanto na janela de apresentação do organizador
+  // (StagePresentation) quanto na tela da plateia (Audience). O painel do
+  // próprio organizador (/stage) não usa este componente e sempre mostra os
+  // nomes, independente do switch.
+  export let showNames = false;
 
   $: totalParticipants =
     pending.length + groups.reduce((sum, g) => sum + g.participants.length, 0);
+
+  function firstName(p) {
+    return (p.name || p.email).split(' ')[0];
+  }
 </script>
 
 <div class="pending-row">
   {#each pending as p (p.id)}
-    <button
-      type="button"
-      class="face"
-      class:static={!onFaceClick}
-      disabled={!onFaceClick}
-      title={p.name || p.email}
-      aria-label={onFaceClick ? `Revelar resposta de ${p.name || p.email}` : p.name || p.email}
-      on:click={() => onFaceClick && onFaceClick(p)}
-      animate:flip={{ duration: 350 }}
-      out:fade={{ duration: 150 }}
-    >
-      {#if p.photo}
-        <img src={p.photo} alt="" />
-      {:else}
-        <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+    <div class="face-wrap" animate:flip={{ duration: 350 }} out:fade={{ duration: 150 }}>
+      <button
+        type="button"
+        class="face pending"
+        class:static={!onFaceClick}
+        disabled={!onFaceClick}
+        title={p.name || p.email}
+        aria-label={onFaceClick ? `Revelar resposta de ${p.name || p.email}` : p.name || p.email}
+        on:click={() => onFaceClick && onFaceClick(p)}
+      >
+        {#if p.photo}
+          <img src={p.photo} alt="" />
+        {:else}
+          <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+        {/if}
+      </button>
+      {#if showNames}
+        <span class="face-name">{firstName(p)}</span>
       {/if}
-    </button>
+    </div>
   {/each}
   {#if pending.length === 0}
     <p class="text-muted present-empty">
@@ -61,23 +75,26 @@
         </div>
         <div class="zone-faces">
           {#each group.participants as p (p.id)}
-            <button
-              type="button"
-              class="face"
-              class:static={!onFaceClick}
-              disabled={!onFaceClick}
-              title={p.name || p.email}
-              aria-label={onFaceClick ? `Desrevelar resposta de ${p.name || p.email}` : p.name || p.email}
-              on:click={() => onFaceClick && onFaceClick(p)}
-              animate:flip={{ duration: 350 }}
-              in:fly={{ y: -30, duration: 350 }}
-            >
-              {#if p.photo}
-                <img src={p.photo} alt="" />
-              {:else}
-                <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+            <div class="face-wrap" animate:flip={{ duration: 350 }} in:fly={{ y: -30, duration: 350 }}>
+              <button
+                type="button"
+                class="face"
+                class:static={!onFaceClick}
+                disabled={!onFaceClick}
+                title={p.name || p.email}
+                aria-label={onFaceClick ? `Desrevelar resposta de ${p.name || p.email}` : p.name || p.email}
+                on:click={() => onFaceClick && onFaceClick(p)}
+              >
+                {#if p.photo}
+                  <img src={p.photo} alt="" />
+                {:else}
+                  <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+                {/if}
+              </button>
+              {#if showNames}
+                <span class="face-name">{firstName(p)}</span>
               {/if}
-            </button>
+            </div>
           {/each}
         </div>
       </div>
@@ -101,21 +118,37 @@
     border-radius: 12px;
   }
 
+  .face-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 60px;
+  }
+
+  .face-name {
+    max-width: 60px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .face {
     width: 52px;
     height: 52px;
     flex-shrink: 0;
     border-radius: 50%;
-    border: 2px solid var(--border);
+    border: none;
     padding: 0;
     overflow: hidden;
     cursor: pointer;
-    background: var(--bg-input);
-    transition: border-color 0.15s ease, transform 0.1s ease;
+    background: var(--accent);
+    transition: transform 0.1s ease;
   }
 
   .face:not(:disabled):hover {
-    border-color: var(--accent);
     transform: scale(1.05);
   }
 
@@ -139,6 +172,18 @@
     background: var(--accent);
     color: #fff;
     font-weight: 600;
+  }
+
+  /* Pendente (ainda não revelado): só a borda tracejada marca a diferença —
+     a "arte" do rosto (foto ou inicial) é a mesma de quando revelado, igual
+     ao avatar do painel de respostas (ResponsesPanel), pra não ter dois
+     estilos de avatar diferentes na mesma pessoa. */
+  .face.pending {
+    border: 2px dashed var(--border-strong);
+  }
+
+  .face.pending:not(:disabled):hover {
+    border-color: var(--accent);
   }
 
   .zones {

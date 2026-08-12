@@ -22,6 +22,7 @@
 
   let blanked = false;
   let answersHidden = false;
+  let namesHidden = false;
   let interactionsEnabled = true;
   let message = '';
   let messageDraft = '';
@@ -44,26 +45,24 @@
     ? stageStatusMeta[event.status] || { label: event.status, tint: 'var(--bg-input)', color: 'var(--text-muted)' }
     : null;
 
-  // Modo apresentação: some com os controles e números de admin (contagens,
-  // pergunta X de Y, botões) pra o organizador poder compartilhar a tela
-  // (ex: Google Meet) mostrando só os rostos e as respostas. Navegação e
-  // ações continuam disponíveis pelo teclado.
-  let presentationMode = false;
-
-  function togglePresentationMode() {
-    presentationMode = !presentationMode;
+  // Modo apresentação: abre uma janela separada, somente leitura (sem
+  // clique, sem controles de admin) com só a pergunta, as opções e os
+  // participantes — feita pra projetar ou compartilhar numa chamada sem
+  // expor o painel do organizador. Só quem está autenticado como dono do
+  // evento consegue abrir essa janela (StagePresentation.svelte).
+  function openPresentationWindow() {
+    // Passar "features" (largura/altura) faz o navegador abrir uma janela
+    // de verdade (sem abas, sem barra de endereço) em vez de só uma nova
+    // aba — é esse detalhe que muda o comportamento, não o '_blank'.
+    window.open(`/stage/${id}/present`, '_blank', 'noopener,width=1280,height=800');
   }
 
   function handleKeydown(e) {
     // Atalhos são globais (svelte:window), mas não podem competir com
     // digitação normal em campos de texto — ex: o aviso pra tela dos
-    // participantes, onde espaço/R/P precisam virar caracteres, não ações.
+    // participantes, onde espaço/R precisam virar caracteres, não ações.
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) {
-      return;
-    }
-    if (e.key === 'Escape') {
-      if (presentationMode) presentationMode = false;
       return;
     }
     if (!currentQuestion) return;
@@ -75,8 +74,6 @@
       goPrev();
     } else if (e.key.toLowerCase() === 'r') {
       revealAll();
-    } else if (e.key.toLowerCase() === 'p') {
-      togglePresentationMode();
     }
   }
 
@@ -87,16 +84,38 @@
 
   async function load() {
     try {
-      const [{ event: ev }, { questions: qs }, { participants: ps }] = await Promise.all([
+      const [{ event: ev }, { questions: qs }, { participants: ps }, adminSnap] = await Promise.all([
         api.events.get(id),
         api.events.questions.list(id),
-        api.events.responses.list(id)
+        api.events.responses.list(id),
+        api.events.live.adminState(id)
       ]);
       event = ev;
       questions = qs;
       participants = ps;
-      revealed = Object.fromEntries(qs.map((q) => [q.id, new Set()]));
-      if (qs.length > 0) syncQuestion(qs[0].id);
+
+      // Retoma de onde a apresentação parou: pergunta atual e revelação já
+      // feita vêm do servidor (live.Manager), não começam sempre do zero —
+      // um F5 ou reabrir /stage não deveria voltar pra pergunta 1 com tudo
+      // pendente de novo.
+      const revealedMap = adminSnap.revealed || {};
+      revealed = Object.fromEntries(qs.map((q) => [q.id, new Set(revealedMap[q.id] || [])]));
+      blanked = adminSnap.blanked;
+      answersHidden = adminSnap.answersHidden;
+      namesHidden = adminSnap.namesHidden;
+      interactionsEnabled = adminSnap.interactionsEnabled;
+      message = adminSnap.message;
+      messageDraft = adminSnap.message;
+      qaInbox = adminSnap.qaInbox;
+
+      if (qs.length > 0) {
+        const resumeIndex = qs.findIndex((q) => q.id === adminSnap.currentQuestionId);
+        currentIndex = resumeIndex >= 0 ? resumeIndex : 0;
+        // Só força a pergunta 1 no servidor se a apresentação nunca tinha
+        // sido iniciada (evento novo) — senão preserva onde já estava.
+        if (resumeIndex < 0) syncQuestion(qs[0].id);
+      }
+
       connectAdminStream();
     } catch (e) {
       error = e.message;
@@ -125,6 +144,7 @@
       const snap = JSON.parse(e.data);
       blanked = snap.blanked;
       answersHidden = snap.answersHidden;
+      namesHidden = snap.namesHidden;
       interactionsEnabled = snap.interactionsEnabled;
       message = snap.message;
       messageDraft = snap.message;
@@ -148,6 +168,19 @@
   function toggleInteractions() {
     interactionsEnabled = !interactionsEnabled;
     api.events.live.setInteractionsEnabled(id, interactionsEnabled).catch(() => {});
+  }
+
+  // Estado do servidor (como os outros switches) — afeta a legenda de nome
+  // sob cada rosto na janela de apresentação (/stage/:id/present) e na tela
+  // da plateia (/audience/:id); esta tela (/stage) sempre mostra os nomes,
+  // independente disso.
+  function toggleNamesHidden() {
+    namesHidden = !namesHidden;
+    api.events.live.setNamesHidden(id, namesHidden).catch(() => {});
+  }
+
+  function firstName(p) {
+    return (p.name || p.email).split(' ')[0];
   }
 
   function sendMessage() {
@@ -253,6 +286,16 @@
     api.events.live.reset(id, currentQuestion.id).catch(() => {});
   }
 
+  // Reseta a revelação de TODAS as perguntas de uma vez (diferente do
+  // "Reiniciar" do rodapé, que só afeta a pergunta atual) — pra recomeçar a
+  // apresentação inteira do zero.
+  function resetAllReveals() {
+    revealed = Object.fromEntries(questions.map((q) => [q.id, new Set()]));
+    api.events.live.resetAll(id).catch(() => {});
+  }
+
+  $: anyRevealed = Object.values(revealed).some((set) => set.size > 0);
+
   function goPrev() {
     if (currentIndex > 0) {
       currentIndex -= 1;
@@ -275,7 +318,7 @@
 
   function questionKind(q) {
     if (q.type === 'OPEN_TEXT') return 'Resposta aberta';
-    if (q.type === 'GROUP') return 'Grupo';
+    if (q.type === 'GROUP') return 'Múltipla escolha';
     return 'Individual';
   }
 </script>
@@ -284,39 +327,40 @@
 
 <ReactionBurstLayer />
 
-<main class="stage-page" class:presentation-mode={presentationMode} class:stage-center={loading || error}>
+<main class="stage-page" class:stage-center={loading || error}>
   {#if loading}
     <p class="text-muted">Carregando…</p>
   {:else if error}
     <p class="form-error">{error}</p>
   {:else}
-    {#if !presentationMode}
-      <div class="stage-topbar">
-        <a
-          class="stage-back-link"
-          href="/events/{id}"
-          aria-label="Voltar para o evento"
-          on:click|preventDefault={back}
+    <div class="stage-topbar">
+      <a
+        class="stage-back-link"
+        href="/events/{id}"
+        aria-label="Voltar para o evento"
+        on:click|preventDefault={back}
+      >
+        <img class="stage-topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
+      </a>
+      <span class="stage-topbar-title">{event.title}</span>
+      {#if eventStatusInfo}
+        <span
+          class="stage-status-badge"
+          style="background:{eventStatusInfo.tint};color:{eventStatusInfo.color}"
         >
-          <img class="stage-topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
-        </a>
-        <span class="stage-topbar-title">{event.title}</span>
-        {#if eventStatusInfo}
-          <span
-            class="stage-status-badge"
-            style="background:{eventStatusInfo.tint};color:{eventStatusInfo.color}"
-          >
-            ● {eventStatusInfo.label}
-          </span>
-        {/if}
-        <span class="stage-topbar-spacer"></span>
-        <span class="stage-pin-chip">#{event.pinCode.toUpperCase()}</span>
-        <span class="stage-qa-badge">Q&amp;A {qaInbox.length}</span>
-        <Button variant="secondary" size="sm" on:click={togglePresentationMode}>
-          Modo apresentação
-        </Button>
-      </div>
-    {/if}
+          ● {eventStatusInfo.label}
+        </span>
+      {/if}
+      <span class="stage-topbar-spacer"></span>
+      <span class="stage-pin-chip">#{event.pinCode.toUpperCase()}</span>
+      <span class="stage-qa-badge">Q&amp;A {qaInbox.length}</span>
+      <Button variant="secondary" size="sm" on:click={resetAllReveals} disabled={!anyRevealed}>
+        Reiniciar tudo
+      </Button>
+      <Button variant="secondary" size="sm" on:click={openPresentationWindow}>
+        Modo apresentação
+      </Button>
+    </div>
 
     {#if questions.length === 0}
       <p class="text-muted stage-empty-msg">Este evento ainda não tem perguntas.</p>
@@ -325,6 +369,37 @@
         <div class="stage-main">
           <div class="stage-main-body">
             <h2 class="stage-question-title">{currentQuestion.title}</h2>
+
+            <div class="stage-pending-head">
+              <span>Pendentes</span>
+              <span class="text-muted">{pending.length}</span>
+            </div>
+            <div class="stage-pending-strip">
+              {#each pending as p (p.id)}
+                <div class="stage-pending-wrap" animate:flip={{ duration: 350 }} out:fade={{ duration: 150 }}>
+                  <button
+                    type="button"
+                    class="stage-pending-face"
+                    title={p.name || p.email}
+                    aria-label={`Revelar resposta de ${p.name || p.email}`}
+                    on:click={() => reveal(p)}
+                  >
+                    {#if p.photo}
+                      <img src={p.photo} alt="" />
+                    {:else}
+                      <span class="stage-pending-face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+                    {/if}
+                  </button>
+                  <span class="stage-pending-name">{firstName(p)}</span>
+                </div>
+              {/each}
+              {#if pending.length === 0}
+                <p class="text-muted stage-pending-empty">Todo mundo já foi revelado.</p>
+              {/if}
+            </div>
+            {#if pending.length > 0}
+              <p class="text-muted stage-pending-hint">Clique num rosto para revelar.</p>
+            {/if}
 
             <div class="stage-zones-grid">
               {#each groups as group (group.label)}
@@ -335,21 +410,22 @@
                   </div>
                   <div class="stage-zone-faces">
                     {#each group.participants as p (p.id)}
-                      <button
-                        type="button"
-                        class="stage-face"
-                        title={p.name || p.email}
-                        aria-label={`Desrevelar resposta de ${p.name || p.email}`}
-                        on:click={() => reveal(p)}
-                        animate:flip={{ duration: 350 }}
-                        in:fly={{ y: -30, duration: 350 }}
-                      >
-                        {#if p.photo}
-                          <img src={p.photo} alt="" />
-                        {:else}
-                          <span class="stage-face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
-                        {/if}
-                      </button>
+                      <div class="stage-face-wrap" animate:flip={{ duration: 350 }} in:fly={{ y: -30, duration: 350 }}>
+                        <button
+                          type="button"
+                          class="stage-face"
+                          title={p.name || p.email}
+                          aria-label={`Desrevelar resposta de ${p.name || p.email}`}
+                          on:click={() => reveal(p)}
+                        >
+                          {#if p.photo}
+                            <img src={p.photo} alt="" />
+                          {:else}
+                            <span class="stage-face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+                          {/if}
+                        </button>
+                        <span class="stage-face-name">{firstName(p)}</span>
+                      </div>
                     {/each}
                   </div>
                 </div>
@@ -357,39 +433,36 @@
             </div>
           </div>
 
-          {#if !presentationMode}
-            <div class="stage-dock">
-              <Button size="sm" on:click={revealAll} disabled={pending.length === 0}>
-                Revelar tudo
-              </Button>
-              <Button variant="secondary" size="sm" on:click={resetReveal} disabled={revealedIds.size === 0}>
-                Reiniciar
-              </Button>
-              <span class="stage-dock-spacer"></span>
-              <div class="stage-dock-nav">
-                <button
-                  type="button"
-                  class="stage-nav-btn prev"
-                  aria-label="Pergunta anterior"
-                  disabled={currentIndex === 0}
-                  on:click={goPrev}
-                >←</button>
-                <span class="stage-dock-counter">{currentIndex + 1} / {questions.length}</span>
-                <button
-                  type="button"
-                  class="stage-nav-btn next"
-                  aria-label="Próxima pergunta"
-                  disabled={currentIndex === questions.length - 1}
-                  on:click={goNext}
-                >→</button>
-              </div>
-              <span class="stage-dock-spacer"></span>
+          <div class="stage-dock">
+            <Button size="sm" on:click={revealAll} disabled={pending.length === 0}>
+              Revelar tudo
+            </Button>
+            <Button variant="secondary" size="sm" on:click={resetReveal} disabled={revealedIds.size === 0}>
+              Reiniciar
+            </Button>
+            <span class="stage-dock-spacer"></span>
+            <div class="stage-dock-nav">
+              <button
+                type="button"
+                class="stage-nav-btn prev"
+                aria-label="Pergunta anterior"
+                disabled={currentIndex === 0}
+                on:click={goPrev}
+              >←</button>
+              <span class="stage-dock-counter">{currentIndex + 1} / {questions.length}</span>
+              <button
+                type="button"
+                class="stage-nav-btn next"
+                aria-label="Próxima pergunta"
+                disabled={currentIndex === questions.length - 1}
+                on:click={goNext}
+              >→</button>
             </div>
-          {/if}
+            <span class="stage-dock-spacer"></span>
+          </div>
         </div>
 
-        {#if !presentationMode}
-          <div class="stage-rail">
+        <div class="stage-rail">
             <div class="stage-rail-questions">
               <div class="stage-rail-section-head">
                 <span>Perguntas</span>
@@ -420,11 +493,15 @@
               </div>
               <div class="control-row">
                 <Switch checked={answersHidden} on:change={toggleAnswersHidden} />
-                <span>Esconder respostas da plateia</span>
+                <span>Ocultar respostas</span>
+              </div>
+              <div class="control-row">
+                <Switch checked={namesHidden} on:change={toggleNamesHidden} />
+                <span>Ocultar nomes</span>
               </div>
               <div class="control-row">
                 <Switch checked={interactionsEnabled} on:change={toggleInteractions} />
-                <span>Interações dos participantes</span>
+                <span>Interações da plateia</span>
               </div>
             </div>
 
@@ -467,14 +544,7 @@
               </Button>
             </div>
           </div>
-        {/if}
       </div>
-
-      {#if presentationMode}
-        <p class="text-muted stage-presentation-hint">
-          Esc para sair do modo apresentação · ← → para navegar · R revela todos
-        </p>
-      {/if}
     {/if}
   {/if}
 </main>
@@ -602,13 +672,18 @@
     line-height: 1.1;
   }
 
-  .presentation-mode .stage-question-title {
-    margin-top: 8px;
+  .stage-pending-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    font-weight: 700;
   }
 
   .stage-pending-strip {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     gap: 10px;
     min-height: 58px;
     padding: 12px;
@@ -621,6 +696,29 @@
     margin: 0;
   }
 
+  .stage-pending-hint {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
+  }
+
+  .stage-pending-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 4px;
+    width: 52px;
+  }
+
+  .stage-pending-name {
+    max-width: 52px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .stage-pending-face {
     width: 48px;
     height: 48px;
@@ -630,16 +728,14 @@
     padding: 0;
     overflow: hidden;
     cursor: pointer;
-    background: var(--bg-input);
-    color: var(--text-muted);
+    background: var(--accent);
     font-family: var(--font-ui);
     font-weight: 700;
-    transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    transition: border-color 0.15s ease, transform 0.1s ease;
   }
 
   .stage-pending-face:hover {
     border-color: var(--accent);
-    color: var(--accent);
     transform: scale(1.06);
   }
 
@@ -647,6 +743,18 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* Mesma "arte de letra" (fundo cheio + branco) do rosto já revelado — só a
+     borda tracejada diferencia pendente de revelado, não o avatar em si. */
+  .stage-pending-face-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
   }
 
   .stage-zones-grid {
@@ -695,8 +803,26 @@
   .stage-zone-faces {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    align-content: flex-start;
+    gap: 14px;
     min-height: 52px;
+  }
+
+  .stage-face-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 60px;
+  }
+
+  .stage-face-name {
+    max-width: 60px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .stage-face {
@@ -794,12 +920,6 @@
     color: var(--text-muted);
   }
 
-  .stage-presentation-hint {
-    margin: 4px 0 0;
-    text-align: center;
-    font-size: 0.75rem;
-    opacity: 0.5;
-  }
 
   .stage-rail {
     width: 280px;

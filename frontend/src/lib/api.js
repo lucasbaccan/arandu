@@ -78,10 +78,13 @@ export const api = {
         request(`/api/events/${id}/live/reveal-all`, { method: 'POST', body: { questionId } }),
       reset: (id, questionId) =>
         request(`/api/events/${id}/live/reset`, { method: 'POST', body: { questionId } }),
+      resetAll: (id) => request(`/api/events/${id}/live/reset-all`, { method: 'POST' }),
       setBlanked: (id, blanked) =>
         request(`/api/events/${id}/live/blank`, { method: 'POST', body: { blanked } }),
       setAnswersHidden: (id, hidden) =>
         request(`/api/events/${id}/live/hide-answers`, { method: 'POST', body: { hidden } }),
+      setNamesHidden: (id, hidden) =>
+        request(`/api/events/${id}/live/hide-names`, { method: 'POST', body: { hidden } }),
       setMessage: (id, message) =>
         request(`/api/events/${id}/live/message`, { method: 'POST', body: { message } }),
       setInteractionsEnabled: (id, enabled) =>
@@ -89,7 +92,9 @@ export const api = {
       adminState: (id) => request(`/api/events/${id}/live/state`),
       adminStreamUrl: (id) => `/api/events/${id}/live/stream`,
       dismissQA: (id, messageId) =>
-        request(`/api/events/${id}/live/qa/${messageId}/dismiss`, { method: 'POST' })
+        request(`/api/events/${id}/live/qa/${messageId}/dismiss`, { method: 'POST' }),
+      presentationState: (id) => request(`/api/events/${id}/live/presentation/state`),
+      presentationStreamUrl: (id) => `/api/events/${id}/live/presentation/stream`
     }
   },
   public: {

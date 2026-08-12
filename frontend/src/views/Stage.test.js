@@ -18,10 +18,13 @@ vi.mock('../lib/api.js', () => ({
         unreveal: vi.fn().mockResolvedValue({ ok: true }),
         revealAll: vi.fn().mockResolvedValue({ ok: true }),
         reset: vi.fn().mockResolvedValue({ ok: true }),
+        resetAll: vi.fn().mockResolvedValue({ ok: true }),
         setBlanked: vi.fn().mockResolvedValue({ ok: true }),
         setAnswersHidden: vi.fn().mockResolvedValue({ ok: true }),
+        setNamesHidden: vi.fn().mockResolvedValue({ ok: true }),
         setMessage: vi.fn().mockResolvedValue({ ok: true }),
         setInteractionsEnabled: vi.fn().mockResolvedValue({ ok: true }),
+        adminState: vi.fn(),
         adminStreamUrl: vi.fn((id) => `/api/events/${id}/live/stream`),
         dismissQA: vi.fn().mockResolvedValue({ ok: true })
       }
@@ -53,8 +56,11 @@ FakeEventSource.instances = [];
 const adminSnapshot = {
   blanked: false,
   answersHidden: false,
+  namesHidden: false,
   message: '',
   interactionsEnabled: true,
+  currentQuestionId: '',
+  revealed: {},
   qaInbox: []
 };
 
@@ -134,6 +140,7 @@ describe('Preview da apresentação', () => {
     api.events.get.mockResolvedValue({ event });
     api.events.questions.list.mockResolvedValue({ questions });
     api.events.responses.list.mockResolvedValue({ participantCount: participants.length, participants });
+    api.events.live.adminState.mockResolvedValue(adminSnapshot);
   });
 
   it('carrega a primeira pergunta com todos os participantes pendentes de revelar', async () => {
@@ -145,6 +152,46 @@ describe('Preview da apresentação', () => {
     expect(view.getByLabelText('Revelar resposta de bob@exemplo.com')).toBeInTheDocument();
     expect(view.getByText('Go')).toBeInTheDocument();
     expect(view.getByText('JS')).toBeInTheDocument();
+  });
+
+  it('retoma na pergunta e na revelação salvas no servidor, sem forçar a pergunta 1', async () => {
+    api.events.live.adminState.mockResolvedValue({
+      ...adminSnapshot,
+      currentQuestionId: 'q2',
+      revealed: { q2: ['p1'] }
+    });
+    const view = mount();
+
+    expect(await view.findByRole('heading', { name: 'Deixe um recado' })).toBeInTheDocument();
+    expect(view.getByText('2 / 2')).toBeInTheDocument();
+    // ana (p1) já revelada — não deveria mais estar como pendente
+    expect(view.queryByLabelText('Revelar resposta de ana@exemplo.com')).not.toBeInTheDocument();
+    // ao retomar de um estado já em andamento, não deve forçar de volta pra pergunta 1
+    expect(api.events.live.setQuestion).not.toHaveBeenCalled();
+  });
+
+  it('reinicia a revelação de todas as perguntas ao clicar em "Reiniciar tudo"', async () => {
+    api.events.live.adminState.mockResolvedValue({
+      ...adminSnapshot,
+      currentQuestionId: 'q1',
+      revealed: { q1: ['p1'] }
+    });
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    expect(view.getByRole('button', { name: 'Reiniciar tudo' })).not.toBeDisabled();
+
+    await fireEvent.click(view.getByRole('button', { name: 'Reiniciar tudo' }));
+
+    expect(api.events.live.resetAll).toHaveBeenCalledWith('42');
+    expect(await view.findByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
+  });
+
+  it('desabilita "Reiniciar tudo" quando ninguém foi revelado em nenhuma pergunta', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    expect(view.getByRole('button', { name: 'Reiniciar tudo' })).toBeDisabled();
   });
 
   it('pula direto pra uma pergunta clicando nela no trilho', async () => {
@@ -270,53 +317,33 @@ describe('Preview da apresentação', () => {
     expect(await view.findByText('Este evento ainda não tem perguntas.')).toBeInTheDocument();
   });
 
-  it('modo apresentação esconde os controles e números de admin, mas mantém pergunta e respostas', async () => {
+  it('abre a janela de apresentação somente leitura numa nova aba', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
-    expect(view.queryByLabelText('Voltar para o evento')).not.toBeInTheDocument();
-    expect(view.queryByText('pessoas responderam', { exact: false })).not.toBeInTheDocument();
-    expect(view.queryByText('1 / 2')).not.toBeInTheDocument();
-    expect(view.queryByRole('button', { name: 'Revelar tudo' })).not.toBeInTheDocument();
-    expect(view.queryByRole('button', { name: 'Reiniciar' })).not.toBeInTheDocument();
-    expect(view.queryByLabelText('Pergunta anterior')).not.toBeInTheDocument();
-    expect(view.queryByLabelText('Próxima pergunta')).not.toBeInTheDocument();
-
-    // conteúdo essencial continua visível e clicável
-    expect(view.getByRole('heading', { name: 'Qual sua linguagem favorita?' })).toBeInTheDocument();
-    expect(view.getByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
-    expect(view.getByText('Go')).toBeInTheDocument();
+    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', '_blank', 'noopener,width=1280,height=800');
+    // não é toggle de estado local — os controles de admin continuam aqui
+    expect(view.getByLabelText('Próxima pergunta')).toBeInTheDocument();
+    openSpy.mockRestore();
   });
 
-  it('Esc sai do modo apresentação e volta os controles', async () => {
+  it('setas do teclado navegam entre perguntas', async () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
-    await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
-    expect(view.queryByLabelText('Próxima pergunta')).not.toBeInTheDocument();
-
-    await fireEvent.keyDown(window, { key: 'Escape' });
-
-    expect(await view.findByLabelText('Próxima pergunta')).toBeInTheDocument();
-  });
-
-  it('setas do teclado navegam entre perguntas mesmo no modo apresentação', async () => {
-    const view = mount();
-    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
-    await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
     await fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(await view.findByText('Deixe um recado')).toBeInTheDocument();
+    expect(await view.findByRole('heading', { name: 'Deixe um recado' })).toBeInTheDocument();
 
     await fireEvent.keyDown(window, { key: 'ArrowLeft' });
     expect(await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' })).toBeInTheDocument();
   });
 
-  it('tecla R revela todos mesmo no modo apresentação', async () => {
+  it('tecla R revela todos', async () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
-    await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
     await fireEvent.keyDown(window, { key: 'r' });
 
@@ -354,7 +381,7 @@ describe('Preview da apresentação', () => {
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     const switches = view.getAllByRole('switch');
-    await fireEvent.click(switches[2]);
+    await fireEvent.click(switches[3]);
 
     expect(api.events.live.setInteractionsEnabled).toHaveBeenCalledWith('42', false);
   });
@@ -367,6 +394,22 @@ describe('Preview da apresentação', () => {
     await fireEvent.click(switches[1]);
 
     expect(api.events.live.setAnswersHidden).toHaveBeenCalledWith('42', true);
+  });
+
+  it('alterna ocultar nomes e chama a API, mas mantém a legenda de nome visível em /stage', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const pendingWrap = view.getByLabelText('Revelar resposta de ana@exemplo.com').closest('.stage-pending-wrap');
+    expect(within(pendingWrap).getByText('ana@exemplo.com')).toBeInTheDocument();
+
+    const switches = view.getAllByRole('switch');
+    await fireEvent.click(switches[2]);
+
+    // é estado do servidor agora (pra sincronizar com /present), mas /stage
+    // sempre mostra os nomes — o toggle não afeta a própria tela do admin
+    expect(api.events.live.setNamesHidden).toHaveBeenCalledWith('42', true);
+    expect(within(pendingWrap).getByText('ana@exemplo.com')).toBeInTheDocument();
   });
 
   it('envia e limpa uma mensagem de aviso', async () => {
@@ -383,22 +426,19 @@ describe('Preview da apresentação', () => {
     expect(api.events.live.setMessage).toHaveBeenCalledWith('42', '');
   });
 
-  it('espaço, R e P digitados no campo de aviso não disparam os atalhos globais', async () => {
+  it('espaço e R digitados no campo de aviso não disparam os atalhos globais', async () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     const input = view.getByLabelText('Aviso pra tela dos participantes');
     await fireEvent.keyDown(input, { key: ' ' });
     await fireEvent.keyDown(input, { key: 'r' });
-    await fireEvent.keyDown(input, { key: 'p' });
 
     // espaço não deveria ter avançado pra próxima pergunta (goNext)
     expect(view.getByRole('heading', { name: 'Qual sua linguagem favorita?' })).toBeInTheDocument();
     expect(view.queryByRole('heading', { name: 'Deixe um recado' })).not.toBeInTheDocument();
     // R não deveria ter revelado ninguém
     expect(view.getByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
-    // P não deveria ter entrado em modo apresentação
-    expect(view.getByLabelText('Voltar para o evento')).toBeInTheDocument();
   });
 
   it('mostra e dispensa mensagens da caixa de Q&A', async () => {
@@ -412,8 +452,8 @@ describe('Preview da apresentação', () => {
       })
     });
 
-    expect(await view.findByText('oi')).toBeInTheDocument();
-    expect(view.getByText('ana@exemplo.com')).toBeInTheDocument();
+    const qaItem = (await view.findByText('oi')).closest('.qa-item');
+    expect(within(qaItem).getByText('ana@exemplo.com')).toBeInTheDocument();
 
     await fireEvent.click(view.getByRole('button', { name: 'Dispensar' }));
 

@@ -20,6 +20,7 @@
   class:on={checked}
   disabled={disabled}
   on:click={toggle}
+  {...$$restProps}
 >
   <span class="knob"></span>
 </button>
