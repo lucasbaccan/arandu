@@ -6,6 +6,12 @@ AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
 HOST ?= 0.0.0.0
 PORT ?= 8888
 FRONTEND_PORT ?= 5173
+# Cross-site (frontend na Vercel): cookie SameSite=None exige Secure (HTTPS).
+# Para dev local via HTTP puro, rode: make COOKIE_SECURE=false COOKIE_SAMESITE=lax dev
+COOKIE_SECURE ?= true
+COOKIE_SAMESITE ?= none
+# Origens liberadas no CORS (vírgula; sufixo "*." libera subdomínios)
+CORS_ORIGINS ?= https://*.vercel.app,https://*.vercel.run,http://localhost:5173,http://127.0.0.1:5173
 
 deps: ## Instala dependências (Go + npm)
 	@echo "📦 Baixando dependências do Go..."
@@ -23,7 +29,7 @@ dev: ## Sobe backend (serve o frontend buildado) + rebuild automático do fronte
 backend-dev: ## Backend Go com auto-reload (air; serve o frontend do dist em dev)
 	@test -x "$(AIR)" || { echo "🛠️  Instalando air..."; go install github.com/air-verse/air@latest; }
 	@echo "⚙️  Backend com auto-reload em http://$(HOST):$(PORT) (frontend servido pelo Go)"
-	@cd backend && HOST=$(HOST) PORT=$(PORT) FRONTEND_DIR=./web/dist "$(AIR)"
+	@set -a; [ -f ./.env ] && . ./.env; set +a; cd backend && HOST="$${HOST:-$(HOST)}" PORT="$${PORT:-$(PORT)}" FRONTEND_DIR=./web/dist COOKIE_SECURE="$${COOKIE_SECURE:-$(COOKIE_SECURE)}" COOKIE_SAMESITE="$${COOKIE_SAMESITE:-$(COOKIE_SAMESITE)}" CORS_ORIGINS="$${CORS_ORIGINS:-$(CORS_ORIGINS)}" "$(AIR)"
 
 frontend-watch: ## Recompila o frontend a cada mudança (vite build --watch)
 	@echo "🏗️  Observando o frontend (vite build --watch)..."
