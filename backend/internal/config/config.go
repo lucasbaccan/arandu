@@ -20,6 +20,13 @@ type Config struct {
 	DatabasePath      string
 	CookieSecure      bool
 	CookieSameSite    string
+	// Nenhuma das duas envs veio preenchida: em vez de chutar uma política fixa,
+	// o cookie de sessão se adapta a cada requisição (ver cookieAttrs em
+	// internal/api). Chutar errado aqui é caro — Secure/None sobre HTTP puro faz
+	// o navegador descartar o cookie em silêncio (login "funciona" e a próxima
+	// requisição volta sem sessão), e Lax sem Secure derruba o cenário
+	// cross-site (frontend na Vercel + backend em outro domínio).
+	CookieAuto bool
 	CORSOrigins       string
 	SnowflakeNode     int
 	ViteDevURL        string
@@ -36,6 +43,7 @@ func Load() Config {
 		DatabasePath:      getEnv("DATABASE_PATH", DefaultDB),
 		CookieSecure:      getEnvBool("COOKIE_SECURE", false),
 		CookieSameSite:    getEnv("COOKIE_SAMESITE", "lax"),
+		CookieAuto:        os.Getenv("COOKIE_SECURE") == "" && os.Getenv("COOKIE_SAMESITE") == "",
 		CORSOrigins:       getEnv("CORS_ORIGINS", ""),
 		SnowflakeNode:     getEnvInt("SNOWFLAKE_NODE", 0),
 		ViteDevURL:        getEnv("VITE_DEV_URL", ""),

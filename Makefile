@@ -6,20 +6,16 @@ AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
 HOST ?= 0.0.0.0
 PORT ?= 8888
 FRONTEND_PORT ?= 5173
-# Produção (frontend na Vercel): cookie SameSite=None exige Secure (HTTPS).
-# O target `dev` sobrescreve estas três para liberar CORS e usar cookie de dev.
-COOKIE_SECURE ?= true
-COOKIE_SAMESITE ?= none
+# Vazio de propósito: sem COOKIE_SECURE/COOKIE_SAMESITE o backend decide a
+# política do cookie por requisição (ver cookieAttrs em internal/api/server.go) —
+# Lax sem Secure em http://localhost, None+Secure quando a página vem de outro
+# domínio por HTTPS. Fixar um dos dois aqui quebra o outro cenário em silêncio:
+# Secure sobre HTTP puro é descartado pelo navegador, e Lax não é enviado
+# cross-site. Para forçar: make backend-dev COOKIE_SECURE=true COOKIE_SAMESITE=none
+COOKIE_SECURE ?=
+COOKIE_SAMESITE ?=
 # Origens liberadas no CORS (vírgula; sufixo "*." libera subdomínios; "*" = qualquer)
-CORS_ORIGINS ?= https://*.vercel.app,https://*.vercel.run,http://localhost:5173,http://127.0.0.1:5173
-
-# Dev local via HTTP: CORS aberto p/ testar o v0 sem restrição de origem,
-# cookie sem Secure/SameSite=None (navegador rejeita None sem Secure).
-# `export` é necessário: o dev chama backend-dev via sub-make ($(MAKE)),
-# e target-specific vars não propagam para sub-makes (só o ambiente propaga).
-dev: export CORS_ORIGINS := *
-dev: export COOKIE_SECURE := false
-dev: export COOKIE_SAMESITE := lax
+CORS_ORIGINS ?= *
 
 deps: ## Instala dependências (Go + npm)
 	@echo "📦 Baixando dependências do Go..."

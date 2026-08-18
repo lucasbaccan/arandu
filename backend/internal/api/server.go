@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -205,6 +206,59 @@ func (a *API) sameSiteMode() http.SameSite {
 	}
 }
 
+// cookieAttrs decide Secure/SameSite do cookie de sessão. Com COOKIE_SECURE ou
+// COOKIE_SAMESITE definidos, manda a configuração. Sem elas, decide pela própria
+// requisição, porque as duas combinações válidas dependem de como a página foi
+// aberta e errar deixa a pessoa sem sessão:
+//   - HTTP puro (dev em localhost): Lax sem Secure — o navegador descarta um
+//     cookie Secure vindo de http://.
+//   - HTTPS mesmo site: Lax com Secure.
+//   - HTTPS cross-site (frontend em outro domínio, ex: Vercel): None + Secure —
+//     é a única combinação que o navegador envia numa requisição cross-site.
+func (a *API) cookieAttrs(r *http.Request) (bool, http.SameSite) {
+	if !a.cfg.CookieAuto {
+		return a.cfg.CookieSecure, a.sameSiteMode()
+	}
+	if !requestIsHTTPS(r) {
+		return false, http.SameSiteLaxMode
+	}
+	if requestIsCrossSite(r) {
+		return true, http.SameSiteNoneMode
+	}
+	return true, http.SameSiteLaxMode
+}
+
+// requestIsHTTPS considera o proxy reverso à frente (Traefik, nginx): para o Go
+// a conexão chega em texto puro, e só o X-Forwarded-Proto conta a verdade.
+func requestIsHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	proto := r.Header.Get("X-Forwarded-Proto")
+	if i := strings.IndexByte(proto, ','); i >= 0 {
+		proto = proto[:i]
+	}
+	return strings.EqualFold(strings.TrimSpace(proto), "https")
+}
+
+// requestIsCrossSite: o Origin só vem preenchido e diferente do host quando a
+// página que fez a chamada mora em outro domínio.
+func requestIsCrossSite(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	host := r.Host
+	if fwd := r.Header.Get("X-Forwarded-Host"); fwd != "" {
+		host = fwd
+	}
+	return !strings.EqualFold(u.Host, host)
+}
+
 func (a *API) spa() http.Handler {
 	sub, err := fs.Sub(web.Dist, "dist")
 	if err != nil {
@@ -277,7 +331,7 @@ func (a *API) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.setSession(w, u.ID)
+	a.setSession(w, r, u.ID)
 	writeJSON(w, http.StatusCreated, map[string]any{"user": toUserDTO(u)})
 }
 
@@ -310,12 +364,12 @@ func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.setSession(w, u.ID)
+	a.setSession(w, r, u.ID)
 	writeJSON(w, http.StatusOK, map[string]any{"user": toUserDTO(u)})
 }
 
 func (a *API) handleLogout(w http.ResponseWriter, r *http.Request) {
-	clearSession(w)
+	a.clearSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -323,6 +377,11 @@ func (a *API) handleMe(w http.ResponseWriter, r *http.Request) {
 	userID := userIDFromContext(r.Context())
 	u, err := a.store.FindUserByID(r.Context(), userID)
 	if err != nil {
+		// Token assinado corretamente, mas o dono não existe mais neste banco
+		// (conta removida, ou o servidor trocou de DATABASE_PATH). Sem limpar o
+		// cookie aqui, o navegador reenvia o mesmo token para sempre e a pessoa
+		// fica presa em "Sessão inválida" sem nada que ela possa fazer na tela.
+		a.clearSession(w, r)
 		writeError(w, http.StatusUnauthorized, "Sessão inválida.")
 		return
 	}
@@ -341,29 +400,36 @@ func (a *API) handleAPI404(w http.ResponseWriter, r *http.Request) {
 
 // --- Sessão (cookie httpOnly + JWT) ---
 
-func (a *API) setSession(w http.ResponseWriter, userID int64) {
+func (a *API) setSession(w http.ResponseWriter, r *http.Request, userID int64) {
 	token, err := auth.NewSessionToken(a.cfg.JWTSecret, userID, a.cfg.SessionHours)
 	if err != nil {
 		log.Printf("api: gerar token: %v", err)
 		return
 	}
+	secure, sameSite := a.cookieAttrs(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.SessionCookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   a.cfg.CookieSecure,
-		SameSite: a.sameSiteMode(),
+		Secure:   secure,
+		SameSite: sameSite,
 		MaxAge:   a.cfg.SessionHours * 3600,
 	})
 }
 
-func clearSession(w http.ResponseWriter) {
+// Apagar precisa repetir Secure/SameSite de quando o cookie foi criado: o
+// navegador só substitui um cookie por outro de mesmo nome/caminho/domínio, e um
+// Set-Cookie de expiração com atributos incompatíveis é ignorado em silêncio.
+func (a *API) clearSession(w http.ResponseWriter, r *http.Request) {
+	secure, sameSite := a.cookieAttrs(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.SessionCookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   secure,
+		SameSite: sameSite,
 		MaxAge:   -1,
 	})
 }
@@ -386,7 +452,7 @@ func (a *API) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 		userID, err := auth.VerifySessionToken(a.cfg.JWTSecret, cookie.Value)
 		if err != nil {
-			clearSession(w)
+			a.clearSession(w, r)
 			writeError(w, http.StatusUnauthorized, "Sessão inválida.")
 			return
 		}
@@ -440,8 +506,16 @@ func spaHandler(static fs.FS) http.Handler {
 	fileServer := http.FileServerFS(static)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
-		if path != "" && !fileExists(static, path) {
+		isIndex := path == "" || !fileExists(static, path)
+		if isIndex {
 			r.URL.Path = "/"
+			// O index.html referencia os arquivos hasheados do build atual (ex:
+			// index-BDSztN80.js); um index.html em cache no navegador aponta pra um
+			// hash que pode não existir mais depois de um novo build (dev com
+			// rebuild automático), servindo uma tela quebrada sem erro visível.
+			// Os arquivos em /assets/* têm hash no nome, então esses continuam
+			// cacheáveis à vontade.
+			w.Header().Set("Cache-Control", "no-store")
 		}
 		fileServer.ServeHTTP(w, r)
 	})
