@@ -18,6 +18,7 @@ type Event struct {
 	PINCode             string
 	Status              string
 	ShowRanking         bool
+	AllowEdit           bool
 	InteractionsEnabled bool
 	CreatedAt           time.Time
 }
@@ -25,9 +26,9 @@ type Event struct {
 func (s *Store) CreateEvent(ctx context.Context, e Event) (Event, error) {
 	e.CreatedAt = time.Now()
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO events (id, owner_id, title, pin_code, status, config_show_ranking, interactions_enabled, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		e.ID, e.OwnerID, e.Title, e.PINCode, e.Status, e.ShowRanking, e.InteractionsEnabled,
+		`INSERT INTO events (id, owner_id, title, pin_code, status, config_show_ranking, allow_edit, interactions_enabled, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.ID, e.OwnerID, e.Title, e.PINCode, e.Status, e.ShowRanking, e.AllowEdit, e.InteractionsEnabled,
 		e.CreatedAt.Format(time.RFC3339),
 	)
 	if err != nil {
@@ -41,7 +42,7 @@ func (s *Store) CreateEvent(ctx context.Context, e Event) (Event, error) {
 
 func (s *Store) ListEventsByOwner(ctx context.Context, ownerID int64) ([]Event, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, interactions_enabled, created_at
+		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, allow_edit, interactions_enabled, created_at
 		 FROM events WHERE owner_id = ? ORDER BY created_at DESC`,
 		ownerID,
 	)
@@ -74,7 +75,7 @@ type EventSummary struct {
 
 func (s *Store) ListEventSummariesByOwner(ctx context.Context, ownerID int64) ([]EventSummary, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT e.id, e.owner_id, e.title, e.pin_code, e.status, e.config_show_ranking, e.interactions_enabled, e.created_at,
+		`SELECT e.id, e.owner_id, e.title, e.pin_code, e.status, e.config_show_ranking, e.allow_edit, e.interactions_enabled, e.created_at,
 		 (SELECT COUNT(*) FROM questions q WHERE q.event_id = e.id),
 		 (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id)
 		 FROM events e WHERE e.owner_id = ? ORDER BY e.created_at DESC`,
@@ -90,7 +91,7 @@ func (s *Store) ListEventSummariesByOwner(ctx context.Context, ownerID int64) ([
 		var es EventSummary
 		var createdAt string
 		if err := rows.Scan(
-			&es.ID, &es.OwnerID, &es.Title, &es.PINCode, &es.Status, &es.ShowRanking, &es.InteractionsEnabled, &createdAt,
+			&es.ID, &es.OwnerID, &es.Title, &es.PINCode, &es.Status, &es.ShowRanking, &es.AllowEdit, &es.InteractionsEnabled, &createdAt,
 			&es.QuestionCount, &es.ParticipantCount,
 		); err != nil {
 			return nil, fmt.Errorf("store: ler evento com contadores: %w", err)
@@ -110,7 +111,7 @@ func (s *Store) ListEventSummariesByOwner(ctx context.Context, ownerID int64) ([
 // FindEventByID busca o evento por ID, sem checar dono (uso público/participante).
 func (s *Store) FindEventByID(ctx context.Context, id int64) (Event, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, interactions_enabled, created_at
+		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, allow_edit, interactions_enabled, created_at
 		 FROM events WHERE id = ?`,
 		id,
 	)
@@ -126,7 +127,7 @@ func (s *Store) FindEventByID(ctx context.Context, id int64) (Event, error) {
 // eventos finalizados, cai pro mais recente.
 func (s *Store) FindEventByPIN(ctx context.Context, pin string) (Event, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, interactions_enabled, created_at
+		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, allow_edit, interactions_enabled, created_at
 		 FROM events WHERE pin_code = ?
 		 ORDER BY CASE WHEN status != 'FINISHED' THEN 0 ELSE 1 END, created_at DESC
 		 LIMIT 1`,
@@ -141,7 +142,7 @@ func (s *Store) FindEventByPIN(ctx context.Context, pin string) (Event, error) {
 
 func (s *Store) FindEventByIDAndOwner(ctx context.Context, id, ownerID int64) (Event, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, interactions_enabled, created_at
+		`SELECT id, owner_id, title, pin_code, status, config_show_ranking, allow_edit, interactions_enabled, created_at
 		 FROM events WHERE id = ? AND owner_id = ?`,
 		id, ownerID,
 	)
@@ -155,10 +156,10 @@ func (s *Store) FindEventByIDAndOwner(ctx context.Context, id, ownerID int64) (E
 func (s *Store) UpdateEvent(ctx context.Context, e Event) (Event, error) {
 	var createdAt string
 	err := s.db.QueryRowContext(ctx,
-		`UPDATE events SET title = ?, pin_code = ?, status = ?, config_show_ranking = ?
+		`UPDATE events SET title = ?, pin_code = ?, status = ?, config_show_ranking = ?, allow_edit = ?
 		 WHERE id = ? AND owner_id = ?
 		 RETURNING created_at`,
-		e.Title, e.PINCode, e.Status, e.ShowRanking, e.ID, e.OwnerID,
+		e.Title, e.PINCode, e.Status, e.ShowRanking, e.AllowEdit, e.ID, e.OwnerID,
 	).Scan(&createdAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Event{}, ErrNotFound
@@ -197,7 +198,7 @@ func (s *Store) SetInteractionsEnabled(ctx context.Context, eventID int64, enabl
 func scanEvent(row scanner) (Event, error) {
 	var e Event
 	var createdAt string
-	err := row.Scan(&e.ID, &e.OwnerID, &e.Title, &e.PINCode, &e.Status, &e.ShowRanking, &e.InteractionsEnabled, &createdAt)
+	err := row.Scan(&e.ID, &e.OwnerID, &e.Title, &e.PINCode, &e.Status, &e.ShowRanking, &e.AllowEdit, &e.InteractionsEnabled, &createdAt)
 	if err != nil {
 		return Event{}, err
 	}

@@ -39,7 +39,7 @@ func setupPublicEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventI
 	openQID = createdOpen.Question.ID
 
 	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
-		"title": "Evento Público", "status": "OPEN_FOR_ANSWERS",
+		"title": "Evento Público", "status": "OPEN_FOR_ANSWERS", "allowEdit": true,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("abrir respostas: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
@@ -384,6 +384,73 @@ func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("resposta de grupo não encontrada após reenvio via token")
+	}
+}
+
+func TestSubmitAnswersBlockedWhenAllowEditDisabled(t *testing.T) {
+	app := newTestAPI(t)
+	h := app.Handler()
+	cookie, eventID, groupQID, openQID, optAID, optBID := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"name":  "Ana",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	var first struct {
+		EditToken string `json:"editToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+		"title": "Evento Público", "status": "OPEN_FOR_ANSWERS", "allowEdit": false,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("desligar allowEdit: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// reenvio via token de edição: deve ser bloqueado.
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"editToken": first.EditToken,
+		"name":      "Ana",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optBID},
+			{"questionId": openQID, "text": "Sushi"},
+		},
+	}, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("reenvio via token com allowEdit=false: status esperado 403, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// reenvio com o mesmo e-mail, sem token: também deve ser bloqueado.
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "ana@exemplo.com",
+		"name":  "Ana",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optBID},
+			{"questionId": openQID, "text": "Sushi"},
+		},
+	}, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("reenvio por e-mail com allowEdit=false: status esperado 403, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// primeiro envio de outra pessoa continua permitido: allowEdit só afeta reenvios.
+	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+		"email": "bia@exemplo.com",
+		"name":  "Bia",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Massa"},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Errorf("primeiro envio com allowEdit=false: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

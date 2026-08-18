@@ -55,6 +55,7 @@ func Migrate(db *sql.DB) error {
 			pin_code            TEXT    NOT NULL,
 			status              TEXT    NOT NULL DEFAULT 'PREPARATION',
 			config_show_ranking BOOLEAN NOT NULL DEFAULT 0,
+			allow_edit          BOOLEAN NOT NULL DEFAULT 1,
 			created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 
@@ -168,6 +169,14 @@ func Migrate(db *sql.DB) error {
 	if _, err := db.Exec(`ALTER TABLE participants ADD COLUMN name TEXT NOT NULL DEFAULT ''`); err != nil {
 		if !strings.Contains(err.Error(), "duplicate column name") {
 			return fmt.Errorf("store: migração (participants.name): %w", err)
+		}
+	}
+
+	// Bancos criados antes de allow_edit existir: adiciona sem quebrar dados
+	// existentes, default true (link de edição ativo por padrão).
+	if _, err := db.Exec(`ALTER TABLE events ADD COLUMN allow_edit BOOLEAN NOT NULL DEFAULT 1`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("store: migração (allow_edit): %w", err)
 		}
 	}
 

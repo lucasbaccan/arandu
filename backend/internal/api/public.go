@@ -19,6 +19,7 @@ type publicEventDTO struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	AnswersOpen bool   `json:"answersOpen"`
+	AllowEdit   bool   `json:"allowEdit"`
 }
 
 type publicOptionDTO struct {
@@ -163,6 +164,7 @@ func (a *API) handlePublicGetEvent(w http.ResponseWriter, r *http.Request) {
 			ID:          strconv.FormatInt(ev.ID, 10),
 			Title:       ev.Title,
 			AnswersOpen: ev.Status == eventStatusOpenForAnswers,
+			AllowEdit:   ev.AllowEdit,
 		},
 		"questions": dtos,
 	})
@@ -210,6 +212,10 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 
 	req.EditToken = strings.TrimSpace(req.EditToken)
 	if req.EditToken != "" {
+		if !ev.AllowEdit {
+			writeError(w, http.StatusForbidden, "A edição de respostas está desabilitada para este evento.")
+			return
+		}
 		p, err := a.store.FindParticipantByEventAndToken(r.Context(), id, req.EditToken)
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Link de edição inválido ou expirado.")
@@ -226,6 +232,18 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		if !isValidEmail(req.Email) {
 			writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
 			return
+		}
+		if !ev.AllowEdit {
+			_, err := a.store.FindParticipantByEventAndEmail(r.Context(), id, req.Email)
+			if err == nil {
+				writeError(w, http.StatusForbidden, "Você já enviou suas respostas. A edição está desabilitada para este evento.")
+				return
+			}
+			if !errors.Is(err, store.ErrNotFound) {
+				log.Printf("api: buscar participante por e-mail: %v", err)
+				writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
+				return
+			}
 		}
 	}
 	req.Name = strings.TrimSpace(req.Name)

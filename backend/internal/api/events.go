@@ -30,6 +30,7 @@ type eventDTO struct {
 	PINCode             string `json:"pinCode"`
 	Status              string `json:"status"`
 	ShowRanking         bool   `json:"configShowRanking"`
+	AllowEdit           bool   `json:"allowEdit"`
 	InteractionsEnabled bool   `json:"interactionsEnabled"`
 	CreatedAt           string `json:"createdAt"`
 	QuestionCount       int    `json:"questionCount"`
@@ -44,6 +45,7 @@ func toEventDTO(e store.Event) eventDTO {
 		PINCode:             e.PINCode,
 		Status:              e.Status,
 		ShowRanking:         e.ShowRanking,
+		AllowEdit:           e.AllowEdit,
 		InteractionsEnabled: e.InteractionsEnabled,
 		CreatedAt:           e.CreatedAt.Format(time.RFC3339),
 	}
@@ -103,6 +105,7 @@ func (a *API) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 			Title:               req.Title,
 			PINCode:             pin,
 			Status:              eventStatusPreparation,
+			AllowEdit:           true,
 			InteractionsEnabled: true,
 		})
 		if errors.Is(err, store.ErrPinTaken) && !customPIN {
@@ -162,6 +165,7 @@ type updateEventRequest struct {
 	PINCode     string `json:"pinCode"`
 	Status      string `json:"status"`
 	ShowRanking bool   `json:"configShowRanking"`
+	AllowEdit   bool   `json:"allowEdit"`
 }
 
 func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
@@ -224,6 +228,7 @@ func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 		PINCode:     pin,
 		Status:      status,
 		ShowRanking: req.ShowRanking,
+		AllowEdit:   req.AllowEdit,
 	})
 	if errors.Is(err, store.ErrPinTaken) {
 		writeError(w, http.StatusConflict, "Este PIN já está em uso. Escolha outro.")
