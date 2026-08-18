@@ -7,21 +7,32 @@
   import Segmented from '../components/Segmented.svelte';
   import Switch from '../components/Switch.svelte';
   import Card from '../components/Card.svelte';
-  import CopyButton from '../components/CopyButton.svelte';
+  import Chip from '../components/Chip.svelte';
+  import HelpButton from '../components/HelpButton.svelte';
+  import PinChip from '../components/PinChip.svelte';
+  import Tabs from '../components/Tabs.svelte';
+  import ThemeToggle from '../components/ThemeToggle.svelte';
   import ReactionBar from '../components/ReactionBar.svelte';
   import QuestionForm from '../components/QuestionForm.svelte';
   import AvatarCropper from '../components/AvatarCropper.svelte';
+  import { statusInfo, questionKindInfo } from '../lib/eventStatus.js';
+
+  const statusDemo = ['PREPARATION', 'OPEN_FOR_ANSWERS', 'PRESENTING', 'FINISHED'];
+  const kindDemo = ['SINGLE_CHOICE', 'OPEN_TEXT', 'GROUP'];
+  let tabValue = 'a';
 
   const colorTokens = [
     { group: 'Neutros', name: '--bg', desc: 'Fundo da página' },
     { group: 'Neutros', name: '--bg-elev', desc: 'Superfície elevada (cards, painéis)' },
-    { group: 'Neutros', name: '--bg-input', desc: 'Fundo de campos e chips' },
+    { group: 'Neutros', name: '--surface-muted', desc: 'Superfície neutra dentro de cards (linhas de apoio, chips)' },
     { group: 'Neutros', name: '--border', desc: 'Bordas e divisores sutis (cards)' },
     { group: 'Neutros', name: '--border-strong', desc: 'Borda de maior contraste (campos de texto)' },
     { group: 'Neutros', name: '--text', desc: 'Texto principal' },
     { group: 'Neutros', name: '--text-muted', desc: 'Texto secundário' },
+    { group: 'Neutros', name: '--text-subtle', desc: 'Texto terciário (overlines, contadores, placeholders)' },
     { group: 'Marca', name: '--accent', desc: 'Roxo Arandu — cor estrutural, ação primária' },
     { group: 'Marca', name: '--accent-hover', desc: 'Roxo em hover' },
+    { group: 'Marca', name: '--accent-soft', desc: 'Fundo de hover do botão fantasma' },
     { group: 'Estados', name: '--danger', desc: 'Erros, exclusão' },
     { group: 'Estados', name: '--danger-hover', desc: 'Vermelho em hover' },
     { group: 'Estados', name: '--success', desc: 'Sucesso, "ao vivo"' },
@@ -63,7 +74,15 @@
   });
 
   const components = [
-    { name: 'Button', file: 'components/Button.svelte', desc: 'Botão com variantes primary/secondary, largura total (block) e estado desabilitado.' },
+    { name: 'Button', file: 'components/Button.svelte', desc: 'Botão com variantes primary/secondary/ghost/danger, largura total (block) e estado desabilitado.' },
+    { name: 'TopBar', file: 'components/TopBar.svelte', desc: 'Topbar de 56px do shell do organizador: símbolo, área, tema, ajuda e menu da conta.' },
+    { name: 'CrumbBar', file: 'components/CrumbBar.svelte', desc: 'Faixa de 44px com o caminho da tela e os slots de situação (status) e ações.' },
+    { name: 'PublicShell', file: 'components/PublicShell.svelte', desc: 'Shell das telas públicas de entrada: marca a 168px, coluna de 440px, cantos com voltar/tema/ajuda.' },
+    { name: 'Tabs', file: 'components/Tabs.svelte', desc: 'Abas sublinhadas com contador (Editar evento e trilho do Palco).' },
+    { name: 'Chip', file: 'components/Chip.svelte', desc: 'Chip único do sistema (situação, tipo de pergunta), em variantes pill/square.' },
+    { name: 'PinChip', file: 'components/PinChip.svelte', desc: 'PIN em monoespaçada com botão copiar, nas variantes inline/boxed/stage.' },
+    { name: 'ThemeToggle', file: 'components/ThemeToggle.svelte', desc: 'Alterna claro/escuro (lib/themeStore.js). Fica nos dois shells.' },
+    { name: 'HelpButton', file: 'components/HelpButton.svelte', desc: 'Botão "?" com um resumo de como o Arandu funciona.' },
     { name: 'Input', file: 'components/Input.svelte', desc: 'Campo de texto com label, dica, erro e opção de caixa alta (uppercase). Aceita qualquer type nativo (text, date, time, etc.).' },
     { name: 'Select', file: 'components/Select.svelte', desc: 'Dropdown custom (não usa <select> nativo, então o menu de opções é 100% estilizável). Mesma API do Input (label, hint, error, options).' },
     { name: 'Segmented', file: 'components/Segmented.svelte', desc: 'Seletor segmentado (grupo de botões exclusivos) para poucas opções lado a lado.' },
@@ -173,32 +192,17 @@
   <section class="sg-section">
     <h2>Botões — <code>&lt;Button&gt;</code></h2>
     <p class="text-muted">
-      Props: <code>variant</code> (primary/secondary/danger/ghost/cyan/yellow/pink/orange/outline/shift/pink-invert/accent-invert/success-invert),
-      <code>size</code> (sm/md/lg), <code>block</code>, <code>disabled</code>, <code>type</code>.
+      Props: <code>variant</code> (primary/secondary/ghost/danger), <code>size</code> (sm/md/lg),
+      <code>block</code>, <code>disabled</code>, <code>type</code>. São só quatro de propósito:
+      <strong>uma ação primária por tela</strong>, secundária para o caminho alternativo, fantasma
+      para o terciário e danger só para destruição.
     </p>
     <div class="sg-row">
       <Button>Primary</Button>
       <Button variant="secondary">Secondary</Button>
-      <Button variant="danger">Danger</Button>
       <Button variant="ghost">Ghost</Button>
+      <Button variant="danger">Danger</Button>
       <Button disabled>Desabilitado</Button>
-    </div>
-    <p class="text-muted" style="margin-top: 16px;">Variantes nas cores secundárias da marca:</p>
-    <div class="sg-row">
-      <Button variant="cyan">Cyan</Button>
-      <Button variant="yellow">Yellow</Button>
-      <Button variant="pink">Pink</Button>
-      <Button variant="orange">Orange</Button>
-    </div>
-    <p class="text-muted" style="margin-top: 16px;">
-      Variantes com comportamento de hover diferente (passe o mouse pra ver):
-    </p>
-    <div class="sg-row">
-      <Button variant="outline">Outline → preenche</Button>
-      <Button variant="shift">Shift → troca de cor</Button>
-      <Button variant="pink-invert">Sair (pink invertido)</Button>
-      <Button variant="accent-invert">Novo evento (azul invertido)</Button>
-      <Button variant="success-invert">▶ Painel do organizador (ao vivo)</Button>
     </div>
     <p class="text-muted" style="margin-top: 16px;">Tamanhos:</p>
     <div class="sg-row">
@@ -295,21 +299,75 @@
   </section>
 
   <section class="sg-section">
-    <h2>Badges e chip de PIN <span class="text-muted">(classes utilitárias)</span></h2>
-    <p class="text-muted">Não são componentes — são classes do <code>app.css</code> aplicadas a HTML simples.</p>
+    <h2>Chip — <code>&lt;Chip&gt;</code></h2>
+    <p class="text-muted">
+      Um chip só no sistema inteiro: fundo tonal + texto colorido. Situação do evento, tipo de
+      pergunta e rótulo de opção são variantes da mesma peça — <code>shape</code> (pill/square),
+      <code>tint</code>, <code>color</code>, <code>dot</code>. As cores saem de
+      <code>lib/eventStatus.js</code>, não são escolhidas na tela.
+    </p>
     <div class="sg-row">
-      <span class="badge">Em preparação</span>
-      <span class="badge badge-presenting">Ao vivo</span>
-      <span class="badge badge-finished">Finalizado</span>
+      {#each statusDemo as s (s)}
+        <Chip dot label={statusInfo(s).label} tint={statusInfo(s).tint} color={statusInfo(s).color} />
+      {/each}
     </div>
     <div class="sg-row" style="margin-top: 12px;">
-      <div class="pin-chip" title="Código de acesso">
-        <span class="pin-chip-label">PIN</span>
-        <div class="pin-chip-value">
-          <strong>#DEV123</strong>
-          <CopyButton text="DEV123" label="Copiar PIN" />
-        </div>
-      </div>
+      {#each kindDemo as t (t)}
+        <Chip
+          shape="square"
+          label={questionKindInfo(t).label}
+          tint={questionKindInfo(t).tint}
+          color={questionKindInfo(t).color}
+        />
+      {/each}
+    </div>
+  </section>
+
+  <section class="sg-section">
+    <h2>PIN — <code>&lt;PinChip&gt;</code></h2>
+    <p class="text-muted">
+      PIN sempre em monoespaçada com botão copiar. <code>variant</code>: <code>inline</code> (linha da
+      tabela), <code>boxed</code> (faixa de breadcrumb) e <code>stage</code> (telão).
+    </p>
+    <div class="sg-row">
+      <PinChip pin="dev-team" />
+      <PinChip pin="dev-team" variant="boxed" />
+      <PinChip pin="dev-team" variant="stage" copyable={false} />
+    </div>
+  </section>
+
+  <section class="sg-section">
+    <h2>Abas — <code>&lt;Tabs&gt;</code></h2>
+    <p class="text-muted">
+      Abas sublinhadas com contador. Mesmo componente no Editar evento (Perguntas · Respostas) e no
+      trilho do Palco (<code>compact</code>). O contador fica fora do nome acessível.
+    </p>
+    <Tabs
+      bind:value={tabValue}
+      tabs={[
+        { value: 'a', label: 'Perguntas', count: 8 },
+        { value: 'b', label: 'Respostas', count: 17 }
+      ]}
+    />
+    <p class="text-muted" style="margin-top: 12px;">Aba ativa: {tabValue}</p>
+  </section>
+
+  <section class="sg-section">
+    <h2>Shells de tela <span class="text-muted">(TopBar · CrumbBar · PublicShell)</span></h2>
+    <p class="text-muted">
+      Toda tela do app usa um dos dois shells. <strong>Organizador</strong>:
+      <code>&lt;TopBar&gt;</code> de 56px (só identidade e conta — nunca muda de tela pra tela) +
+      <code>&lt;CrumbBar&gt;</code> de 44px, que carrega o caminho, a situação e a ação primária
+      daquela tela. <strong>Público</strong>: <code>&lt;PublicShell&gt;</code>, com a marca
+      centralizada a 168px, coluna de 440px e os ícones fixos no canto (voltar, tema e ajuda).
+    </p>
+    <div class="sg-row">
+      <ThemeToggle />
+      <span class="text-muted">Alternar tema (claro/escuro) — presente nos dois shells</span>
+    </div>
+    <div class="sg-row" style="margin-top: 12px;">
+      <HelpButton />
+      <span class="text-muted">Ajuda</span>
     </div>
   </section>
 

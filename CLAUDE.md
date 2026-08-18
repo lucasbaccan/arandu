@@ -88,6 +88,19 @@ regexes/equality checks in one `{#if}` chain. Auth-gating redirects also live in
 reactive block, keyed off `authStore.js`'s `authReady`/`user` stores — there's no route-guard
 abstraction.
 
+**Every screen wears one of two shells** (padronização das "telas padronizadas"). Organizer screens:
+`components/TopBar.svelte` (56px — only identity and account: logo, area, theme, help, avatar menu; never
+changes from screen to screen) plus `components/CrumbBar.svelte` (44px — carries the path, the status chip
+and *that screen's* primary action). Public screens: `components/PublicShell.svelte` — particles + gradient,
+full logo at 168px, a 440px column, and the fixed corner controls (back / theme / help) that replace the
+topbar where there is none. Anything shared between them lives in `app.css` tokens: fields are white with a
+1.5px border and radius 10, buttons are radius 10 with exactly four variants
+(`primary`/`secondary`/`ghost`/`danger` — one primary action per screen), and errors always carry an icon
+plus weight 700 while hints stay neutral text. `components/Chip.svelte` is *the* chip (status, question
+kind, option), colored from `lib/eventStatus.js` — screens never pick those colors themselves.
+`lib/themeStore.js` drives light/dark via `<html data-theme>`; it's the only thing the app puts in
+localStorage. `/tela` (`StyleGuide.svelte`) is the living reference for all of it.
+
 **`frontend/src/lib/api.js`** is a single hand-written client mirroring every backend route 1:1 (grouped
 `events`/`public.events` namespaces) — there's no codegen from the Go handlers, so adding a backend route
 means adding the matching entry here by hand.
@@ -111,5 +124,5 @@ parsed from the URL.
 | `/events/{id}` | `EventEdit.svelte` | Main organizer event-management screen: edit title/PIN/ranking toggle, manage questions (`QuestionForm`), view participant responses (`ResponsesPanel`). |
 | `/answer/{id}` | `Answer.svelte` | Public pre-event form: participant identifies with name/email, answers the event's questions, optionally uploads/crops a photo (`AvatarCropper`). No login — a private edit link lets them come back and change answers/photo later. |
 | `/stage/{id}` | `Stage.svelte` | Organizer's live-presentation control panel — drives the big-screen show: pick current question, reveal/unreveal/reveal-all participants, blank the screen, hide answers, push a message, toggle audience interactions, watch Q&A submissions. |
-| `/audience/{id}` | `Audience.svelte` | Public live view participants/observers watch on their phones after joining via PIN + email. Mirrors `Stage.svelte`'s state over SSE (`PresentationStage` component), plus emoji reactions (`ReactionBar`/`ReactionBurstLayer`) and Q&A submission. Session lives only in the URL (`?pin=`) — no login, no localStorage. |
+| `/audience/{id}` | `Audience.svelte` | Public live view, in **two roles from the same view**: *telão* (projection scale, PIN always visible, no interactions) and *celular* (compact zone rows plus a fixed dock with emoji reactions and Q&A). The role defaults to viewport width (≥1024px → telão) and can be forced with `?view=telao\|celular` — `Stage.svelte`'s "Abrir tela da plateia" appends `&view=telao`. Mirrors `Stage.svelte`'s state over SSE (`PresentationStage`, prop `layout="screen"\|"compact"`). Session lives only in the URL (`?pin=`) — no login, no localStorage. |
 | `/tela` | `StyleGuide.svelte` | Internal component/design-system showcase (buttons, inputs, selects, switches, cards, toasts, etc.) — not part of the product flow. |

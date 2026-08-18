@@ -8,12 +8,20 @@
   export let required = false;
   export let hint = '';
   export let uppercase = false;
+  // Conteúdo à direita do rótulo (ex: "Esqueci a senha" no Login).
+  export let labelAside = '';
+  export let labelAsideHref = '';
 </script>
 
 <div class="field">
   <label>
     {#if label}
-      <span class="label">{label}</span>
+      <span class="label label-row">
+        <span>{label}</span>
+        {#if labelAside}
+          <a class="label-aside" href={labelAsideHref} on:click>{labelAside}</a>
+        {/if}
+      </span>
     {/if}
     <input
       {type}
@@ -31,4 +39,19 @@
   {:else if hint}
     <span class="hint">{hint}</span>
   {/if}
+  <slot name="below" />
 </div>
+
+<style>
+  .label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .label-aside {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+</style>
