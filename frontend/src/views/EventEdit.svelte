@@ -6,32 +6,24 @@
   import { navigate } from '../lib/router.js';
   import { showToast } from '../lib/toastStore.js';
   import { formatDateTime } from '../lib/formatDate.js';
+  import { statusInfo, questionKindInfo } from '../lib/eventStatus.js';
   import Button from '../components/Button.svelte';
   import Input from '../components/Input.svelte';
   import CopyButton from '../components/CopyButton.svelte';
   import Switch from '../components/Switch.svelte';
+  import Chip from '../components/Chip.svelte';
+  import CrumbBar from '../components/CrumbBar.svelte';
+  import PinChip from '../components/PinChip.svelte';
+  import Tabs from '../components/Tabs.svelte';
+  import TopBar from '../components/TopBar.svelte';
   import QuestionForm, { MIN_OPTIONS, MAX_OPTIONS } from '../components/QuestionForm.svelte';
   import AvatarCropper from '../components/AvatarCropper.svelte';
-
-  const statusLabels = {
-    PREPARATION: 'Em preparação',
-    OPEN_FOR_ANSWERS: 'Coletando respostas',
-    CLOSED_FOR_ANSWERS: 'Respostas encerradas',
-    PRESENTING: 'Ao vivo',
-    FINISHED: 'Finalizado'
-  };
 
   function formatTime(iso) {
     const d = new Date(iso);
     const hh = String(d.getUTCHours()).padStart(2, '0');
     const min = String(d.getUTCMinutes()).padStart(2, '0');
     return `${hh}:${min}`;
-  }
-
-  function statusVisual(s) {
-    if (s === 'OPEN_FOR_ANSWERS') return { tint: 'var(--tint-purple)', color: 'var(--accent)' };
-    if (s === 'PRESENTING') return { tint: 'var(--tint-success)', color: 'var(--success)' };
-    return { tint: 'var(--bg-input)', color: 'var(--text-muted)' };
   }
 
   let loading = true;
@@ -47,9 +39,6 @@
   let title = '';
   let pinCode = '';
   let showRanking = false;
-  // Não é persistido: o backend ainda não tem um campo para isto — cada
-  // participante sempre recebe um link de edição. Mantido local para
-  // refletir a opção do design enquanto essa capacidade não existe na API.
   let allowEdit = true;
   let status = '';
   let submitting = false;
@@ -101,6 +90,7 @@
       title = event.title;
       pinCode = event.pinCode;
       showRanking = event.configShowRanking;
+      allowEdit = event.allowEdit;
       status = event.status;
       questions = qs;
     } catch (e) {
@@ -132,7 +122,8 @@
       await api.events.update(id, {
         title: title.trim(),
         pinCode: pinCode.trim(),
-        configShowRanking: showRanking
+        configShowRanking: showRanking,
+        allowEdit
       });
       showToast('Alterações salvas!');
     } catch (e) {
@@ -153,6 +144,7 @@
         title: title.trim(),
         pinCode: '',
         configShowRanking: showRanking,
+        allowEdit,
         status: nextStatus
       });
       status = event.status;
@@ -339,10 +331,6 @@
     navigate(`/stage/${id}`);
   }
 
-  function statusLabel(s) {
-    return statusLabels[s] || s;
-  }
-
   // Recarrega as respostas sempre que a aba é aberta, para refletir
   // participações novas desde o carregamento inicial da página.
   $: if (activeTab === 'responses' && !loading) {
@@ -449,175 +437,57 @@
   }
 </script>
 
-<main class="page page-wide">
+<main class="shell">
   {#if loading}
-    <p class="text-muted">Carregando…</p>
+    <div class="edit-center"><p class="text-muted">Carregando…</p></div>
   {:else if notFound}
-    <div class="card panel">
-      <h1>Evento não encontrado</h1>
-      <p class="subtitle">Ele pode ter sido removido ou você não tem acesso.</p>
-      <Button block variant="secondary" on:click={back}>Voltar</Button>
+    <div class="edit-center">
+      <div class="card">
+        <h1>Evento não encontrado</h1>
+        <p class="subtitle">Ele pode ter sido removido ou você não tem acesso.</p>
+        <Button block variant="secondary" on:click={back}>Voltar</Button>
+      </div>
     </div>
   {:else}
-    <div class="edit-wrap">
-      <div class="editor-topbar">
-        <button
-          type="button"
-          class="back-link"
-          aria-label="Voltar para meus eventos"
-          on:click={back}
-        >‹ Eventos</button>
-        <img class="topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
-        <span class="topbar-title">{title || 'Editar evento'}</span>
-        <span
-          class="status-pill"
-          style="background:{statusVisual(status).tint};color:{statusVisual(status).color}"
-        >{statusLabel(status)}</span>
-        <span class="topbar-spacer"></span>
-        <div class="topbar-pin">
-          <span class="topbar-pin-label">PIN</span>
-          <span class="topbar-pin-value">{pinCode.toUpperCase()}</span>
-          <CopyButton text={pinCode.toUpperCase()} label="Copiar PIN" />
-        </div>
-        <Button
-          size="sm"
-          variant={status === 'PRESENTING' ? 'success-invert' : 'accent-invert'}
-          on:click={openOrganizerPanel}
+    <TopBar area="Organizador" />
+
+    <CrumbBar
+      crumbs={[
+        { label: 'Eventos', href: '/dashboard' },
+        { label: title || 'Evento', href: `/events/${id}` },
+        { label: 'Editar' }
+      ]}
+    >
+      <Chip
+        slot="status"
+        dot
+        label={statusInfo(status).label}
+        tint={statusInfo(status).tint}
+        color={statusInfo(status).color}
+      />
+      <svelte:fragment slot="actions">
+        <PinChip pin={pinCode} variant="boxed" />
+        <Button size="sm" on:click={openOrganizerPanel}>Abrir painel ao vivo</Button>
+      </svelte:fragment>
+    </CrumbBar>
+
+    <div class="edit-layout">
+      <div class="questions-col">
+        <Tabs
+          bind:value={activeTab}
+          tabs={[
+            { value: 'questions', label: 'Perguntas', count: questions.length },
+            { value: 'responses', label: 'Respostas', count: participantCount }
+          ]}
         >
-          ▶ Painel do organizador
-        </Button>
-      </div>
-
-      <div class="edit-layout">
-        <aside class="card panel settings-panel">
-          <div class="stat-row">
-            <div class="stat-box">
-              <span class="stat-num">{questions.length}</span>
-              <span class="stat-label">pergunta{questions.length === 1 ? '' : 's'}</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-num">{participantCount}</span>
-              <span class="stat-label">{participantCount === 1 ? 'pessoa respondeu' : 'pessoas responderam'}</span>
-            </div>
-          </div>
-
-          <div
-            class="answers-switch"
-            style="background:{status === 'OPEN_FOR_ANSWERS' ? 'var(--tint-success)' : 'var(--bg-input)'}"
-          >
-            <div>
-              <strong>Respostas {status === 'OPEN_FOR_ANSWERS' ? 'abertas' : 'fechadas'}</strong>
-              <p class="text-muted">Participantes só respondem enquanto estiver aberto.</p>
-            </div>
-            <Switch
-              checked={status === 'OPEN_FOR_ANSWERS'}
-              disabled={statusBusy}
-              on:change={toggleAnswersOpen}
-            />
-          </div>
-
-          <div class="sidebar-section">
-            <span class="sidebar-heading">Compartilhar</span>
-            <div class="share-link">
-              <div class="share-link-info">
-                <span class="share-link-label">Link de participação</span>
-                <span class="share-link-url">{answerLink}</span>
-              </div>
-              <CopyButton text={answerLink} label="Copiar link de participação" />
-            </div>
-            <div class="share-link">
-              <div class="share-link-info">
-                <span class="share-link-label">Apresentação pública</span>
-                <span class="share-link-url">{audienceLink}</span>
-              </div>
-              <CopyButton text={audienceLink} label="Copiar link da apresentação pública" />
-            </div>
-          </div>
-
-          <div class="sidebar-section">
-            <span class="sidebar-heading">Configurações</span>
-            <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
-              <Input
-                label="Título"
-                bind:value={title}
-                placeholder="Ex: Conecta DevOps 2026"
-                autocomplete="off"
-                required
-              />
-
-              <Input
-                label="PIN"
-                bind:value={pinCode}
-                placeholder="Ex: dev-team"
-                hint="1 a 25 caracteres: letras, números, _ ou -"
-                uppercase
-              />
-
-              <div class="config-row">
-                <span>Exibir ranking de pontos</span>
-                <Switch
-                  aria-label="Exibir ranking de pontos"
-                  checked={showRanking}
-                  on:change={() => (showRanking = !showRanking)}
-                />
-              </div>
-
-              <div class="config-row config-row-hint">
-                <span>
-                  Permitir editar depois
-                  <p class="text-muted">
-                    {allowEdit
-                      ? 'Cada pessoa recebe um link privado para corrigir respostas e foto.'
-                      : 'O envio é único. Só você pode corrigir respostas por aqui.'}
-                  </p>
-                </span>
-                <Switch
-                  aria-label="Permitir editar depois"
-                  checked={allowEdit}
-                  on:change={() => (allowEdit = !allowEdit)}
-                />
-              </div>
-
-              {#if error}
-                <p class="form-error">{error}</p>
-              {/if}
-
-              <Button type="submit" block disabled={submitting}>
-                {submitting ? 'Salvando…' : 'Salvar alterações'}
-              </Button>
-            </form>
-          </div>
-        </aside>
-
-        <div class="card panel questions-panel">
-          <div class="tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              class="pill-tab"
-              class:active={activeTab === 'questions'}
-              aria-selected={activeTab === 'questions'}
-              on:click={() => (activeTab = 'questions')}
-            >
-              Perguntas
-            </button>
-            <button
-              type="button"
-              role="tab"
-              class="pill-tab"
-              class:active={activeTab === 'responses'}
-              aria-selected={activeTab === 'responses'}
-              on:click={() => (activeTab = 'responses')}
-            >
-              Respostas
-            </button>
-            <span class="tabs-spacer"></span>
+          <svelte:fragment slot="actions">
             {#if activeTab === 'questions' && questions.length > 0}
               <Button size="sm" type="button" on:click={() => openInsertAt(questions.length)}>
                 + Adicionar pergunta
               </Button>
             {/if}
-          </div>
+          </svelte:fragment>
+        </Tabs>
 
           {#if activeTab === 'responses'}
             {#if participants.length === 0}
@@ -844,13 +714,13 @@
                       <div class="question-info">
                         <div class="question-title-row">
                           <strong class="question-title">{q.title}</strong>
-                          {#if q.type !== 'OPEN_TEXT' && q.type !== 'GROUP'}
-                            <span class="badge badge-individual">Individual</span>
-                          {/if}
+                          <Chip
+                            shape="square"
+                            label={questionKindInfo(q.type).label}
+                            tint={questionKindInfo(q.type).tint}
+                            color={questionKindInfo(q.type).color}
+                          />
                         </div>
-                        {#if q.type === 'OPEN_TEXT'}
-                          <span class="badge badge-open-text">Resposta aberta</span>
-                        {/if}
                         {#if q.options.length > 0}
                           <ul class="option-chips">
                             {#each q.options as opt (opt.id)}
@@ -952,8 +822,109 @@
               </li>
             </ul>
           {/if}
-        </div>
       </div>
+
+      <aside class="side-rail">
+        <div
+          class="rail-card answers-switch"
+          style="--rail-accent:{status === 'OPEN_FOR_ANSWERS' ? 'var(--success)' : 'var(--border-strong)'}"
+        >
+          <div>
+            <strong>Respostas {status === 'OPEN_FOR_ANSWERS' ? 'abertas' : 'fechadas'}</strong>
+            <p class="text-muted">Só entram respostas enquanto estiver ligado.</p>
+          </div>
+          <Switch
+            checked={status === 'OPEN_FOR_ANSWERS'}
+            disabled={statusBusy}
+            on:change={toggleAnswersOpen}
+          />
+        </div>
+
+        <div class="stat-row">
+          <div class="rail-card stat-box">
+            <span class="stat-num">{questions.length}</span>
+            <span class="stat-label">pergunta{questions.length === 1 ? '' : 's'}</span>
+          </div>
+          <div class="rail-card stat-box">
+            <span class="stat-num">{participantCount}</span>
+            <span class="stat-label">{participantCount === 1 ? 'respondeu' : 'responderam'}</span>
+          </div>
+        </div>
+
+        <div class="rail-card rail-section">
+          <span class="overline">Compartilhar</span>
+          <div class="share-link">
+            <div class="share-link-info">
+              <span class="share-link-label">Link de participação</span>
+              <span class="share-link-url">{answerLink}</span>
+            </div>
+            <CopyButton text={answerLink} label="Copiar link de participação" />
+          </div>
+          <div class="share-link">
+            <div class="share-link-info">
+              <span class="share-link-label">Apresentação pública</span>
+              <span class="share-link-url">{audienceLink}</span>
+            </div>
+            <CopyButton text={audienceLink} label="Copiar link da apresentação pública" />
+          </div>
+        </div>
+
+        <div class="rail-card rail-section">
+          <span class="overline">Configurações</span>
+          <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
+            <Input
+              label="Título"
+              bind:value={title}
+              placeholder="Ex: Conecta DevOps 2026"
+              autocomplete="off"
+              required
+            />
+
+            <Input
+              label="PIN"
+              bind:value={pinCode}
+              placeholder="Ex: dev-team"
+              hint="1 a 25 caracteres: letras, números, _ ou -"
+              uppercase
+            />
+
+            <div class="config-row">
+              <span>Exibir ranking de pontos</span>
+              <Switch
+                aria-label="Exibir ranking de pontos"
+                checked={showRanking}
+                on:change={() => (showRanking = !showRanking)}
+              />
+            </div>
+
+            <div class="config-row config-row-hint">
+              <span>
+                Permitir editar depois
+                <p class="text-muted">
+                  {allowEdit
+                    ? 'Cada pessoa recebe um link privado para corrigir respostas e foto.'
+                    : 'O envio é único. Só você pode corrigir respostas por aqui.'}
+                </p>
+              </span>
+              <Switch
+                aria-label="Permitir editar depois"
+                checked={allowEdit}
+                on:change={() => (allowEdit = !allowEdit)}
+              />
+            </div>
+
+            {#if error}
+              <p class="form-error">{error}</p>
+            {/if}
+
+            <!-- Secundário: a ação primária desta tela é abrir o painel ao vivo,
+                 no breadcrumb. -->
+            <Button type="submit" variant="secondary" block disabled={submitting}>
+              {submitting ? 'Salvando…' : 'Salvar alterações'}
+            </Button>
+          </form>
+        </div>
+      </aside>
     </div>
   {/if}
 </main>
@@ -982,152 +953,74 @@
 {/if}
 
 <style>
-
-  .editor-topbar {
-    height: 52px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 0 20px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-  }
-
-  .back-link {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    font-family: inherit;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .back-link:hover {
-    color: var(--accent);
-  }
-
-  .topbar-logo {
-    flex-shrink: 0;
-    height: 24px;
-    width: auto;
-  }
-
-  .topbar-title {
-    flex: 0 1 auto;
-    min-width: 0;
-    font-size: 0.95rem;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .status-pill {
-    flex-shrink: 0;
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .topbar-spacer {
+  .edit-center {
     flex: 1;
-  }
-
-  .topbar-pin {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 8px 5px 12px;
-    border-radius: 999px;
-    white-space: nowrap;
-    background: var(--bg-input);
-  }
-
-  .topbar-pin-label {
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-  }
-
-  .topbar-pin-value {
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
-
-  .edit-wrap {
-    width: 100%;
-    max-width: 1160px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .tabs {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .tabs-spacer {
-    flex: 1;
-  }
-
-  .pill-tab {
-    padding: 9px 16px;
-    border-radius: 8px;
-    border: 2px solid var(--accent);
-    background: transparent;
-    color: var(--accent);
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
-  }
-
-  .pill-tab.active {
-    background: var(--accent);
-    color: #fff;
+    justify-content: center;
+    padding: 24px;
   }
 
   .edit-layout {
+    flex: 1;
+    min-height: 0;
     display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 16px;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    padding: 24px;
     align-items: start;
   }
 
-  @media (max-width: 880px) {
+  @media (max-width: 980px) {
     .edit-layout {
       grid-template-columns: 1fr;
     }
   }
 
-  .panel {
-    max-width: none;
-    width: 100%;
+  /* O conteúdo manda: perguntas ocupam a coluna larga, configurações viram um
+     trilho de apoio à direita. */
+  .questions-col {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
-  .settings-panel {
-    gap: 20px;
+  .side-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rail-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-row);
+    padding: 16px;
+  }
+
+  .rail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .answers-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--rail-accent);
+  }
+
+  .answers-switch strong {
+    font-size: 0.875rem;
+  }
+
+  .answers-switch p {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
   }
 
   .stat-row {
@@ -1140,14 +1033,13 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 12px 14px;
-    border-radius: 10px;
-    background: var(--bg-input);
+    padding: 14px;
   }
 
   .stat-num {
-    font-size: 1.4rem;
+    font-size: 1.625rem;
     font-weight: 800;
+    letter-spacing: -0.02em;
     line-height: 1;
   }
 
@@ -1156,43 +1048,13 @@
     color: var(--text-muted);
   }
 
-  .answers-switch {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    border-radius: 10px;
-  }
-
-  .answers-switch strong {
-    font-size: 0.9rem;
-  }
-
-  .answers-switch p {
-    margin: 2px 0 0;
-    font-size: 0.8rem;
-  }
-
-  .sidebar-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .sidebar-heading {
-    font-size: 0.85rem;
-    font-weight: 700;
-  }
-
   .share-link {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg-input);
+    border-radius: 8px;
+    background: var(--surface-muted);
   }
 
   .share-link-info {
@@ -1204,12 +1066,12 @@
   }
 
   .share-link-label {
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
   }
 
   .share-link-url {
-    font-size: 0.7rem;
+    font-size: 0.6875rem;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1219,8 +1081,9 @@
   .config-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
-    font-size: 0.85rem;
+    font-size: 0.875rem;
   }
 
   .config-row-hint {
@@ -1233,9 +1096,7 @@
     line-height: 1.35;
   }
 
-  .questions-panel {
-    gap: 0;
-  }
+  /* --- Perguntas --- */
 
   .empty-note {
     display: flex;
@@ -1259,14 +1120,20 @@
 
   .question-item {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--bg-input);
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
+    border-radius: var(--radius-row);
     cursor: grab;
-    transition: border-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .question-item:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-hover);
   }
 
   .question-item.dragging {
@@ -1300,7 +1167,9 @@
     background: transparent;
     border: none;
     color: var(--text-muted);
+    font-family: var(--font-ui);
     font-size: 0.75rem;
+    font-weight: 600;
     cursor: pointer;
     padding: 6px 0;
     opacity: 0;
@@ -1326,76 +1195,31 @@
   }
 
   .reorder-controls {
-    width: 34px;
+    width: 24px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
+    color: var(--text-subtle);
   }
 
   .question-num {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
-    border-radius: 50%;
-    background: var(--bg-elev);
+    border-radius: 6px;
+    background: var(--surface-muted);
     color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 800;
   }
 
-  .icon-btn-move {
-    font-size: 1.3rem;
-    color: var(--accent);
-    border-color: rgba(43, 0, 187, 0.35);
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  .icon-btn-move:hover:not(:disabled) {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-    transform: scale(1.08);
-  }
-
-  .icon-btn-edit {
-    font-size: 1.3rem;
-    color: var(--orange);
-    border-color: rgba(255, 117, 0, 0.35);
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  .icon-btn-edit:hover:not(:disabled) {
-    background: var(--orange);
-    color: var(--text);
-    border-color: var(--orange);
-    transform: scale(1.08);
-  }
-
-  .icon-btn-delete {
-    font-size: 1.3rem;
-    color: var(--danger);
-    border-color: rgba(229, 72, 77, 0.35);
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  .icon-btn-delete:hover:not(:disabled) {
-    background: var(--danger);
-    color: #fff;
-    border-color: var(--danger);
-    transform: scale(1.08);
-  }
-
   .drag-handle {
-    color: var(--text-muted);
-    font-size: 1.4rem;
+    font-size: 0.875rem;
     line-height: 1;
     flex-shrink: 0;
   }
@@ -1405,33 +1229,19 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
 
   .question-title-row {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
   }
 
   .question-title {
-    font-size: 0.95rem;
+    font-size: 0.9375rem;
     line-height: 1.35;
-  }
-
-  .badge-individual {
-    color: var(--text-muted);
-    border-color: var(--border);
-    background: rgba(104, 103, 122, 0.12);
-    flex-shrink: 0;
-  }
-
-  .badge-open-text {
-    align-self: flex-start;
-    color: var(--orange);
-    border-color: var(--orange);
-    background: rgba(255, 117, 0, 0.12);
-    flex-shrink: 0;
   }
 
   .option-chips {
@@ -1444,27 +1254,50 @@
   }
 
   .option-chip {
-    background: var(--bg-elev);
+    padding: 4px 10px;
+    border-radius: 6px;
     border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 3px 10px;
-    font-size: 0.8rem;
+    background: var(--surface-muted);
+    font-size: 0.75rem;
     color: var(--text-muted);
   }
 
   .question-actions {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: 4px;
     flex-shrink: 0;
   }
 
-  /* Respostas */
+  .question-actions .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-color: transparent;
+    color: var(--text-subtle);
+  }
+
+  .question-actions .icon-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .question-actions .icon-btn-delete:hover:not(:disabled) {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  /* --- Respostas --- */
 
   .responses-split {
     display: flex;
     gap: 18px;
     align-items: flex-start;
+  }
+
+  @media (max-width: 760px) {
+    .responses-split {
+      flex-direction: column;
+    }
   }
 
   .people-col {
@@ -1477,21 +1310,27 @@
 
   .people-search {
     width: 100%;
-    padding: 9px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-strong);
-    background: var(--bg-input);
+    padding: 10px 12px;
+    border-radius: var(--radius-control);
+    border: 1.5px solid var(--border-strong);
+    background: var(--bg-elev);
     color: var(--text);
-    font-family: inherit;
-    font-size: 0.85rem;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .people-search:focus {
+    border-color: var(--accent);
   }
 
   .sort-toggle {
     display: flex;
     gap: 4px;
     padding: 3px;
-    border-radius: 9px;
-    background: var(--bg-input);
+    border-radius: var(--radius-control);
+    background: var(--surface-muted);
   }
 
   .sort-btn {
@@ -1501,9 +1340,9 @@
     border: none;
     background: transparent;
     color: var(--text-muted);
-    font-family: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -1522,7 +1361,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
   }
 
   .person-row {
@@ -1530,14 +1368,19 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
-    border-radius: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-row);
     text-align: left;
     cursor: pointer;
-    font-family: inherit;
-    background: transparent;
+    font-family: var(--font-ui);
+    background: var(--bg-elev);
     border: 1px solid var(--border);
     color: var(--text);
+    transition: border-color 0.15s ease;
+  }
+
+  .person-row:hover {
+    border-color: var(--accent);
   }
 
   .person-row.selected {
@@ -1549,23 +1392,23 @@
     width: 24px;
     flex-shrink: 0;
     text-align: right;
-    font-size: 0.7rem;
+    font-size: 0.6875rem;
     font-weight: 700;
-    color: var(--text-muted);
+    color: var(--text-subtle);
   }
 
   .person-avatar,
   .detail-avatar {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     font-weight: 800;
     overflow: hidden;
   }
@@ -1586,15 +1429,15 @@
   }
 
   .person-name {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.875rem;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .person-hour {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
 
   .detail-col {
@@ -1604,7 +1447,7 @@
     flex-direction: column;
     background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--radius-row);
     overflow: hidden;
   }
 
@@ -1630,7 +1473,7 @@
   .detail-avatar {
     width: 64px;
     height: 64px;
-    font-size: 1.4rem;
+    font-size: 1.375rem;
   }
 
   .detail-avatar-edit {
@@ -1641,7 +1484,7 @@
     height: 26px;
     border-radius: 50%;
     border: 2px solid var(--bg-elev);
-    background: var(--bg-input);
+    background: var(--surface-muted);
     color: var(--orange);
     display: flex;
     align-items: center;
@@ -1669,7 +1512,7 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 4px 10px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
   }
 
@@ -1698,8 +1541,8 @@
     flex-direction: column;
     gap: 8px;
     padding: 14px 16px;
-    border-radius: 10px;
-    background: var(--bg-input);
+    border-radius: var(--radius-control);
+    background: var(--surface-muted);
     border: 1px solid var(--border);
   }
 
@@ -1712,8 +1555,8 @@
   .answer-card-question {
     flex: 1;
     min-width: 0;
-    font-size: 0.88rem;
-    font-weight: 600;
+    font-size: 0.875rem;
+    font-weight: 700;
   }
 
   .answer-options {
@@ -1724,21 +1567,26 @@
 
   .answer-option {
     padding: 7px 13px;
-    border-radius: 999px;
+    border-radius: var(--radius-control);
     cursor: pointer;
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 700;
     background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    color: var(--text);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
 
-  .answer-option.selected {
-    background: var(--accent);
+  .answer-option:hover:not(:disabled) {
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text);
+  }
+
+  .answer-option.selected {
+    border: 2px solid var(--accent);
+    color: var(--text);
+    padding: 6px 12px;
   }
 
   .answer-option:disabled {
@@ -1747,16 +1595,21 @@
   }
 
   .answer-text-input {
-    padding: 9px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-strong);
+    padding: 10px 12px;
+    border-radius: var(--radius-control);
+    border: 1.5px solid var(--border-strong);
     background: var(--bg-elev);
-    font-family: inherit;
-    font-size: 0.85rem;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
     color: var(--text);
+    outline: none;
   }
 
-  /* Modal (edição de foto) */
+  .answer-text-input:focus {
+    border-color: var(--accent);
+  }
+
+  /* --- Modal (edição de foto) --- */
 
   .modal-overlay {
     position: fixed;
@@ -1778,10 +1631,10 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
-    padding: 32px 28px;
+    padding: 32px;
     background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
 
@@ -1792,12 +1645,12 @@
   }
 
   .modal-head strong {
-    font-size: 1.2rem;
+    font-size: 1.125rem;
   }
 
   .modal-head p {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
   }
 
   .modal-actions {
@@ -1812,9 +1665,9 @@
     border: none;
     background: transparent;
     color: var(--text-muted);
-    font-family: inherit;
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 700;
     cursor: pointer;
   }
 

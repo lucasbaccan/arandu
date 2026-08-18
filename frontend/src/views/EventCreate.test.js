@@ -36,7 +36,7 @@ describe('Novo evento', () => {
     api.events.create.mockResolvedValue({ event: {} });
     render(EventCreate);
 
-    await userEvent.type(screen.getByLabelText('Título'), 'Conecta DevOps');
+    await userEvent.type(screen.getByLabelText('Título do evento'), 'Conecta DevOps');
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     await waitFor(() =>
@@ -55,9 +55,9 @@ describe('Novo evento', () => {
     api.events.create.mockResolvedValue({ event: {} });
     render(EventCreate);
 
-    await userEvent.type(screen.getByLabelText('Título'), 'Retro');
-    await fireEvent.click(screen.getByLabelText('Definir PIN personalizado'));
-    await userEvent.type(await screen.findByLabelText('PIN'), 'meu-pin_1');
+    await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');
+    await fireEvent.click(screen.getByRole('button', { name: /Personalizado/ }));
+    await userEvent.type(await screen.findByLabelText('PIN personalizado'), 'meu-pin_1');
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     await waitFor(() =>
@@ -71,9 +71,9 @@ describe('Novo evento', () => {
   it('rejeita PIN personalizado inválido', async () => {
     render(EventCreate);
 
-    await userEvent.type(screen.getByLabelText('Título'), 'Retro');
-    await fireEvent.click(screen.getByLabelText('Definir PIN personalizado'));
-    await userEvent.type(await screen.findByLabelText('PIN'), 'espaço inválido');
+    await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');
+    await fireEvent.click(screen.getByRole('button', { name: /Personalizado/ }));
+    await userEvent.type(await screen.findByLabelText('PIN personalizado'), 'espaço inválido');
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     expect(
@@ -86,7 +86,7 @@ describe('Novo evento', () => {
     api.events.create.mockRejectedValue(new Error('Este PIN já está em uso. Escolha outro.'));
     render(EventCreate);
 
-    await userEvent.type(screen.getByLabelText('Título'), 'Retro');
+    await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     expect(

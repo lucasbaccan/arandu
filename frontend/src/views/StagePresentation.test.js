@@ -94,7 +94,12 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
 
     // os rostos renderizam como <button> (mesmo componente da tela pública),
     // mas sem onFaceClick eles ficam sempre desabilitados — nada clicável.
-    const faceButtons = view.getAllByRole('button');
+    // O menu flutuante de variantes (PresentVariantMenu) é a única exceção
+    // proposital: não mexe no estado da apresentação, só troca qual layout
+    // é exibido, então fica de fora desta checagem.
+    const faceButtons = view
+      .getAllByRole('button')
+      .filter((btn) => !btn.closest('.variant-menu'));
     expect(faceButtons.length).toBeGreaterThan(0);
     for (const btn of faceButtons) {
       expect(btn).toBeDisabled();

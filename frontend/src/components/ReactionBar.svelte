@@ -31,25 +31,31 @@
 <style>
   .reaction-bar {
     display: flex;
+    justify-content: space-between;
     gap: 8px;
   }
 
+  /* Alvo de 56px: é o que o polegar acerta com o celular na mão. */
   .reaction-btn {
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
     flex-shrink: 0;
     border-radius: 50%;
     border: 1px solid var(--border);
-    background: var(--bg-input);
-    font-size: 1.3rem;
+    background: var(--surface-muted);
+    font-size: 1.625rem;
     line-height: 1;
     cursor: pointer;
-    transition: border-color 0.15s ease, transform 0.1s ease;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
   }
 
   .reaction-btn:not(:disabled):hover {
     border-color: var(--accent);
-    transform: scale(1.08);
+    background: var(--accent-soft);
+  }
+
+  .reaction-btn:not(:disabled):active {
+    transform: scale(0.9);
   }
 
   .reaction-btn:disabled {

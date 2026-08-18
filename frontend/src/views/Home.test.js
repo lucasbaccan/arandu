@@ -53,7 +53,7 @@ describe('Tela inicial', () => {
     api.public.events.resolvePin.mockResolvedValue({ id: '42' });
     render(Home);
 
-    await fireEvent.input(screen.getByPlaceholderText('EX: DEV-TEAM'), { target: { value: 'dev-team' } });
+    await fireEvent.input(screen.getByPlaceholderText('DEV-TEAM'), { target: { value: 'dev-team' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(api.public.events.resolvePin).toHaveBeenCalledWith('dev-team');
@@ -64,7 +64,7 @@ describe('Tela inicial', () => {
     api.public.events.resolvePin.mockRejectedValue(new ApiErrorLike(404, 'Código não encontrado.'));
     render(Home);
 
-    await fireEvent.input(screen.getByPlaceholderText('EX: DEV-TEAM'), { target: { value: 'naoexiste' } });
+    await fireEvent.input(screen.getByPlaceholderText('DEV-TEAM'), { target: { value: 'naoexiste' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(await screen.findByText('Código não encontrado.')).toBeInTheDocument();

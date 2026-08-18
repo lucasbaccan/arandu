@@ -1,11 +1,12 @@
 <script>
   import { navigate } from '../lib/router.js';
   import { api } from '../lib/api.js';
-  import Button from '../components/Button.svelte';
+  import PublicShell from '../components/PublicShell.svelte';
 
   let code = '';
   let codeError = '';
   let checking = false;
+  let focused = false;
 
   $: codeEmpty = !code.trim();
 
@@ -29,179 +30,161 @@
 </script>
 
 <main class="home">
-  <div class="home-content">
-    <img class="home-logo" src="/img/arandu-completo.png" alt="Arandu" />
-    <h1 class="home-heading">Qual é o código do evento?</h1>
-    <p class="home-tagline">Sem conta, sem instalação. O organizador mostra o código na tela.</p>
+  <PublicShell>
+    <h1 class="entry-title">Qual é o código do evento?</h1>
+    <p class="entry-sub">Sem conta, sem instalação. O organizador mostra o código na tela.</p>
 
-    <form class="code-pill-form" novalidate on:submit|preventDefault={joinWithCode}>
-      <div class="code-pill" class:invalid={!!codeError}>
+    <form class="code-form" novalidate on:submit|preventDefault={joinWithCode}>
+      <div class="code-pill" class:invalid={!!codeError} class:focused>
         <input
-          class="code-pill-input"
+          class="code-input"
           bind:value={code}
-          placeholder="EX: DEV-TEAM"
+          on:focus={() => (focused = true)}
+          on:blur={() => (focused = false)}
+          on:input={() => (codeError = '')}
+          placeholder="DEV-TEAM"
+          aria-label="Código do evento"
           autocomplete="off"
         />
-        <Button type="submit" size="lg" disabled={checking || codeEmpty}>
+        <button type="submit" class="btn btn-primary" disabled={checking || codeEmpty}>
           {checking ? '…' : 'Entrar'}
-        </Button>
+        </button>
       </div>
-      {#if codeError}<p class="form-error home-code-error">{codeError}</p>{/if}
+      <p class="code-note" class:error={!!codeError}>
+        {codeError || 'Recebeu um link? Ele já leva você direto ao evento.'}
+      </p>
     </form>
 
-    <p class="home-hint">Recebeu um link? Ele já leva você direto ao evento.</p>
+    <div class="divider"><span>organizador</span></div>
 
-    <div class="home-organizer">
-      <div class="home-divider">
-        <span>organizador</span>
-      </div>
-      <div class="home-actions">
-        <Button variant="outline" block on:click={() => navigate('/login')}>Entrar na conta</Button>
-        <Button variant="secondary" block on:click={() => navigate('/register')}>
-          Criar conta
-        </Button>
-      </div>
+    <div class="organizer-actions">
+      <button type="button" class="btn btn-secondary" on:click={() => navigate('/login')}>
+        Entrar na conta
+      </button>
+      <button type="button" class="btn btn-ghost" on:click={() => navigate('/register')}>
+        Criar conta
+      </button>
     </div>
-  </div>
+  </PublicShell>
 </main>
 
 <style>
   .home {
     flex: 1;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-
-  .home-content {
-    position: relative;
-    z-index: 1;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    width: min(560px, 92vw);
     text-align: center;
   }
 
-  .home-logo {
-    width: min(300px, 70vw);
-    height: auto;
-    margin-bottom: 8px;
-  }
-
-  .home-heading {
+  .entry-title {
     margin: 0;
-    font-size: clamp(1.7rem, 4vw, 2.6rem);
+    font-size: 2rem;
     font-weight: 800;
     letter-spacing: -0.02em;
+    line-height: 1.15;
   }
 
-  .home-tagline {
-    margin: 0;
+  .entry-sub {
+    margin: 8px 0 0;
     color: var(--text-muted);
-    font-size: 1.05rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
   }
 
-  .code-pill-form {
+  .code-form {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    width: 100%;
-    margin-top: 14px;
+    gap: 8px;
+    margin-top: 24px;
   }
 
   .code-pill {
     display: flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 8px 8px 20px;
+    gap: 8px;
+    padding: 6px 6px 6px 18px;
     background: var(--bg-elev);
-    border: 2px solid var(--accent);
+    border: 1.5px solid var(--border-strong);
     border-radius: 12px;
     box-shadow: var(--shadow);
+    transition: border-color 0.15s ease;
+  }
+
+  .code-pill.focused {
+    border-color: var(--accent);
   }
 
   .code-pill.invalid {
     border-color: var(--danger);
   }
 
-  .code-pill-input {
+  .code-input {
     flex: 1;
     min-width: 0;
-    padding: 12px 0;
+    padding: 10px 0;
     border: none;
     background: transparent;
     font-family: var(--font-ui);
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
+    letter-spacing: 0.06em;
     color: var(--text);
     text-transform: uppercase;
     outline: none;
   }
 
-  .home-code-error {
-    margin: 0;
-    text-align: center;
+  .code-input::placeholder {
+    color: var(--text-subtle);
   }
 
-  .home-hint {
-    margin: 2px 0 0;
-    font-size: 0.85rem;
+  .code-pill .btn {
+    padding: 12px 22px;
+  }
+
+  .code-note {
+    margin: 0;
+    font-size: 0.8125rem;
     color: var(--text-muted);
   }
 
-  .home-organizer {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
-    margin-top: 20px;
+  .code-note.error {
+    color: var(--danger);
+    font-weight: 700;
   }
 
-  .home-divider {
+  .divider {
     display: flex;
     align-items: center;
     gap: 12px;
+    margin-top: 32px;
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
-  .home-divider::before,
-  .home-divider::after {
+  .divider::before,
+  .divider::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: var(--border-strong);
+    background: var(--border);
   }
 
-  .home-actions {
+  .organizer-actions {
     display: flex;
-    flex-wrap: wrap;
     gap: 10px;
+    margin-top: 16px;
   }
 
-  .home-actions :global(.btn) {
+  .organizer-actions .btn {
     flex: 1;
-    min-width: 160px;
   }
 
-  .code-pill-form :global(.btn),
-  .home-actions :global(.btn) {
-    transition:
-      background 0.15s ease,
-      color 0.15s ease,
-      border-color 0.15s ease,
-      transform 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-  .code-pill-form :global(.btn:hover:not(:disabled)),
-  .home-actions :global(.btn:hover:not(:disabled)) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(43, 0, 187, 0.25);
+  @media (max-width: 520px) {
+    .organizer-actions {
+      flex-direction: column;
+    }
   }
 </style>

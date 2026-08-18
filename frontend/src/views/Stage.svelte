@@ -6,9 +6,15 @@
   import { flip } from 'svelte/animate';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
+  import { questionKindInfo } from '../lib/eventStatus.js';
   import Button from '../components/Button.svelte';
+  import Chip from '../components/Chip.svelte';
+  import CrumbBar from '../components/CrumbBar.svelte';
   import Input from '../components/Input.svelte';
+  import PinChip from '../components/PinChip.svelte';
   import Switch from '../components/Switch.svelte';
+  import Tabs from '../components/Tabs.svelte';
+  import TopBar from '../components/TopBar.svelte';
   import ReactionBurstLayer from '../components/ReactionBurstLayer.svelte';
   import { fireReaction } from '../lib/reactionStore.js';
 
@@ -29,21 +35,12 @@
   let qaInbox = [];
   let adminEventSource = null;
 
+  // Trilho com abas no lugar de quatro blocos empilhados.
+  let railTab = 'questions'; // questions | qa | notice
+
   onDestroy(() => {
     if (adminEventSource) adminEventSource.close();
   });
-
-  const stageStatusMeta = {
-    PREPARATION: { label: 'Em preparação', tint: 'var(--tint-orange)', color: 'var(--orange)' },
-    OPEN_FOR_ANSWERS: { label: 'Coletando respostas', tint: 'var(--tint-cyan)', color: 'var(--cyan-hover)' },
-    CLOSED_FOR_ANSWERS: { label: 'Respostas encerradas', tint: 'rgba(104, 103, 122, 0.12)', color: 'var(--text-muted)' },
-    PRESENTING: { label: 'Ao vivo', tint: 'var(--tint-success)', color: 'var(--success)' },
-    FINISHED: { label: 'Finalizado', tint: 'rgba(104, 103, 122, 0.12)', color: 'var(--text-muted)' }
-  };
-
-  $: eventStatusInfo = event
-    ? stageStatusMeta[event.status] || { label: event.status, tint: 'var(--bg-input)', color: 'var(--text-muted)' }
-    : null;
 
   // Modo apresentação: abre uma janela separada, somente leitura (sem
   // clique, sem controles de admin) com só a pergunta, as opções e os
@@ -54,7 +51,11 @@
     // Passar "features" (largura/altura) faz o navegador abrir uma janela
     // de verdade (sem abas, sem barra de endereço) em vez de só uma nova
     // aba — é esse detalhe que muda o comportamento, não o '_blank'.
-    window.open(`/stage/${id}/present`, '_blank', 'noopener,width=1280,height=800');
+    // 1366×768: a resolução nativa mais comum de notebook/projetor — o
+    // conteúdo em si é feito pra caber nesse piso sem rolagem (ver
+    // StagePresentation.svelte); isso só evita abrir menor que isso por
+    // padrão. Pra projetar de verdade, dá F11 na janela.
+    window.open(`/stage/${id}/present`, '_blank', 'noopener,width=1366,height=768');
   }
 
   function handleKeydown(e) {
@@ -122,10 +123,6 @@
     } finally {
       loading = false;
     }
-  }
-
-  function back() {
-    navigate(`/events/${id}`);
   }
 
   // Espelha o estado ao vivo pro servidor (best-effort — não bloqueia nem
@@ -200,7 +197,11 @@
   }
 
   function openAudienceScreen() {
-    window.open(`/audience/${id}?pin=${encodeURIComponent(event.pinCode.toUpperCase())}`, '_blank');
+    // view=telao: essa janela é a projeção, não o celular de quem assiste.
+    window.open(
+      `/audience/${id}?pin=${encodeURIComponent(event.pinCode.toUpperCase())}&view=telao`,
+      '_blank'
+    );
   }
 
   $: currentQuestion = questions[currentIndex];
@@ -287,8 +288,8 @@
   }
 
   // Reseta a revelação de TODAS as perguntas de uma vez (diferente do
-  // "Reiniciar" do rodapé, que só afeta a pergunta atual) — pra recomeçar a
-  // apresentação inteira do zero.
+  // "Reiniciar pergunta" do rodapé, que só afeta a pergunta atual) — pra
+  // recomeçar a apresentação inteira do zero.
   function resetAllReveals() {
     revealed = Object.fromEntries(questions.map((q) => [q.id, new Set()]));
     api.events.live.resetAll(id).catch(() => {});
@@ -315,105 +316,96 @@
     currentIndex = i;
     syncQuestion(questions[i].id);
   }
-
-  function questionKind(q) {
-    if (q.type === 'OPEN_TEXT') return 'Resposta aberta';
-    if (q.type === 'GROUP') return 'Múltipla escolha';
-    return 'Individual';
-  }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
 <ReactionBurstLayer />
 
-<main class="stage-page" class:stage-center={loading || error}>
+<main class="shell">
   {#if loading}
-    <p class="text-muted">Carregando…</p>
+    <div class="stage-center"><p class="text-muted">Carregando…</p></div>
   {:else if error}
-    <p class="form-error">{error}</p>
+    <div class="stage-center"><p class="form-error">{error}</p></div>
   {:else}
-    <div class="stage-topbar">
-      <a
-        class="stage-back-link"
-        href="/events/{id}"
-        aria-label="Voltar para o evento"
-        on:click|preventDefault={back}
-      >
-        <img class="stage-topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
-      </a>
-      <span class="stage-topbar-title">{event.title}</span>
-      {#if eventStatusInfo}
-        <span
-          class="stage-status-badge"
-          style="background:{eventStatusInfo.tint};color:{eventStatusInfo.color}"
-        >
-          ● {eventStatusInfo.label}
-        </span>
-      {/if}
-      <span class="stage-topbar-spacer"></span>
-      <span class="stage-pin-chip">#{event.pinCode.toUpperCase()}</span>
-      <span class="stage-qa-badge">Q&amp;A {qaInbox.length}</span>
-      <Button variant="secondary" size="sm" on:click={resetAllReveals} disabled={!anyRevealed}>
-        Reiniciar tudo
-      </Button>
-      <Button variant="secondary" size="sm" on:click={openPresentationWindow}>
-        Modo apresentação
-      </Button>
-    </div>
+    <TopBar area="Organizador" />
+
+    <CrumbBar
+      crumbs={[
+        { label: 'Eventos', href: '/dashboard' },
+        { label: event.title, href: `/events/${id}` },
+        { label: 'Ao vivo' }
+      ]}
+    >
+      <Chip
+        slot="status"
+        dot
+        label={`${participants.length} na sala`}
+        tint="var(--tint-cyan)"
+        color="var(--cyan-hover)"
+      />
+      <svelte:fragment slot="actions">
+        <PinChip pin={event.pinCode} variant="boxed" />
+        <Button variant="secondary" size="sm" on:click={resetAllReveals} disabled={!anyRevealed}>
+          Reiniciar tudo
+        </Button>
+        <Button size="sm" on:click={openPresentationWindow}>Modo apresentação</Button>
+      </svelte:fragment>
+    </CrumbBar>
 
     {#if questions.length === 0}
-      <p class="text-muted stage-empty-msg">Este evento ainda não tem perguntas.</p>
+      <div class="stage-center">
+        <p class="text-muted">Este evento ainda não tem perguntas.</p>
+      </div>
     {:else}
       <div class="stage-layout">
         <div class="stage-main">
           <div class="stage-main-body">
             <h2 class="stage-question-title">{currentQuestion.title}</h2>
 
-            <div class="stage-pending-head">
-              <span>Pendentes</span>
-              <span class="text-muted">{pending.length}</span>
-            </div>
-            <div class="stage-pending-strip">
-              {#each pending as p (p.id)}
-                <div class="stage-pending-wrap" animate:flip={{ duration: 350 }} out:fade={{ duration: 150 }}>
-                  <button
-                    type="button"
-                    class="stage-pending-face"
-                    title={p.name || p.email}
-                    aria-label={`Revelar resposta de ${p.name || p.email}`}
-                    on:click={() => reveal(p)}
-                  >
-                    {#if p.photo}
-                      <img src={p.photo} alt="" />
-                    {:else}
-                      <span class="stage-pending-face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
-                    {/if}
-                  </button>
-                  <span class="stage-pending-name">{firstName(p)}</span>
-                </div>
-              {/each}
-              {#if pending.length === 0}
-                <p class="text-muted stage-pending-empty">Todo mundo já foi revelado.</p>
-              {/if}
-            </div>
-            {#if pending.length > 0}
-              <p class="text-muted stage-pending-hint">Clique num rosto para revelar.</p>
-            {/if}
-
-            <div class="stage-zones-grid">
-              {#each groups as group (group.label)}
-                <div class="zone stage-zone">
-                  <div class="stage-zone-head">
-                    <span>{group.label}</span>
-                    <span class="stage-zone-count">{group.participants.length}</span>
+            <div class="pending-block">
+              <div class="pending-head">
+                <span class="overline">Pendentes · clique para revelar</span>
+                <span class="overline">{pending.length}</span>
+              </div>
+              <div class="pending-strip">
+                {#each pending as p (p.id)}
+                  <div class="face-wrap" animate:flip={{ duration: 350 }} out:fade={{ duration: 150 }}>
+                    <button
+                      type="button"
+                      class="face"
+                      title={p.name || p.email}
+                      aria-label={`Revelar resposta de ${p.name || p.email}`}
+                      on:click={() => reveal(p)}
+                    >
+                      {#if p.photo}
+                        <img src={p.photo} alt="" />
+                      {:else}
+                        <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+                      {/if}
+                    </button>
+                    <span class="face-name">{firstName(p)}</span>
                   </div>
-                  <div class="stage-zone-faces">
+                {/each}
+                {#if pending.length === 0}
+                  <p class="text-muted pending-empty">Todo mundo já foi revelado.</p>
+                {/if}
+              </div>
+            </div>
+
+            <div class="zones-grid">
+              {#each groups as group (group.label)}
+                <div class="zone">
+                  <div class="zone-head">
+                    <span class="zone-label">{group.label}</span>
+                    <span class="zone-count">{group.participants.length}</span>
+                  </div>
+                  <div class="zone-faces">
                     {#each group.participants as p (p.id)}
-                      <div class="stage-face-wrap" animate:flip={{ duration: 350 }} in:fly={{ y: -30, duration: 350 }}>
+                      <div class="face-wrap" animate:flip={{ duration: 350 }} in:fly={{ y: -30, duration: 350 }}>
                         <button
                           type="button"
-                          class="stage-face"
+                          class="face"
                           title={p.name || p.email}
                           aria-label={`Desrevelar resposta de ${p.name || p.email}`}
                           on:click={() => reveal(p)}
@@ -421,10 +413,10 @@
                           {#if p.photo}
                             <img src={p.photo} alt="" />
                           {:else}
-                            <span class="stage-face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+                            <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
                           {/if}
                         </button>
-                        <span class="stage-face-name">{firstName(p)}</span>
+                        <span class="face-name">{firstName(p)}</span>
                       </div>
                     {/each}
                   </div>
@@ -433,212 +425,139 @@
             </div>
           </div>
 
+          <!-- Ações de revelação só aqui; modo apresentação só no breadcrumb. -->
           <div class="stage-dock">
             <Button size="sm" on:click={revealAll} disabled={pending.length === 0}>
               Revelar tudo
             </Button>
             <Button variant="secondary" size="sm" on:click={resetReveal} disabled={revealedIds.size === 0}>
-              Reiniciar
+              Reiniciar pergunta
             </Button>
-            <span class="stage-dock-spacer"></span>
-            <div class="stage-dock-nav">
+            <span class="dock-spacer"></span>
+            <div class="dock-nav">
               <button
                 type="button"
-                class="stage-nav-btn prev"
+                class="nav-btn"
                 aria-label="Pergunta anterior"
                 disabled={currentIndex === 0}
                 on:click={goPrev}
               >←</button>
-              <span class="stage-dock-counter">{currentIndex + 1} / {questions.length}</span>
+              <span class="dock-counter">{currentIndex + 1} / {questions.length}</span>
               <button
                 type="button"
-                class="stage-nav-btn next"
+                class="nav-btn next"
                 aria-label="Próxima pergunta"
                 disabled={currentIndex === questions.length - 1}
                 on:click={goNext}
               >→</button>
             </div>
-            <span class="stage-dock-spacer"></span>
           </div>
         </div>
 
         <div class="stage-rail">
-            <div class="stage-rail-questions">
-              <div class="stage-rail-section-head">
-                <span>Perguntas</span>
-                <span class="text-muted">{questions.length}</span>
-              </div>
-              <div class="stage-rail-list">
-                {#each questions as q, i (q.id)}
-                  <button
-                    type="button"
-                    class="stage-question-row"
-                    class:active={i === currentIndex}
-                    on:click={() => jumpToQuestion(i)}
-                  >
-                    <span class="stage-question-n">{i + 1}</span>
-                    <span class="stage-question-info">
-                      <span class="stage-question-title-text">{q.title}</span>
-                      <span class="stage-question-kind text-muted">{questionKind(q)}</span>
-                    </span>
-                  </button>
-                {/each}
-              </div>
-            </div>
+          <Tabs
+            compact
+            bind:value={railTab}
+            tabs={[
+              { value: 'questions', label: 'Perguntas', count: questions.length },
+              { value: 'qa', label: 'Q&A', count: qaInbox.length },
+              { value: 'notice', label: 'Aviso' }
+            ]}
+          />
 
-            <div class="stage-rail-switches">
-              <div class="control-row">
-                <Switch checked={blanked} on:change={toggleBlanked} />
-                <span>Tela em branco</span>
-              </div>
-              <div class="control-row">
-                <Switch checked={answersHidden} on:change={toggleAnswersHidden} />
-                <span>Ocultar respostas</span>
-              </div>
-              <div class="control-row">
-                <Switch checked={namesHidden} on:change={toggleNamesHidden} />
-                <span>Ocultar nomes</span>
-              </div>
-              <div class="control-row">
-                <Switch checked={interactionsEnabled} on:change={toggleInteractions} />
-                <span>Interações da plateia</span>
-              </div>
-            </div>
-
-            <div class="stage-rail-qa">
-              <p class="qa-inbox-title">Perguntas dos participantes</p>
+          <div class="rail-panel">
+            {#if railTab === 'questions'}
+              {#each questions as q, i (q.id)}
+                <button
+                  type="button"
+                  class="question-row"
+                  class:active={i === currentIndex}
+                  on:click={() => jumpToQuestion(i)}
+                >
+                  <span class="question-n">{i + 1}</span>
+                  <span class="question-info">
+                    <span class="question-title-text">{q.title}</span>
+                    <Chip
+                      shape="square"
+                      label={questionKindInfo(q.type).label}
+                      tint={questionKindInfo(q.type).tint}
+                      color={questionKindInfo(q.type).color}
+                    />
+                  </span>
+                </button>
+              {/each}
+            {:else if railTab === 'qa'}
               {#if qaInbox.length === 0}
-                <p class="text-muted">Nenhuma mensagem ainda.</p>
+                <p class="text-muted rail-empty">Nenhuma mensagem ainda.</p>
               {:else}
                 {#each qaInbox as m (m.id)}
                   <div class="qa-item">
-                    <div class="qa-item-body">
-                      <span class="qa-item-email">{m.name || m.email || 'Convidado'}</span>
-                      <span class="qa-item-text">{m.text}</span>
-                    </div>
-                    <Button variant="secondary" size="sm" on:click={() => dismissQA(m.id)}>Dispensar</Button>
+                    <span class="qa-item-author">{m.name || m.email || 'Convidado'}</span>
+                    <span class="qa-item-text">{m.text}</span>
+                    <button type="button" class="qa-dismiss" on:click={() => dismissQA(m.id)}>
+                      Dispensar
+                    </button>
                   </div>
                 {/each}
               {/if}
-            </div>
-
-            <div class="stage-rail-message">
-              <Input
-                label="Aviso pra tela dos participantes"
-                bind:value={messageDraft}
-                placeholder="Ex: Voltamos em 5 minutos"
-              />
-              <div class="stage-rail-message-actions">
-                <Button size="sm" on:click={sendMessage} disabled={messageDraft.trim() === message}>
-                  Enviar aviso
-                </Button>
-                <Button variant="secondary" size="sm" on:click={clearMessage} disabled={!message}>
-                  Limpar
-                </Button>
+            {:else}
+              <div class="notice-form">
+                <Input
+                  label="Aviso pra tela dos participantes"
+                  bind:value={messageDraft}
+                  placeholder="Ex: Voltamos em 5 minutos"
+                />
+                <div class="notice-actions">
+                  <Button size="sm" on:click={sendMessage} disabled={messageDraft.trim() === message}>
+                    Enviar aviso
+                  </Button>
+                  <Button variant="secondary" size="sm" on:click={clearMessage} disabled={!message}>
+                    Limpar
+                  </Button>
+                </div>
               </div>
-            </div>
+            {/if}
+          </div>
 
-            <div class="stage-rail-footer">
-              <Button variant="secondary" block on:click={openAudienceScreen}>
-                Abrir tela de apresentação
-              </Button>
+          <!-- Sempre visíveis: são o que a plateia vê agora. -->
+          <div class="rail-switches">
+            <span class="overline">Tela dos participantes</span>
+            <div class="control-row">
+              <Switch aria-label="Tela em branco" checked={blanked} on:change={toggleBlanked} />
+              <span class:on={blanked}>Tela em branco</span>
+            </div>
+            <div class="control-row">
+              <Switch aria-label="Ocultar respostas" checked={answersHidden} on:change={toggleAnswersHidden} />
+              <span class:on={answersHidden}>Ocultar respostas</span>
+            </div>
+            <div class="control-row">
+              <Switch aria-label="Ocultar nomes" checked={namesHidden} on:change={toggleNamesHidden} />
+              <span class:on={namesHidden}>Ocultar nomes</span>
+            </div>
+            <div class="control-row">
+              <Switch aria-label="Interações da plateia" checked={interactionsEnabled} on:change={toggleInteractions} />
+              <span class:on={interactionsEnabled}>Interações da plateia</span>
             </div>
           </div>
+
+          <div class="rail-footer">
+            <Button variant="secondary" block on:click={openAudienceScreen}>
+              Abrir tela da plateia
+            </Button>
+          </div>
+        </div>
       </div>
     {/if}
   {/if}
 </main>
 
 <style>
-  .stage-page {
-    max-width: none;
-    width: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
-    box-sizing: border-box;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
   .stage-center {
-    align-items: center;
-    justify-content: center;
-  }
-
-  .stage-topbar {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    height: 56px;
-    padding: 0 20px;
-    background: var(--bg-elev);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .stage-back-link {
-    display: flex;
-    line-height: 0;
-    opacity: 1;
-    transition: opacity 0.15s ease;
-  }
-
-  .stage-back-link:hover {
-    opacity: 0.8;
-  }
-
-  .stage-topbar-logo {
-    height: 24px;
-    width: auto;
-  }
-
-  .stage-topbar-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-  }
-
-  .stage-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-
-  .stage-topbar-spacer {
-    flex: 1;
-  }
-
-  .stage-pin-chip {
-    padding: 5px 12px;
-    border-radius: 999px;
-    background: var(--bg-input);
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
-
-  .stage-qa-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: var(--tint-orange);
-    color: var(--orange);
-    font-size: 0.8rem;
-    font-weight: 700;
-  }
-
-  .stage-empty-msg {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0;
+    padding: 24px;
   }
 
   .stage-layout {
@@ -659,276 +578,228 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 24px 26px 22px;
+    gap: 20px;
+    padding: 28px 28px 20px;
     overflow-y: auto;
   }
 
   .stage-question-title {
     margin: 0;
-    font-size: 2.2rem;
+    font-size: 2.125rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1.1;
+    line-height: 1.15;
   }
 
-  .stage-pending-head {
+  .pending-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pending-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    font-size: 0.85rem;
-    font-weight: 700;
   }
 
-  .stage-pending-strip {
+  .pending-strip {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 10px;
-    min-height: 58px;
+    min-height: 76px;
     padding: 12px;
     background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--radius-row);
   }
 
-  .stage-pending-empty {
+  .pending-empty {
     margin: 0;
+    font-size: 0.875rem;
   }
 
-  .stage-pending-hint {
-    margin: 6px 0 0;
-    font-size: 0.75rem;
+  .zones-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: minmax(120px, auto);
+    gap: 12px;
   }
 
-  .stage-pending-wrap {
+  @media (max-width: 640px) {
+    .zones-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .zone {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-radius: var(--radius-row);
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+
+  .zone-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .zone-label {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .zone-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    font-size: 0.8125rem;
+    font-weight: 800;
+  }
+
+  .zone-faces {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 10px;
+    min-height: 52px;
+  }
+
+  .face-wrap {
     display: flex;
     flex-direction: column;
     align-items: center;
     flex-shrink: 0;
-    gap: 4px;
-    width: 52px;
+    gap: 5px;
+    width: 56px;
   }
 
-  .stage-pending-name {
-    max-width: 52px;
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .stage-pending-face {
-    width: 48px;
-    height: 48px;
+  .face {
+    width: 46px;
+    height: 46px;
     flex-shrink: 0;
     border-radius: 50%;
-    border: 2px dashed var(--border-strong);
+    border: none;
     padding: 0;
     overflow: hidden;
     cursor: pointer;
     background: var(--accent);
     font-family: var(--font-ui);
-    font-weight: 700;
-    transition: border-color 0.15s ease, transform 0.1s ease;
+    font-weight: 800;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
 
-  .stage-pending-face:hover {
-    border-color: var(--accent);
-    transform: scale(1.06);
+  .face:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(23, 21, 42, 0.18);
   }
 
-  .stage-pending-face img {
+  .face img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  /* Mesma "arte de letra" (fundo cheio + branco) do rosto já revelado — só a
-     borda tracejada diferencia pendente de revelado, não o avatar em si. */
-  .stage-pending-face-placeholder {
+  .face-placeholder {
     width: 100%;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
   }
 
-  .stage-zones-grid {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-auto-rows: 1fr;
-    gap: 16px;
-  }
-
-  @media (max-width: 640px) {
-    .stage-zones-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .stage-zone {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px 18px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--bg-input);
-  }
-
-  .stage-zone-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
-
-  .stage-zone-head span:first-child {
-    flex: 1;
-    font-size: 1.05rem;
-    font-weight: 700;
-  }
-
-  .stage-zone-count {
-    font-size: 1.5rem;
-    font-weight: 800;
-    line-height: 1;
-    color: var(--accent);
-  }
-
-  .stage-zone-faces {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    gap: 14px;
-    min-height: 52px;
-  }
-
-  .stage-face-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    width: 60px;
-  }
-
-  .stage-face-name {
-    max-width: 60px;
-    font-size: 0.7rem;
+  .face-name {
+    max-width: 56px;
+    font-size: 0.6875rem;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .stage-face {
-    width: 52px;
-    height: 52px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    border: none;
-    padding: 0;
-    overflow: hidden;
-    cursor: pointer;
-    background: var(--accent);
-    transition: transform 0.1s ease;
-  }
-
-  .stage-face:hover {
-    transform: scale(1.06);
-  }
-
-  .stage-face img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .stage-face-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent);
-    color: #fff;
-    font-weight: 700;
-  }
-
   .stage-dock {
-    position: relative;
-    height: 64px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 24px;
+    padding: 14px 24px;
     background: var(--bg-elev);
     border-top: 1px solid var(--border);
   }
 
-  .stage-dock-spacer {
+  .dock-spacer {
     flex: 1;
   }
 
-  .stage-dock-nav {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+  .dock-nav {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
-  .stage-nav-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
+  .nav-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1rem;
     cursor: pointer;
+    transition: background 0.15s ease;
   }
 
-  .stage-nav-btn.prev {
-    border: 1px solid var(--border-strong);
-    background: transparent;
-    color: var(--text-muted);
+  .nav-btn:hover:not(:disabled) {
+    background: var(--surface-muted);
   }
 
-  .stage-nav-btn.next {
-    border: none;
-    background: var(--accent);
-    color: #fff;
+  .nav-btn.next {
+    background: var(--surface-muted);
   }
 
-  .stage-nav-btn:disabled {
+  .nav-btn.next:hover:not(:disabled) {
+    background: var(--accent-soft);
+  }
+
+  .nav-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
 
-  .stage-dock-counter {
-    min-width: 64px;
+  .dock-counter {
+    min-width: 56px;
     text-align: center;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
   }
 
+  /* --- Trilho --- */
 
   .stage-rail {
-    width: 280px;
+    width: 330px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    background: var(--bg-elev);
+    background: var(--surface-muted);
     border-left: 1px solid var(--border);
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   @media (max-width: 900px) {
@@ -938,163 +809,153 @@
 
     .stage-rail {
       width: 100%;
-      max-height: 50vh;
+      max-height: 60vh;
       border-left: none;
       border-top: 1px solid var(--border);
     }
   }
 
-  .stage-rail-questions {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    max-height: 260px;
-    padding: 16px 16px 10px;
-  }
-
-  .stage-rail-section-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 0.85rem;
-    font-weight: 700;
-  }
-
-  .stage-rail-list {
+  .rail-panel {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding: 14px 12px;
     overflow-y: auto;
   }
 
-  .stage-question-row {
-    display: flex;
-    gap: 10px;
-    padding: 9px 10px;
-    border-radius: 10px;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    border-left: 3px solid transparent;
-    text-align: left;
-    font-family: var(--font-ui);
+  .rail-empty {
+    margin: 0;
+    font-size: 0.8125rem;
   }
 
-  .stage-question-row.active {
-    background: var(--tint-purple);
+  .question-row {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-control);
+    border: none;
+    border-left: 2px solid transparent;
+    background: transparent;
+    text-align: left;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .question-row:hover {
+    background: var(--bg-elev);
+  }
+
+  .question-row.active {
+    background: var(--bg-elev);
     border-left-color: var(--accent);
   }
 
-  .stage-question-n {
+  .question-n {
     flex-shrink: 0;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 800;
-    color: var(--text-muted);
+    color: var(--text-subtle);
   }
 
-  .stage-question-info {
+  .question-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    align-items: flex-start;
+    gap: 5px;
     min-width: 0;
   }
 
-  .stage-question-title-text {
-    font-size: 0.82rem;
+  .question-title-text {
+    font-size: 0.8125rem;
     line-height: 1.3;
-    color: var(--text);
+    color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 100%;
   }
 
-  .stage-question-row.active .stage-question-title-text {
-    font-weight: 700;
-    color: var(--accent);
+  .question-row.active .question-title-text {
+    color: var(--text);
   }
 
-  .stage-question-kind {
-    font-size: 0.7rem;
-  }
-
-  .stage-rail-switches {
+  .qa-item {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+  }
+
+  .qa-item-author {
+    font-size: 0.6875rem;
+    color: var(--text-subtle);
+  }
+
+  .qa-item-text {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .qa-dismiss {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .qa-dismiss:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .notice-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .notice-actions {
+    display: flex;
     gap: 8px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
+  }
+
+  .rail-switches {
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-top: 1px solid var(--border);
   }
 
   .control-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    cursor: pointer;
-  }
-
-  .stage-rail-qa {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .qa-inbox-title {
-    margin: 0;
-    font-weight: 600;
-    font-size: 0.85rem;
-  }
-
-  .qa-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 10px 12px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-  }
-
-  .qa-item-body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .qa-item-email {
-    font-size: 0.78rem;
+    gap: 12px;
+    font-size: 0.8125rem;
     color: var(--text-muted);
   }
 
-  .qa-item-text {
-    font-size: 0.85rem;
-    word-break: break-word;
+  .control-row span.on {
+    color: var(--text);
   }
 
-  .stage-rail-message {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px;
+  .rail-footer {
+    flex-shrink: 0;
+    padding: 14px 16px;
     border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .stage-rail-message-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .stage-rail-footer {
-    padding: 12px 16px 16px;
-    flex-shrink: 0;
   }
 </style>

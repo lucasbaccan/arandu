@@ -34,9 +34,13 @@ const openQuestion = {
   options: []
 };
 
-function mockLoad({ answersOpen = true, questions = [groupQuestion, openQuestion] } = {}) {
+function mockLoad({
+  answersOpen = true,
+  allowEdit = true,
+  questions = [groupQuestion, openQuestion]
+} = {}) {
   api.public.events.get.mockResolvedValue({
-    event: { id: '42', title: 'Dinâmica de Testes', answersOpen },
+    event: { id: '42', title: 'Dinâmica de Testes', answersOpen, allowEdit },
     questions
   });
 }
@@ -304,6 +308,19 @@ describe('Tela de respostas do participante', () => {
     expect(api.public.events.getParticipant).toHaveBeenCalledWith('42', 'tok123');
     expect(screen.getByText('Editando suas respostas anteriores')).toBeInTheDocument();
     expect(screen.getByLabelText('Go').checked).toBe(true);
+
+    window.history.pushState({}, '', '/answer/42');
+  });
+
+  it('avisa que a edição está desabilitada sem carregar o formulário', async () => {
+    window.history.pushState({}, '', '/answer/42?edit=algum-token');
+    mockLoad({ allowEdit: false });
+    render(Answer, { props: { id: '42' } });
+
+    expect(
+      await screen.findByText(/edição de respostas está desabilitada/i)
+    ).toBeInTheDocument();
+    expect(api.public.events.getParticipant).not.toHaveBeenCalled();
 
     window.history.pushState({}, '', '/answer/42');
   });

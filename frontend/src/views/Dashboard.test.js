@@ -78,9 +78,10 @@ describe('Dashboard (meus eventos)', () => {
 
     expect(await view.findByText('Conecta DevOps')).toBeInTheDocument();
     expect(view.getByText('Retro')).toBeInTheDocument();
-    expect(view.getByText('#123456')).toBeInTheDocument();
-    expect(view.getByText('Em preparação')).toBeInTheDocument();
-    expect(view.getByText('Ao vivo')).toBeInTheDocument();
+    expect(view.getByText('123456')).toBeInTheDocument();
+    expect(view.getByText('Em preparação', { selector: '.chip' })).toBeInTheDocument();
+    // "Ao vivo" também é um filtro no topo — aqui interessa o chip da linha.
+    expect(view.getByText('Ao vivo', { selector: '.chip' })).toBeInTheDocument();
     expect(view.getByText('02/08/2026')).toBeInTheDocument();
   });
 

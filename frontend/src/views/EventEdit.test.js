@@ -90,8 +90,9 @@ describe('Editar evento', () => {
     const view = mount([], 3);
 
     await waitFor(() => {
-      expect(view.getByText('3')).toBeInTheDocument();
-      expect(view.getByText('pessoas responderam')).toBeInTheDocument();
+      // O contador da aba "Respostas" também mostra 3; aqui interessa o card.
+      expect(view.getByText('3', { selector: '.stat-num' })).toBeInTheDocument();
+      expect(view.getByText('responderam')).toBeInTheDocument();
     });
   });
 

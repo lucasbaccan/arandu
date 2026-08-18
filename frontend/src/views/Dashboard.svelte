@@ -1,39 +1,39 @@
 <script>
-  import { user, logout } from '../lib/authStore.js';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { formatDate } from '../lib/formatDate.js';
+  import { statusInfo } from '../lib/eventStatus.js';
   import Button from '../components/Button.svelte';
   import Card from '../components/Card.svelte';
+  import Chip from '../components/Chip.svelte';
+  import CrumbBar from '../components/CrumbBar.svelte';
+  import PinChip from '../components/PinChip.svelte';
+  import TopBar from '../components/TopBar.svelte';
+
+  const FILTERS = [
+    { value: 'all', label: 'Todos' },
+    { value: 'live', label: 'Ao vivo' },
+    { value: 'done', label: 'Finalizados' }
+  ];
 
   let events = [];
   let loading = true;
   let error = '';
   let searchValue = '';
-
-  let userMenuOpen = false;
-  let avatarEl;
-  let userMenuEl;
-
-  const statusMeta = {
-    PREPARATION: { label: 'Em preparação', tint: 'var(--tint-orange)', color: 'var(--orange)' },
-    OPEN_FOR_ANSWERS: { label: 'Coletando respostas', tint: 'var(--tint-cyan)', color: 'var(--cyan-hover)' },
-    CLOSED_FOR_ANSWERS: { label: 'Respostas encerradas', tint: 'rgba(104, 103, 122, 0.12)', color: 'var(--text-muted)' },
-    PRESENTING: { label: 'Ao vivo', tint: 'var(--tint-success)', color: 'var(--success)' },
-    FINISHED: { label: 'Finalizado', tint: 'rgba(104, 103, 122, 0.12)', color: 'var(--text-muted)' }
-  };
-
-  function statusInfo(status) {
-    return statusMeta[status] || { label: status, tint: 'var(--bg-input)', color: 'var(--text-muted)' };
-  }
+  let filter = 'all';
 
   $: filteredEvents = events.filter((ev) => {
+    const matchesFilter =
+      filter === 'all' ||
+      (filter === 'live' && ev.status === 'PRESENTING') ||
+      (filter === 'done' && ev.status === 'FINISHED');
     const q = searchValue.trim().toLowerCase();
-    if (!q) return true;
-    return ev.title.toLowerCase().includes(q) || ev.pinCode.toLowerCase().includes(q);
+    const matchesSearch =
+      !q || ev.title.toLowerCase().includes(q) || ev.pinCode.toLowerCase().includes(q);
+    return matchesFilter && matchesSearch;
   });
 
-  $: liveCount = events.filter((ev) => ev.status === 'PRESENTING').length;
+  $: liveCount = filteredEvents.filter((ev) => ev.status === 'PRESENTING').length;
 
   async function loadEvents() {
     try {
@@ -47,11 +47,6 @@
   }
   loadEvents();
 
-  async function handleLogout() {
-    await logout();
-    navigate('/');
-  }
-
   function goCreate() {
     navigate('/events/new');
   }
@@ -59,80 +54,55 @@
   function openEvent(id) {
     navigate(`/events/${id}`);
   }
-
-  function toggleUserMenu() {
-    userMenuOpen = !userMenuOpen;
-  }
-
-  function closeUserMenu() {
-    userMenuOpen = false;
-  }
-
-  function handleWindowMousedown(e) {
-    if (!userMenuOpen) return;
-    if (avatarEl?.contains(e.target) || userMenuEl?.contains(e.target)) return;
-    closeUserMenu();
-  }
-
-  function logoutFromMenu() {
-    closeUserMenu();
-    handleLogout();
-  }
 </script>
 
-<svelte:window on:mousedown={handleWindowMousedown} />
+<main class="shell">
+  <TopBar area="Organizador" />
 
-<main class="page page-wide dash-page">
-  <div class="dash-topbar">
-    <img class="dash-topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
-    <span class="dash-topbar-title">Painel do organizador</span>
-    <span class="dash-topbar-spacer"></span>
-    <input
-      class="dash-search"
-      bind:value={searchValue}
-      placeholder="Buscar por título ou PIN"
-    />
-    <Button variant="accent-invert" size="sm" on:click={goCreate}>Novo evento</Button>
-    <div class="user-menu-wrap">
-      <button
-        type="button"
-        class="avatar-btn"
-        bind:this={avatarEl}
-        title={($user && $user.name) || ''}
-        aria-haspopup="menu"
-        aria-expanded={userMenuOpen}
-        on:click={toggleUserMenu}
-      >
-        {(($user && $user.name) || '?')[0].toUpperCase()}
-      </button>
-      {#if userMenuOpen}
-        <div class="user-menu" role="menu" bind:this={userMenuEl}>
-          <p class="user-menu-name">Olá, {($user && $user.name) || '…'}</p>
-          <button type="button" class="user-menu-item" role="menuitem" on:click={logoutFromMenu}>
-            Sair
-          </button>
-        </div>
-      {/if}
-    </div>
-  </div>
+  <CrumbBar crumbs={[{ label: 'Eventos' }]}>
+    <svelte:fragment slot="actions">
+      <span class="search">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input bind:value={searchValue} placeholder="Buscar por título ou PIN" aria-label="Buscar por título ou PIN" />
+      </span>
+      <Button size="sm" on:click={goCreate}>Novo evento</Button>
+    </svelte:fragment>
+  </CrumbBar>
 
-  <div class="dash-body">
+  <div class="shell-body">
     {#if loading}
       <p class="text-muted">Carregando…</p>
     {:else if error}
       <p class="form-error">{error}</p>
     {:else if events.length === 0}
-      <Card>
-        <h2>Nenhum evento ainda</h2>
-        <p class="subtitle">Crie seu primeiro evento para começar uma dinâmica.</p>
-        <Button variant="accent-invert" block on:click={goCreate}>Criar evento</Button>
-      </Card>
+      <div class="empty-wrap">
+        <Card>
+          <h2>Nenhum evento ainda</h2>
+          <p class="subtitle">Crie seu primeiro evento para começar uma dinâmica.</p>
+          <Button block on:click={goCreate}>Criar evento</Button>
+        </Card>
+      </div>
     {:else}
-      <div class="events-summary">
-        <h1 class="dash-title">Eventos</h1>
-        <span class="text-muted">
-          {events.length} evento{events.length === 1 ? '' : 's'} · {liveCount} ao vivo
-        </span>
+      <div class="events-head">
+        <div class="events-head-text">
+          <h1 class="section-title">Eventos</h1>
+          <span class="section-sub">
+            {filteredEvents.length} evento{filteredEvents.length === 1 ? '' : 's'} · {liveCount} ao vivo
+          </span>
+        </div>
+        <div class="filters">
+          {#each FILTERS as f (f.value)}
+            <button
+              type="button"
+              class="filter"
+              class:active={filter === f.value}
+              aria-pressed={filter === f.value}
+              on:click={() => (filter = f.value)}
+            >
+              {f.label}
+            </button>
+          {/each}
+        </div>
       </div>
 
       <div class="events-table-head">
@@ -145,12 +115,13 @@
       </div>
 
       {#if filteredEvents.length === 0}
-        <p class="text-muted events-empty-search">Nenhum evento encontrado para "{searchValue}".</p>
+        <p class="text-muted events-empty-search">Nenhum evento encontrado.</p>
       {:else}
         <div class="events-table-body">
           {#each filteredEvents as ev (ev.id)}
             <div
-              class="event-row-grid"
+              class="event-row"
+              style="--row-accent:{statusInfo(ev.status).color}"
               role="button"
               tabindex="0"
               on:click={() => openEvent(ev.id)}
@@ -163,14 +134,16 @@
                 </span>
               </div>
               <span class="col-status">
-                <span
-                  class="event-status-badge"
-                  style="background:{statusInfo(ev.status).tint};color:{statusInfo(ev.status).color}"
-                >
-                  {statusInfo(ev.status).label}
-                </span>
+                <Chip
+                  dot
+                  label={statusInfo(ev.status).label}
+                  tint={statusInfo(ev.status).tint}
+                  color={statusInfo(ev.status).color}
+                />
               </span>
-              <span class="col-pin event-pin">#{ev.pinCode.toUpperCase()}</span>
+              <span class="col-pin">
+                <PinChip pin={ev.pinCode} />
+              </span>
               <span class="col-responses event-people">{ev.participantCount}</span>
               <span class="col-created text-muted">{formatDate(ev.createdAt)}</span>
               <span class="col-chevron event-chevron">›</span>
@@ -183,142 +156,96 @@
 </main>
 
 <style>
-  .dash-page {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0;
-  }
-
-  .dash-topbar {
-    flex-shrink: 0;
+  .search {
     display: flex;
     align-items: center;
-    gap: 14px;
-    height: 56px;
-    padding: 0 24px;
-    background: var(--bg-elev);
-    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    width: 260px;
+    padding: 7px 12px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--border);
+    background: var(--surface-muted);
+    color: var(--text-subtle);
+    font-size: 0.8125rem;
+    transition: border-color 0.15s ease;
   }
 
-  .dash-topbar-logo {
-    height: 24px;
-    width: auto;
-  }
-
-  .dash-topbar-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-  }
-
-  .dash-topbar-spacer {
-    flex: 1;
-  }
-
-  .dash-search {
-    width: 220px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-strong);
-    background: var(--bg-input);
-    font-family: var(--font-ui);
-    font-size: 0.85rem;
-    color: var(--text);
-    outline: none;
-  }
-
-  .dash-search:focus {
+  .search:focus-within {
     border-color: var(--accent);
   }
 
-  .user-menu-wrap {
-    position: relative;
-  }
-
-  .avatar-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: none;
-    background: var(--accent);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 700;
-    font-family: var(--font-ui);
-    cursor: pointer;
-  }
-
-  .user-menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    z-index: 20;
-    display: flex;
-    flex-direction: column;
-    min-width: 160px;
-    padding: 8px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-  }
-
-  .user-menu-name {
-    margin: 2px 8px 6px;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-
-  .user-menu-item {
-    text-align: left;
-    padding: 8px 10px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--danger);
-    font-family: var(--font-ui);
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .user-menu-item:hover {
-    background: var(--tint-danger);
-  }
-
-  .dash-body {
+  .search input {
     flex: 1;
-    min-height: 0;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--text);
+  }
+
+  .search-icon {
+    flex-shrink: 0;
+  }
+
+  .empty-wrap {
+    display: flex;
+    justify-content: center;
+    padding-top: 24px;
+  }
+
+  .events-head {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .events-head-text {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 26px 32px 24px;
+    gap: 2px;
+    flex: 1;
   }
 
-  .events-summary {
+  .filters {
     display: flex;
-    align-items: baseline;
-    gap: 12px;
+    gap: 6px;
   }
 
-  .dash-title {
-    margin: 0;
-    font-size: 1.6rem;
+  .filter {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .filter:hover {
+    border-color: var(--accent);
+  }
+
+  .filter.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
   }
 
   .events-table-head {
     display: grid;
-    grid-template-columns: minmax(160px, 1fr) 160px 110px 100px 110px 24px;
+    grid-template-columns: minmax(160px, 1fr) 170px 140px 100px 110px 24px;
     gap: 16px;
-    padding: 0 16px;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    padding: 0 18px;
+    color: var(--text-subtle);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
@@ -333,35 +260,44 @@
     margin: 0;
   }
 
-  .event-row-grid {
+  /* A cor da situação vira a borda esquerda da linha — o mesmo sinal do chip,
+     legível de relance na lista inteira. */
+  .event-row {
     display: grid;
-    grid-template-columns: minmax(160px, 1fr) 160px 110px 100px 110px 24px;
+    grid-template-columns: minmax(160px, 1fr) 170px 140px 100px 110px 24px;
     gap: 16px;
     align-items: center;
-    min-height: 62px;
-    padding: 10px 16px;
+    min-height: 64px;
+    padding: 12px 18px;
     background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-left: 3px solid var(--row-accent);
+    border-radius: var(--radius-row);
     cursor: pointer;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   }
 
-  .event-row-grid:hover,
-  .event-row-grid:focus-visible {
+  .event-row:hover,
+  .event-row:focus-visible {
     border-color: var(--accent);
+    border-left-color: var(--row-accent);
+    box-shadow: var(--shadow-hover);
     outline: none;
+  }
+
+  .event-row:active {
+    transform: scale(0.997);
   }
 
   .event-title-cell {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
   }
 
   .event-title-text {
-    font-size: 0.95rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -372,45 +308,29 @@
     font-size: 0.75rem;
   }
 
-  .event-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .event-pin {
-    font-size: 0.9rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-  }
-
   .event-people {
-    font-size: 0.95rem;
+    font-size: 0.9375rem;
     font-weight: 700;
+  }
+
+  .col-created {
+    font-size: 0.875rem;
   }
 
   .event-chevron {
-    color: var(--text-muted);
-    font-size: 1.1rem;
+    color: var(--text-subtle);
+    font-size: 1.125rem;
     text-align: right;
   }
 
-  @media (max-width: 760px) {
-    .dash-search {
+  @media (max-width: 900px) {
+    .search {
       display: none;
     }
 
-    .events-table-head {
-      grid-template-columns: minmax(120px, 1fr) 100px 24px;
-    }
-
-    .event-row-grid {
-      grid-template-columns: minmax(120px, 1fr) 100px 24px;
+    .events-table-head,
+    .event-row {
+      grid-template-columns: minmax(120px, 1fr) 150px 24px;
     }
 
     .col-pin,

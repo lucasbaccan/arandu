@@ -258,9 +258,11 @@ describe('Preview da apresentação', () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
     await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
-    await waitFor(() => expect(view.getByRole('button', { name: 'Reiniciar' })).not.toBeDisabled());
+    await waitFor(() =>
+      expect(view.getByRole('button', { name: 'Reiniciar pergunta' })).not.toBeDisabled()
+    );
 
-    await fireEvent.click(view.getByRole('button', { name: 'Reiniciar' }));
+    await fireEvent.click(view.getByRole('button', { name: 'Reiniciar pergunta' }));
 
     expect(await view.findByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
   });
@@ -305,7 +307,8 @@ describe('Preview da apresentação', () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
-    await fireEvent.click(view.getByLabelText('Voltar para o evento'));
+    // O caminho de volta agora é o breadcrumb do shell do organizador.
+    await fireEvent.click(view.getByRole('link', { name: 'Conecta DevOps' }));
 
     expect(navigate).toHaveBeenCalledWith('/events/42');
   });
@@ -324,7 +327,7 @@ describe('Preview da apresentação', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
-    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', '_blank', 'noopener,width=1280,height=800');
+    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', '_blank', 'noopener,width=1366,height=768');
     // não é toggle de estado local — os controles de admin continuam aqui
     expect(view.getByLabelText('Próxima pergunta')).toBeInTheDocument();
     openSpy.mockRestore();
@@ -361,9 +364,9 @@ describe('Preview da apresentação', () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
-    await fireEvent.click(view.getByRole('button', { name: 'Abrir tela de apresentação' }));
+    await fireEvent.click(view.getByRole('button', { name: 'Abrir tela da plateia' }));
 
-    expect(openSpy).toHaveBeenCalledWith('/audience/42?pin=123456', '_blank');
+    expect(openSpy).toHaveBeenCalledWith('/audience/42?pin=123456&view=telao', '_blank');
     openSpy.mockRestore();
   });
 
@@ -400,7 +403,7 @@ describe('Preview da apresentação', () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
-    const pendingWrap = view.getByLabelText('Revelar resposta de ana@exemplo.com').closest('.stage-pending-wrap');
+    const pendingWrap = view.getByLabelText('Revelar resposta de ana@exemplo.com').closest('.face-wrap');
     expect(within(pendingWrap).getByText('ana@exemplo.com')).toBeInTheDocument();
 
     const switches = view.getAllByRole('switch');
@@ -416,6 +419,7 @@ describe('Preview da apresentação', () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
+    await fireEvent.click(view.getByRole('tab', { name: 'Aviso' }));
     await fireEvent.input(view.getByLabelText('Aviso pra tela dos participantes'), {
       target: { value: 'Voltamos em 5 min' }
     });
@@ -430,6 +434,7 @@ describe('Preview da apresentação', () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
+    await fireEvent.click(view.getByRole('tab', { name: 'Aviso' }));
     const input = view.getByLabelText('Aviso pra tela dos participantes');
     await fireEvent.keyDown(input, { key: ' ' });
     await fireEvent.keyDown(input, { key: 'r' });
@@ -452,6 +457,7 @@ describe('Preview da apresentação', () => {
       })
     });
 
+    await fireEvent.click(view.getByRole('tab', { name: 'Q&A' }));
     const qaItem = (await view.findByText('oi')).closest('.qa-item');
     expect(within(qaItem).getByText('ana@exemplo.com')).toBeInTheDocument();
 

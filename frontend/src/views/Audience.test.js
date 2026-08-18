@@ -257,7 +257,9 @@ describe('Tela pública da apresentação (Audience)', () => {
   });
 
   it('mostra a barra de reações e envia ao clicar num emoji', async () => {
-    const view = mount('?pin=dev-team');
+    // view=celular: reações e Q&A vivem só no layout de celular — o telão
+    // mostra a dinâmica e nada mais.
+    const view = mount('?pin=dev-team&view=celular');
     await joinAndWatch(view);
 
     await fireEvent.click(view.getByRole('button', { name: 'Reagir com 👍' }));
@@ -266,7 +268,7 @@ describe('Tela pública da apresentação (Audience)', () => {
   });
 
   it('esconde reações e Q&A quando interactionsEnabled é falso', async () => {
-    const view = mount('?pin=dev-team');
+    const view = mount('?pin=dev-team&view=celular');
     await joinAndWatch(view, { interactionsEnabled: false });
 
     await view.findByText('Qual sua linguagem favorita?');
@@ -275,7 +277,7 @@ describe('Tela pública da apresentação (Audience)', () => {
   });
 
   it('envia uma pergunta e mostra confirmação', async () => {
-    const view = mount('?pin=dev-team');
+    const view = mount('?pin=dev-team&view=celular');
     await joinAndWatch(view);
 
     await fireEvent.input(view.getByLabelText('Pergunta ou recado pro organizador'), {

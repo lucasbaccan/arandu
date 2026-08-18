@@ -11,6 +11,11 @@
 
   const dispatch = createEventDispatcher();
 
+  // Modo linha: a foto vira uma linha do formulário (círculo de 64px + texto)
+  // em vez de um bloco de 200px que empurra os campos para fora da dobra.
+  // Ao escolher um arquivo, o editor de recorte aparece normalmente.
+  export let compact = false;
+
   let fileInput;
   let img = null;
   let objectUrl = null;
@@ -137,7 +142,7 @@
   }
 </script>
 
-<div class="avatar-cropper">
+<div class="avatar-cropper" class:compact>
   <input
     bind:this={fileInput}
     type="file"
@@ -146,7 +151,15 @@
     on:change={onFileChange}
   />
 
-  {#if !img}
+  {#if !img && compact}
+    <button type="button" class="picker-row" on:click={pickFile}>
+      <span class="picker-row-circle" aria-hidden="true">+</span>
+      <span class="picker-row-text">
+        <span class="picker-row-title">Adicionar foto</span>
+        <span class="picker-row-hint">Opcional — sem ela aparece sua inicial.</span>
+      </span>
+    </button>
+  {:else if !img}
     <button type="button" class="picker" on:click={pickFile}>
       <span class="picker-icon" aria-hidden="true">+</span>
       <span>Adicionar foto</span>
@@ -200,6 +213,10 @@
     gap: 10px;
   }
 
+  .avatar-cropper.compact {
+    align-items: stretch;
+  }
+
   .sr-only {
     position: absolute;
     width: 1px;
@@ -236,6 +253,58 @@
   .picker-icon {
     font-size: 1.8rem;
     line-height: 1;
+  }
+
+  .picker-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .picker-row-circle {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1.5px dashed var(--border-strong);
+    background: var(--surface-muted);
+    color: var(--text-subtle);
+    font-size: 1.375rem;
+    line-height: 1;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .picker-row:hover .picker-row-circle {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .picker-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .picker-row-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .picker-row-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
   }
 
   .editor {

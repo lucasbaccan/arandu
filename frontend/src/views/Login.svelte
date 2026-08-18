@@ -2,8 +2,8 @@
   import { login } from '../lib/authStore.js';
   import { navigate } from '../lib/router.js';
   import Button from '../components/Button.svelte';
-  import Card from '../components/Card.svelte';
   import Input from '../components/Input.svelte';
+  import PublicShell from '../components/PublicShell.svelte';
 
   let email = '';
   let password = '';
@@ -31,58 +31,69 @@
   }
 </script>
 
-<main class="page">
-  <Card>
-    <a
-      class="back-logo"
-      href="/"
-      aria-label="Voltar para o início"
-      on:click|preventDefault={() => navigate('/')}
-    >
-      <img src="/img/arandu-completo.png" alt="Arandu" />
-    </a>
-    <h1>Entrar</h1>
-    <p class="subtitle">Acesse sua conta para gerenciar eventos.</p>
-    <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
-      <Input
-        label="E-mail"
-        type="email"
-        bind:value={email}
-        placeholder="seu@melhor.email"
-        autocomplete="email"
-        required
-      />
-      <Input
-        label="Senha"
-        type="password"
-        bind:value={password}
-        autocomplete="current-password"
-        required
-      />
-      {#if error}
-        <p class="form-error">{error}</p>
-      {/if}
-      <Button type="submit" block disabled={submitting}>
-        {submitting ? 'Entrando…' : 'Entrar'}
-      </Button>
-    </form>
-    <p class="switch">
-      Não tem conta?
-      <a href="/register" on:click|preventDefault={() => navigate('/register')}>
-        Criar conta
-      </a>
-    </p>
-  </Card>
+<main class="login">
+  <PublicShell backLabel="Início" backHref="/">
+    <div class="card entry-card">
+      <div class="card-head">
+        <h1>Entrar na sua conta</h1>
+        <p class="card-sub">Para criar e conduzir eventos.</p>
+      </div>
+      <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
+        <Input
+          label="E-mail"
+          type="email"
+          bind:value={email}
+          placeholder="seu@melhor.email"
+          autocomplete="email"
+          required
+        />
+        <Input
+          label="Senha"
+          type="password"
+          bind:value={password}
+          placeholder="••••••••"
+          autocomplete="current-password"
+          required
+        />
+        {#if error}
+          <p class="form-error">{error}</p>
+        {/if}
+        <Button type="submit" block disabled={submitting}>
+          {submitting ? 'Entrando…' : 'Entrar'}
+        </Button>
+      </form>
+      <p class="switch">
+        Não tem conta?
+        <a href="/register" on:click|preventDefault={() => navigate('/register')}>Criar conta</a>
+      </p>
+    </div>
+  </PublicShell>
 </main>
 
 <style>
-  .back-logo {
-    display: block;
-    text-align: center;
+  .login {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 
-  .back-logo img {
-    width: auto;
-    height: 200px;
+  .entry-card {
+    max-width: none;
+  }
+
+  .card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .card-sub {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .switch a {
+    font-weight: 700;
   }
 </style>
