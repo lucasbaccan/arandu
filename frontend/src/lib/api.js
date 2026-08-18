@@ -1,3 +1,5 @@
+import { notifyUnauthorized } from './sessionExpired.js';
+
 export class ApiError extends Error {
   constructor(status, message) {
     super(message);
@@ -10,6 +12,18 @@ export class ApiError extends Error {
 // relativos (backend serve o frontend no mesmo domínio).
 const API_BASE = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '');
 const apiUrl = (path) => `${API_BASE}${path}`;
+
+/*
+ * Sessão expirada/derrubada no meio do uso: sem isto, um 401 vira texto de erro
+ * dentro da tela ("Sessão inválida.") e a pessoa fica olhando um dashboard vazio
+ * sem saber que precisa entrar de novo. Quem reage é o authStore, via
+ * sessionExpired.js.
+ * Não vale para /api/auth/* (o 401 ali é a resposta esperada de quem não está
+ * logado) nem para /api/public/* (token de plateia, que não é a sessão do dono).
+ */
+function isSessionRoute(path) {
+  return path.startsWith('/api/') && !path.startsWith('/api/auth/') && !path.startsWith('/api/public/');
+}
 
 async function request(path, options = {}) {
   const res = await fetch(apiUrl(path), {
@@ -34,6 +48,9 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
+    if (res.status === 401 && isSessionRoute(path)) {
+      notifyUnauthorized();
+    }
     throw new ApiError(res.status, data.error || 'Erro inesperado. Tente novamente.');
   }
   return data;

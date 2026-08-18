@@ -1,9 +1,25 @@
 import { writable } from 'svelte/store';
 import { api } from './api.js';
+import { setUnauthorizedHandler } from './sessionExpired.js';
+import { navigate } from './router.js';
+import { showToast } from './toastStore.js';
 
 export const user = writable(null);
 export const authConfig = writable({ minPasswordLength: 3 });
 export const authReady = writable(false);
+
+// Qualquer rota autenticada que responda 401 derruba a sessão local e manda pro
+// login, em vez de deixar o erro cru na tela.
+setUnauthorizedHandler(() => {
+  let wasLogged = false;
+  user.update((u) => {
+    wasLogged = Boolean(u);
+    return null;
+  });
+  if (!wasLogged) return;
+  showToast('Sua sessão expirou. Entre de novo.', 'error');
+  navigate('/login');
+});
 
 export async function initAuth() {
   try {
