@@ -520,7 +520,7 @@
               <span class="dock-counter">{currentIndex + 1} / {questions.length}</span>
               <button
                 type="button"
-                class="nav-btn next"
+                class="nav-btn"
                 aria-label="Próxima pergunta"
                 disabled={currentIndex === questions.length - 1}
                 on:click={goNext}
@@ -863,31 +863,26 @@
     min-width: 0;
   }
 
+  /* Navegação ←/→ da pergunta: os dois botões iguais, no estilo secundário
+     (mesmo visual do "Reiniciar pergunta" neste dock). */
   .nav-btn {
     width: 36px;
     height: 36px;
     border-radius: var(--radius-control);
-    border: 1px solid var(--border);
-    background: transparent;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-elev);
     color: var(--text);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1rem;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
   }
 
   .nav-btn:hover:not(:disabled) {
+    border-color: var(--accent);
     background: var(--surface-muted);
-  }
-
-  .nav-btn.next {
-    background: var(--surface-muted);
-  }
-
-  .nav-btn.next:hover:not(:disabled) {
-    background: var(--accent-soft);
   }
 
   .nav-btn:disabled {
