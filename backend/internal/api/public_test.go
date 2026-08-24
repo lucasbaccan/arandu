@@ -503,8 +503,8 @@ func TestPublicGetParticipantByToken(t *testing.T) {
 	if resp.Participant.Email != "ana@exemplo.com" {
 		t.Errorf("email divergente: %+v", resp.Participant)
 	}
-	if resp.Participant.Photo != "data:image/jpeg;base64,Zm9vCg==" {
-		t.Errorf("foto divergente: %+v", resp.Participant)
+	if !strings.HasPrefix(resp.Participant.Photo, "/api/photos/") {
+		t.Errorf("foto deveria ser uma URL de arquivo, got %q", resp.Participant.Photo)
 	}
 	if len(resp.Participant.Answers) != 2 {
 		t.Fatalf("esperado 2 respostas, got %+v", resp.Participant.Answers)

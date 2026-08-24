@@ -19,6 +19,7 @@ import (
 	"devopsconecta/backend/internal/config"
 	"devopsconecta/backend/internal/ids"
 	"devopsconecta/backend/internal/live"
+	"devopsconecta/backend/internal/photos"
 	"devopsconecta/backend/internal/store"
 	"devopsconecta/backend/web"
 )
@@ -50,13 +51,14 @@ func toUserDTO(u store.User) userDTO {
 }
 
 type API struct {
-	cfg   config.Config
-	store *store.Store
-	ids   *ids.Generator
-	live  *live.Manager
+	cfg    config.Config
+	store  *store.Store
+	ids    *ids.Generator
+	live   *live.Manager
+	photos *photos.Store
 }
 
-func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *live.Manager) *API {
+func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *live.Manager, photoStore *photos.Store) *API {
 	// Liga a persistência do estado ao vivo (pergunta atual, revelação,
 	// blank/aviso/ocultar) — sem isso, um restart do servidor (deploy, crash,
 	// `air` recompilando em dev) apagava tudo, mesmo já tendo sido salvo
@@ -82,7 +84,7 @@ func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *li
 			PresentDensityMode: liveState.PresentDensityMode,
 		}
 	})
-	return &API{cfg: cfg, store: st, ids: gen, live: liveManager}
+	return &API{cfg: cfg, store: st, ids: gen, live: liveManager, photos: photoStore}
 }
 
 func (a *API) Handler() http.Handler {
@@ -131,6 +133,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/public/events/{id}/live/stream", a.handleLiveStream)
 	mux.HandleFunc("POST /api/public/events/{id}/live/react", a.handleLiveReact)
 	mux.HandleFunc("POST /api/public/events/{id}/live/qa", a.handleLiveSubmitQA)
+	mux.HandleFunc("GET /api/photos/{participantId}", a.handleParticipantPhoto)
 	mux.HandleFunc("/api/", a.handleAPI404)
 
 	if a.cfg.ViteDevURL != "" {

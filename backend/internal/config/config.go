@@ -6,9 +6,10 @@ import (
 )
 
 const (
-	DefaultHost = "0.0.0.0"
-	DefaultPort = "8080"
-	DefaultDB   = "./data/app.db"
+	DefaultHost   = "0.0.0.0"
+	DefaultPort   = "8080"
+	DefaultDB     = "./data/app.db"
+	DefaultPhotos = "./data/photos"
 )
 
 type Config struct {
@@ -18,6 +19,10 @@ type Config struct {
 	SessionHours      int
 	MinPasswordLength int
 	DatabasePath      string
+	// PhotosDir é onde as fotos dos participantes são materializadas em disco
+	// (cache a partir do base64 salvo no banco). Arquivos mais antigos que 7
+	// dias são apagados pela limpeza diária e rematerializados quando pedidos.
+	PhotosDir         string
 	CookieSecure      bool
 	CookieSameSite    string
 	// Nenhuma das duas envs veio preenchida: em vez de chutar uma política fixa,
@@ -41,6 +46,7 @@ func Load() Config {
 		SessionHours:      getEnvInt("SESSION_HOURS", 24),
 		MinPasswordLength: getEnvInt("MIN_PASSWORD_LENGTH", 3),
 		DatabasePath:      getEnv("DATABASE_PATH", DefaultDB),
+		PhotosDir:         getEnv("PHOTOS_DIR", DefaultPhotos),
 		CookieSecure:      getEnvBool("COOKIE_SECURE", false),
 		CookieSameSite:    getEnv("COOKIE_SAMESITE", "lax"),
 		CookieAuto:        os.Getenv("COOKIE_SECURE") == "" && os.Getenv("COOKIE_SAMESITE") == "",

@@ -41,9 +41,18 @@ Running the compiled binary directly:
 ```
 
 Config is env-var driven (see `.env.example` / `backend/internal/config/config.go`): `HOST`, `PORT`,
-`DATABASE_PATH`, `JWT_SECRET`, `MIN_PASSWORD_LENGTH`, `SESSION_HOURS`, `COOKIE_SECURE`,
+`DATABASE_PATH`, `PHOTOS_DIR`, `JWT_SECRET`, `MIN_PASSWORD_LENGTH`, `SESSION_HOURS`, `COOKIE_SECURE`,
 `SNOWFLAKE_NODE`. `VITE_DEV_URL`/`FRONTEND_DIR` are dev-only overrides used by `make dev`/`frontend-dev`
 so the Go server can proxy to or serve from an unbuilt frontend instead of the embedded `dist`.
+
+**Participant photos are stored in the DB as base64 data URLs but never sent in JSON payloads.**
+`backend/internal/photos` materializes them as files under `PHOTOS_DIR` (`./data/photos`) and serves
+them via `GET /api/photos/{participantId}` — DTOs (`responses`, public participant, live snapshots)
+carry only that URL (`a.photoURL(p)`). The first request for a photo decodes the DB value and writes
+the file (slower); later requests serve straight from disk with `Cache-Control` revalidation. Updating
+or removing a photo invalidates the cached file (`photos.Remove`). `cmd/server/main.go` runs a daily
+cleanup loop (`RunCleanupLoop`, 24h tick) that deletes files older than 7 days (`PHOTOS_DIR` files are
+recreated on demand from the DB, so deletion is safe).
 
 ## Architecture
 

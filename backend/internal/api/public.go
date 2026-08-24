@@ -90,7 +90,7 @@ func (a *API) handlePublicGetParticipant(w http.ResponseWriter, r *http.Request)
 		"participant": publicParticipantDTO{
 			Email:   participant.Email,
 			Name:    participant.Name,
-			Photo:   participant.Photo,
+			Photo:   a.photoURL(participant),
 			Answers: adtos,
 		},
 	})
@@ -349,6 +349,11 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		log.Printf("api: salvar participante: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
 		return
+	}
+	if req.Photo != "" {
+		// Foto nova/alterada: invalida o arquivo em disco pra próxima
+		// requisição rematerializar com o novo valor.
+		a.photos.Remove(participant.ID)
 	}
 
 	if err := a.store.ReplaceAnswers(r.Context(), participant.ID, answers); err != nil {

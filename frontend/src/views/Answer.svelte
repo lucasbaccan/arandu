@@ -55,6 +55,11 @@
   let name = '';
   let email = '';
   let photo = '';
+  // Em modo de edição, o servidor devolve a foto como URL de arquivo
+  // (/api/photos/{id}), não como base64. photoChanged distingue "mantive a
+  // foto" (envia vazio pra conservar a do banco) de "troquei" (envia o novo
+  // data URL do AvatarCropper).
+  let photoChanged = false;
   let nameError = '';
   let emailError = '';
   let photoWarning = false;
@@ -113,6 +118,7 @@
       email = participant.email;
       name = participant.name || '';
       photo = participant.photo;
+      photoChanged = false;
       editToken = token;
       isEditMode = true;
       const next = { ...answers };
@@ -153,6 +159,7 @@
 
   function onPhotoChange(e) {
     photo = e.detail;
+    photoChanged = true;
     if (photo) photoWarning = false;
   }
 
@@ -222,7 +229,7 @@
       const { editToken: returnedToken } = await api.public.events.submit(id, {
         email: email.trim(),
         name: name.trim(),
-        photo,
+        photo: photoChanged ? photo : '',
         editToken,
         answers: questions.map((q) => ({
           questionId: q.id,

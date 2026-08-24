@@ -955,8 +955,8 @@ func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAd
 	}, nil
 }
 
-func toLiveParticipantDTO(p store.Participant) liveParticipantDTO {
-	return liveParticipantDTO{ID: strconv.FormatInt(p.ID, 10), Email: p.Email, Name: p.Name, Photo: p.Photo}
+func (a *API) toLiveParticipantDTO(p store.Participant) liveParticipantDTO {
+	return liveParticipantDTO{ID: strconv.FormatInt(p.ID, 10), Email: p.Email, Name: p.Name, Photo: a.photoURL(p)}
 }
 
 type revealedLiveAnswer struct {
@@ -1033,7 +1033,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 	var allOpenTexts []string
 	for _, p := range participants {
 		if !revealed[p.ID] {
-			pending = append(pending, toLiveParticipantDTO(p))
+			pending = append(pending, a.toLiveParticipantDTO(p))
 			if current.Type == questionTypeOpenText {
 				if text, ok := freeTextAnswerFor(ctx, a.store, p.ID, current.ID); ok {
 					allOpenTexts = append(allOpenTexts, text)
@@ -1055,7 +1055,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 		if found == nil {
 			// revelado mas sem resposta pra essa pergunta ainda — trata
 			// como pendente pra não travar o snapshot.
-			pending = append(pending, toLiveParticipantDTO(p))
+			pending = append(pending, a.toLiveParticipantDTO(p))
 			continue
 		}
 		revealedAnswers = append(revealedAnswers, revealedLiveAnswer{participant: p, optionID: found.OptionID, text: found.FreeText})
@@ -1065,7 +1065,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 	}
 
 	snapshot.Pending = pending
-	snapshot.Groups = buildLiveGroups(current, revealedAnswers, allOpenTexts)
+	snapshot.Groups = a.buildLiveGroups(current, revealedAnswers, allOpenTexts)
 	return snapshot, nil
 }
 
@@ -1084,7 +1084,7 @@ func freeTextAnswerFor(ctx context.Context, st *store.Store, participantID, ques
 	return "", false
 }
 
-func buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer, allOpenTexts []string) []liveGroupDTO {
+func (a *API) buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer, allOpenTexts []string) []liveGroupDTO {
 	if q.Type == questionTypeOpenText {
 		order := make([]string, 0, len(allOpenTexts))
 		byLabel := make(map[string]*liveGroupDTO, len(allOpenTexts))
@@ -1111,7 +1111,7 @@ func buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer
 				byLabel[label] = g
 				order = append(order, label)
 			}
-			g.Participants = append(g.Participants, toLiveParticipantDTO(r.participant))
+			g.Participants = append(g.Participants, a.toLiveParticipantDTO(r.participant))
 		}
 		groups := make([]liveGroupDTO, 0, len(order))
 		for _, label := range order {
@@ -1131,7 +1131,7 @@ func buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer
 		if !ok {
 			continue
 		}
-		g.Participants = append(g.Participants, toLiveParticipantDTO(r.participant))
+		g.Participants = append(g.Participants, a.toLiveParticipantDTO(r.participant))
 	}
 	groups := make([]liveGroupDTO, 0, len(order))
 	for _, id := range order {

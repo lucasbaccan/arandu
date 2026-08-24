@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -201,8 +202,8 @@ func TestUpdateParticipantPhoto(t *testing.T) {
 
 	rec = doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	if resp.Participants[0].Photo != "data:image/jpeg;base64,Zm9vCg==" {
-		t.Errorf("foto não atualizada: %+v", resp.Participants[0])
+	if !strings.HasPrefix(resp.Participants[0].Photo, "/api/photos/") {
+		t.Errorf("foto deveria ser uma URL de arquivo, got %q", resp.Participants[0].Photo)
 	}
 }
 

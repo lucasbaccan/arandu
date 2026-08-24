@@ -98,7 +98,7 @@ func (a *API) handleListResponses(w http.ResponseWriter, r *http.Request) {
 			ID:        strconv.FormatInt(p.ID, 10),
 			Email:     p.Email,
 			Name:      p.Name,
-			Photo:     p.Photo,
+			Photo:     a.photoURL(p),
 			EditToken: p.EditToken,
 			CreatedAt: p.CreatedAt.Format(time.RFC3339),
 			Answers:   adtos,
@@ -271,6 +271,9 @@ func (a *API) handleUpdateParticipantPhoto(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar a foto.")
 		return
 	}
+	// Foto alterada ou removida: invalida o arquivo em disco pra próxima
+	// requisição rematerializar com o novo valor (ou devolver 404).
+	a.photos.Remove(participantID)
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

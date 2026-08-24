@@ -150,11 +150,11 @@ describe('ResponsesPanel', () => {
     expect(view.getByLabelText('Copiar link de edição')).toBeInTheDocument();
   });
 
-  it('permite editar a foto do participante', async () => {
-    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [participant] });
-    api.events.responses.updatePhoto.mockResolvedValue({ ok: true });
-    const updated = { ...participant, photo: 'data:image/jpeg;base64,Zm9v' };
-    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [updated] });
+  it('salvar a foto sem alterar não chama a API e fecha o editor', async () => {
+    // A lista devolve a foto como URL de arquivo; o cropper só emite data URL
+    // quando o usuário troca a foto. Salvar sem alterar não deve mandar a URL
+    // de volta para a API (quebraria a validação de data:image).
+    api.events.responses.list.mockResolvedValue({ participantCount: 1, participants: [participant] });
 
     const view = mount();
     await view.findByText('ana@exemplo.com');
@@ -165,9 +165,8 @@ describe('ResponsesPanel', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Salvar foto' }));
 
-    await waitFor(() =>
-      expect(api.events.responses.updatePhoto).toHaveBeenCalledWith('42', 'p1', { photo: '' })
-    );
+    await waitFor(() => expect(api.events.responses.updatePhoto).not.toHaveBeenCalled());
+    expect(view.queryByText('Salvar foto')).not.toBeInTheDocument();
   });
 
   it('mostra erro ao falhar atualização', async () => {

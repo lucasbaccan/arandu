@@ -97,6 +97,12 @@
   }
 
   async function savePhoto(p) {
+    // Sem mudança (o servidor devolve a foto como URL e o cropper emite data
+    // URL), não há o que salvar — mandar a URL de volta quebraria a validação.
+    if (photoDraft === p.photo) {
+      editingPhotoFor = null;
+      return;
+    }
     savingPhoto = true;
     photoSaveError = '';
     try {

@@ -1348,7 +1348,7 @@ func TestLiveStateSurvivesServerRestart(t *testing.T) {
 	if err := store.Migrate(db1); err != nil {
 		t.Fatalf("migrar store: %v", err)
 	}
-	h1 := New(cfg, store.New(db1), ids.NewGenerator(1), live.NewManager()).Handler()
+	h1 := New(cfg, store.New(db1), ids.NewGenerator(1), live.NewManager(), newPhotoStore(t)).Handler()
 
 	cookie, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h1)
 
@@ -1379,7 +1379,7 @@ func TestLiveStateSurvivesServerRestart(t *testing.T) {
 		t.Fatalf("reabrir store: %v", err)
 	}
 	defer db2.Close()
-	h2 := New(cfg, store.New(db2), ids.NewGenerator(1), live.NewManager()).Handler()
+	h2 := New(cfg, store.New(db2), ids.NewGenerator(1), live.NewManager(), newPhotoStore(t)).Handler()
 
 	snap := getAdminState(t, h2, eventID, cookie)
 	if snap.CurrentQuestionID != questionID {

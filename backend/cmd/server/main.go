@@ -13,6 +13,7 @@ import (
 	"devopsconecta/backend/internal/api"
 	"devopsconecta/backend/internal/ids"
 	"devopsconecta/backend/internal/live"
+	"devopsconecta/backend/internal/photos"
 	"devopsconecta/backend/internal/store"
 )
 
@@ -32,8 +33,13 @@ func main() {
 		log.Fatalf("main: %v", err)
 	}
 
+	photoStore, err := photos.New(cfg.PhotosDir)
+	if err != nil {
+		log.Fatalf("main: %v", err)
+	}
+
 	gen := ids.NewGenerator(int64(cfg.SnowflakeNode))
-	app := api.New(cfg, store.New(db), gen, live.NewManager())
+	app := api.New(cfg, store.New(db), gen, live.NewManager(), photoStore)
 
 	srv := &http.Server{
 		Addr:        cfg.Host + ":" + cfg.Port,
@@ -45,6 +51,10 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Limpeza diária das fotos materializadas: apaga arquivos mais antigos
+	// que 7 dias (rematerializados do banco na próxima requisição).
+	go photoStore.RunCleanupLoop(ctx, photos.DefaultMaxAge)
 
 	go func() {
 		log.Printf("Arandu rodando em http://%s:%s", cfg.Host, cfg.Port)
