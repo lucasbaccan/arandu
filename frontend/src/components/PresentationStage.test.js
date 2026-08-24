@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, within } from '@testing-library/dom';
+import { fireEvent, waitFor, within } from '@testing-library/dom';
 import PresentationStage from './PresentationStage.svelte';
 
 const ana = { id: 'p1', email: 'ana@exemplo.com', photo: '' };
@@ -153,5 +153,107 @@ describe('PresentationStage', () => {
     const revealedFace = view.getByTitle('bob@exemplo.com');
     expect(pendingFace.classList.contains('pending')).toBe(true);
     expect(revealedFace.classList.contains('pending')).toBe(false);
+  });
+
+  it('com hoverHints, o tooltip de rosto mostra a resposta da pessoa após o atraso', async () => {
+    const view = mount({
+      pending: [ana, bob],
+      groups: [{ label: 'Go', participants: [] }],
+      onFaceClick: vi.fn(),
+      hoverHints: true,
+      answerTextFor: (p) => (p.id === 'p1' ? 'Go' : 'JS')
+    });
+
+    const wrap = view.getByLabelText('Revelar resposta de ana@exemplo.com').closest('.face-wrap');
+    await fireEvent.mouseEnter(wrap);
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    expect(within(tip).getByText('ana@exemplo.com')).toBeInTheDocument();
+    expect(within(tip).getByText('Go')).toBeInTheDocument();
+  });
+
+  it('com hoverHints e zoneAll, o tooltip de zona lista os membros da resposta (revelados e pendentes)', async () => {
+    const zoneAll = new Map([['Go', [ana, bob]]]);
+    const view = mount({
+      pending: [bob],
+      groups: [{ label: 'Go', participants: [ana] }],
+      onFaceClick: vi.fn(),
+      hoverHints: true,
+      zoneAll
+    });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+
+    await waitFor(
+      () => expect(view.getByText('2 pessoas nesta resposta · 1 ainda pendente')).toBeInTheDocument(),
+      { timeout: 1500 }
+    );
+    const tip = view.getByRole('tooltip');
+    expect(within(tip).getByText('ana@exemplo.com')).toBeInTheDocument();
+    expect(within(tip).getByText('bob@exemplo.com')).toBeInTheDocument();
+  });
+
+  it('com hoverHints, clicar numa pessoa do popup de zona chama onFaceClick com a pessoa', async () => {
+    const onFaceClick = vi.fn();
+    const zoneAll = new Map([['Go', [ana, bob]]]);
+    const view = mount({
+      pending: [ana, bob],
+      groups: [{ label: 'Go', participants: [] }],
+      onFaceClick,
+      hoverHints: true,
+      zoneAll
+    });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    await fireEvent.click(
+      within(tip).getByRole('button', { name: 'Revelar resposta de bob@exemplo.com' })
+    );
+
+    expect(onFaceClick).toHaveBeenCalledWith(bob);
+  });
+
+  it('com hoverHints, o popup de zona tem um mini botão que chama onRevealZone com o rótulo da resposta', async () => {
+    const onRevealZone = vi.fn();
+    const view = mount({
+      pending: [ana, bob],
+      groups: [{ label: 'Go', participants: [] }],
+      onFaceClick: vi.fn(),
+      onRevealZone,
+      hoverHints: true,
+      zoneAll: new Map([['Go', [ana, bob]]])
+    });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    await fireEvent.click(
+      within(tip).getByRole('button', { name: 'Revelar todos desta resposta' })
+    );
+
+    expect(onRevealZone).toHaveBeenCalledWith('Go');
+  });
+
+  it('o mini botão de revelar a resposta fica desabilitado sem pendentes nela', async () => {
+    const view = mount({
+      pending: [],
+      groups: [{ label: 'Go', participants: [ana] }],
+      onFaceClick: vi.fn(),
+      onRevealZone: vi.fn(),
+      hoverHints: true,
+      zoneAll: new Map([['Go', [ana]]])
+    });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    expect(
+      within(tip).getByRole('button', { name: 'Revelar todos desta resposta' })
+    ).toBeDisabled();
   });
 });

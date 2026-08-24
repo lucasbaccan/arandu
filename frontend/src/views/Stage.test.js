@@ -216,7 +216,7 @@ describe('Preview da apresentação', () => {
     await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
 
     const goZone = view.getByText('Go').closest('.zone');
-    await waitFor(() => expect(within(goZone).getByTitle('ana@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(goZone).getByLabelText('Desrevelar resposta de ana@exemplo.com')).toBeInTheDocument());
     expect(within(goZone).getByText('1')).toBeInTheDocument();
     expect(view.getByLabelText('Revelar resposta de bob@exemplo.com')).toBeInTheDocument();
   });
@@ -247,12 +247,12 @@ describe('Preview da apresentação', () => {
 
     const goZone = view.getByText('Go').closest('.zone');
     const jsZone = view.getByText('JS').closest('.zone');
-    await waitFor(() => expect(within(goZone).getByTitle('ana@exemplo.com')).toBeInTheDocument());
-    await waitFor(() => expect(within(jsZone).getByTitle('bob@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(goZone).getByLabelText('Desrevelar resposta de ana@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(jsZone).getByLabelText('Desrevelar resposta de bob@exemplo.com')).toBeInTheDocument());
     // drena o timer escalonado da 3ª pessoa (carla, delay 300ms) antes de
     // sair do teste — senão ele dispara durante um teste seguinte, contra um
     // componente já órfão.
-    await waitFor(() => expect(within(goZone).getByTitle('carla@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(goZone).getByLabelText('Desrevelar resposta de carla@exemplo.com')).toBeInTheDocument());
   });
 
   it('reiniciar revelação volta todos para pendentes', async () => {
@@ -280,10 +280,10 @@ describe('Preview da apresentação', () => {
     // as caixas de resposta já aparecem antes de qualquer revelação
     const bubble = view.getByText('Boa sorte!').closest('.zone');
     expect(within(bubble).getByText('0')).toBeInTheDocument();
-    expect(within(bubble).queryByTitle('ana@exemplo.com')).not.toBeInTheDocument();
+    expect(within(bubble).queryByLabelText('Revelar resposta de ana@exemplo.com')).not.toBeInTheDocument();
 
     await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
-    await waitFor(() => expect(within(bubble).getByTitle('ana@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(bubble).getByLabelText('Desrevelar resposta de ana@exemplo.com')).toBeInTheDocument());
     expect(within(bubble).getByText('1')).toBeInTheDocument();
   });
 
@@ -299,8 +299,8 @@ describe('Preview da apresentação', () => {
     await fireEvent.click(view.getByLabelText('Revelar resposta de carla@exemplo.com'));
 
     const bubble = (await view.findByText('Boa sorte!')).closest('.zone');
-    expect(within(bubble).getByTitle('ana@exemplo.com')).toBeInTheDocument();
-    expect(within(bubble).getByTitle('carla@exemplo.com')).toBeInTheDocument();
+    expect(within(bubble).getByLabelText('Desrevelar resposta de ana@exemplo.com')).toBeInTheDocument();
+    expect(within(bubble).getByLabelText('Desrevelar resposta de carla@exemplo.com')).toBeInTheDocument();
     expect(view.getAllByText('Boa sorte!')).toHaveLength(1);
   });
 
@@ -382,11 +382,11 @@ describe('Preview da apresentação', () => {
 
     const goZone = view.getByText('Go').closest('.zone');
     const jsZone = view.getByText('JS').closest('.zone');
-    await waitFor(() => expect(within(goZone).getByTitle('ana@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(goZone).getByLabelText('Desrevelar resposta de ana@exemplo.com')).toBeInTheDocument());
     // drena os timers escalonados de bob (150ms) e carla (300ms) antes de
     // sair do teste — senão disparam durante um teste seguinte.
-    await waitFor(() => expect(within(jsZone).getByTitle('bob@exemplo.com')).toBeInTheDocument());
-    await waitFor(() => expect(within(goZone).getByTitle('carla@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(jsZone).getByLabelText('Desrevelar resposta de bob@exemplo.com')).toBeInTheDocument());
+    await waitFor(() => expect(within(goZone).getByLabelText('Desrevelar resposta de carla@exemplo.com')).toBeInTheDocument());
   });
 
   it('abre a tela de apresentação numa nova aba com o PIN na URL', async () => {
@@ -504,5 +504,181 @@ describe('Preview da apresentação', () => {
     FakeEventSource.instances[0].emit('reaction', { data: JSON.stringify({ emoji: '🎉' }) });
 
     await waitFor(() => expect(view.getByText('🎉')).toBeInTheDocument());
+  });
+
+  it('alterna as dicas de hover pelo botão "Dicas" do CrumbBar', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const toggle = view.getByRole('button', { name: 'Dicas' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    await fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('hover no rosto pendente mostra a resposta da pessoa após ~0,6s (e some ao sair)', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const wrap = view.getByLabelText('Revelar resposta de ana@exemplo.com').closest('.face-wrap');
+    await fireEvent.mouseEnter(wrap);
+
+    // antes do atraso de 0,6s nada aparece
+    expect(view.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    expect(within(tip).getByText('ana@exemplo.com')).toBeInTheDocument();
+    expect(within(tip).getByText('Go')).toBeInTheDocument();
+
+    await fireEvent.mouseLeave(wrap);
+    await waitFor(() => expect(view.queryByRole('tooltip')).not.toBeInTheDocument());
+  });
+
+  it('hover no rosto revelado mostra a resposta da pessoa', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    await fireEvent.click(view.getByLabelText('Revelar resposta de ana@exemplo.com'));
+    const revealed = await view.findByLabelText('Desrevelar resposta de ana@exemplo.com');
+
+    await fireEvent.mouseEnter(revealed.closest('.person-wrap'));
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    expect(within(tip).getByText('ana@exemplo.com')).toBeInTheDocument();
+    expect(within(tip).getByText('Go')).toBeInTheDocument();
+  });
+
+  it('hover no rótulo de uma resposta mostra quem está (e quem ainda vai cair) nela', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+
+    // ana e carla escolheram Go; nenhuma revelada ainda → ambas aparecem como
+    // pendentes no tooltip e a fila lá em cima ganha o anel de destaque.
+    await waitFor(
+      () => expect(view.getByText('2 pessoas nesta resposta · 2 ainda pendentes')).toBeInTheDocument(),
+      { timeout: 1500 }
+    );
+    const tip = view.getByRole('tooltip');
+    expect(within(tip).getByText('ana@exemplo.com')).toBeInTheDocument();
+    expect(within(tip).getByText('carla@exemplo.com')).toBeInTheDocument();
+    // ninguém revelado ainda → ambas estão com o estado "pendente" no popup
+    // (borda tracejada + nome esmaecido)
+    expect(
+      within(tip)
+        .getByRole('button', { name: 'Revelar resposta de ana@exemplo.com' })
+        .classList.contains('pending')
+    ).toBe(true);
+    expect(
+      within(tip)
+        .getByRole('button', { name: 'Revelar resposta de carla@exemplo.com' })
+        .classList.contains('pending')
+    ).toBe(true);
+
+    const pendingRow = document.body.querySelector('.pending-row');
+    const faceWrap = within(pendingRow)
+      .getByLabelText('Revelar resposta de ana@exemplo.com')
+      .closest('.face-wrap');
+    expect(faceWrap.classList.contains('zone-hinted')).toBe(true);
+
+    await fireEvent.mouseLeave(label);
+    await waitFor(() => expect(view.queryByRole('tooltip')).not.toBeInTheDocument());
+  });
+
+
+  it('revela uma pessoa clicando nela no popup da resposta (hover da pergunta)', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    await fireEvent.click(
+      within(tip).getByRole('button', { name: 'Revelar resposta de ana@exemplo.com' })
+    );
+
+    expect(api.events.live.reveal).toHaveBeenCalledWith('42', 'q1', 'p1');
+
+    // revelou: ana sai da fila e entra na zona; o popup continua aberto e o
+    // botão dela agora vira "desrevelar", com o rodapé atualizado.
+    const goZone = within(document.body.querySelector('.zones')).getByText('Go').closest('.zone');
+    await waitFor(() =>
+      expect(within(goZone).getByLabelText('Desrevelar resposta de ana@exemplo.com')).toBeInTheDocument()
+    );
+    expect(view.getByRole('tooltip')).toBeInTheDocument();
+    expect(
+      within(view.getByRole('tooltip')).getByRole('button', {
+        name: 'Desrevelar resposta de ana@exemplo.com'
+      })
+    ).toBeInTheDocument();
+    expect(view.getByText('2 pessoas nesta resposta · 1 ainda pendente')).toBeInTheDocument();
+
+    // o popup reflete a revelação: ana sai do estado "pendente" (nome cheio),
+    // carla continua pendente (borda tracejada + nome esmaecido)
+    const tip2 = view.getByRole('tooltip');
+    expect(
+      within(tip2)
+        .getByRole('button', { name: 'Desrevelar resposta de ana@exemplo.com' })
+        .classList.contains('pending')
+    ).toBe(false);
+    expect(
+      within(tip2)
+        .getByRole('button', { name: 'Revelar resposta de carla@exemplo.com' })
+        .classList.contains('pending')
+    ).toBe(true);
+  });
+
+
+  it('revela todos DAQUELA resposta pelo mini botão do popup (sem tocar nas outras)', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+    const revealBtn = within(tip).getByRole('button', { name: 'Revelar todos desta resposta' });
+    expect(revealBtn).not.toBeDisabled();
+
+    await fireEvent.click(revealBtn);
+
+    // só quem respondeu "Go" (ana e carla) é revelado; bob (JS) continua pendente
+    const zonesEl = document.body.querySelector('.zones');
+    const goZone = within(zonesEl).getByText('Go').closest('.zone');
+    const jsZone = within(zonesEl).getByText('JS').closest('.zone');
+    await waitFor(() =>
+      expect(within(goZone).getByLabelText('Desrevelar resposta de ana@exemplo.com')).toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(within(goZone).getByLabelText('Desrevelar resposta de carla@exemplo.com')).toBeInTheDocument()
+    );
+    expect(
+      within(jsZone).queryByLabelText('Desrevelar resposta de bob@exemplo.com')
+    ).not.toBeInTheDocument();
+    expect(view.getByLabelText('Revelar resposta de bob@exemplo.com')).toBeInTheDocument();
+
+    // popup continua aberto, sem pendentes na resposta → botão desabilitado
+    const tip2 = view.getByRole('tooltip');
+    expect(within(tip2).getByText('2 pessoas nesta resposta')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(tip2).getByRole('button', { name: 'Revelar todos desta resposta' })).toBeDisabled()
+    );
+  });
+
+  it('com as dicas desligadas, o hover não mostra tooltip', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    await fireEvent.click(view.getByRole('button', { name: 'Dicas' }));
+
+    const wrap = view.getByLabelText('Revelar resposta de ana@exemplo.com').closest('.face-wrap');
+    await fireEvent.mouseEnter(wrap);
+
+    await new Promise((r) => setTimeout(r, 700));
+    expect(view.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 });

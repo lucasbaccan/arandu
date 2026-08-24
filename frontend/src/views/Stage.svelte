@@ -39,6 +39,16 @@
   // de apresentação (ou a tela pública /audience) aberta.
   let presentDensityMode = '';
 
+  // Dicas ao passar o mouse no placar (painel do organizador): tooltip com
+  // atraso de 0,6s sobre um rosto (mostra a resposta da pessoa) ou sobre o
+  // rótulo de uma resposta (mostra quem está e quem AINDA vai cair ali).
+  // Ligado/desligado pelo botão "💡 Dicas" no CrumbBar, ao lado do PIN.
+  let hoverHints = true;
+
+  function toggleHoverHints() {
+    hoverHints = !hoverHints;
+  }
+
   // Trilho com abas no lugar de quatro blocos empilhados.
   let railTab = 'questions'; // questions | qa | notice
 
@@ -358,6 +368,46 @@
 
   $: groups = currentQuestion && currentQuestion.type === 'OPEN_TEXT' ? openGroups : choiceGroups;
 
+  // Pro tooltip de zona (hoverHints): TODOS os participantes por resposta
+  // (revelados + pendentes) — mostra quem já está na zona e quem ainda vai
+  // aparecer nela quando for revelado. Mesmo agrupamento do placar, então os
+  // rótulos batem 1:1 com as zonas (opção de múltipla escolha ou resposta
+  // aberta normalizada).
+  $: zoneAll = currentQuestion ? buildZoneAll(participants, currentQuestion) : new Map();
+
+  function buildZoneAll(allParticipants, q) {
+    const m = new Map();
+    if (q.type === 'OPEN_TEXT') {
+      for (const p of allParticipants) {
+        const label = normalizeOpenText(answerFor(p, q)?.text) || '—';
+        if (!m.has(label)) m.set(label, []);
+        m.get(label).push(p);
+      }
+    } else {
+      for (const opt of q.options) {
+        m.set(
+          opt.text,
+          allParticipants.filter((p) => {
+            const a = answerFor(p, q);
+            return a && a.optionId === opt.id;
+          })
+        );
+      }
+    }
+    return m;
+  }
+
+  // Texto legível da resposta de p pra pergunta atual (tooltip de rosto).
+  function answerTextFor(p) {
+    if (!currentQuestion) return null;
+    const a = answerFor(p, currentQuestion);
+    if (!a) return null;
+    if (currentQuestion.type === 'OPEN_TEXT') {
+      return normalizeOpenText(a.text) || '—';
+    }
+    return a.optionText || '—';
+  }
+
   function reveal(p) {
     if (!currentQuestion) return;
     const questionId = currentQuestion.id;
@@ -384,6 +434,25 @@
         api.events.live.reveal(id, questionId, p.id).catch(() => {});
       }, i * 150);
     });
+  }
+
+  // ⚡ do popup de hover: revela só os pendentes DAQUELA resposta (zona),
+  // não a pergunta inteira — o botão do rodapé "Revelar tudo" continua sendo
+  // o caminho pra revelar tudo de uma vez.
+  function revealZone(label) {
+    if (!currentQuestion) return;
+    const set = revealed[currentQuestion.id];
+    const questionId = currentQuestion.id;
+    const members = zoneAll.get(label) || [];
+    members
+      .filter((p) => !set.has(p.id))
+      .forEach((p, i) => {
+        setTimeout(() => {
+          set.add(p.id);
+          revealed = { ...revealed };
+          api.events.live.reveal(id, questionId, p.id).catch(() => {});
+        }, i * 150);
+      });
   }
 
   function resetReveal() {
@@ -451,6 +520,17 @@
       />
       <svelte:fragment slot="actions">
         <PinChip pin={event.pinCode} variant="boxed" />
+        <button
+          type="button"
+          class="hint-toggle"
+          class:on={hoverHints}
+          aria-pressed={hoverHints}
+          title="Dicas ao passar o mouse: mostra a resposta de cada pessoa e quem escolheu cada resposta (aparecem após 0,6 s)"
+          on:click={toggleHoverHints}
+        >
+          <span class="hint-toggle-icon" aria-hidden="true">💡</span>
+          <span>Dicas</span>
+        </button>
         <Button variant="secondary" size="sm" on:click={resetAllReveals} disabled={!anyRevealed}>
           Reiniciar tudo
         </Button>
@@ -495,6 +575,10 @@
               showNames
               pendingScroll
               scrollFallback
+              {hoverHints}
+              {answerTextFor}
+              {zoneAll}
+              onRevealZone={revealZone}
             />
           </div>
 
@@ -803,6 +887,44 @@
     background: var(--accent);
     border-color: var(--accent);
     color: var(--on-accent);
+  }
+
+  /* Botão "💡 Dicas" do CrumbBar (ao lado do PIN): alterna os tooltips de
+     hover do placar. Mesmo tamanho dos botões sm, visual de ghost que vira
+     accent quando ligado — igual aos botões de modo do rodapé. */
+  .hint-toggle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .hint-toggle:hover {
+    background: var(--surface-muted);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  .hint-toggle.on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .hint-toggle-icon {
+    font-size: 0.9375rem;
+    line-height: 1;
   }
 
   /* --- Trilho --- */

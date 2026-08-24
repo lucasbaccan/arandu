@@ -1,4 +1,5 @@
 <script>
+  import { onDestroy, tick } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { flip } from 'svelte/animate';
 
@@ -63,6 +64,29 @@
    * rolar verticalmente (o organizador pode rolar; tela projetada não).
    */
   export let scrollFallback = false;
+  /*
+   * Dicas ao passar o mouse (painel do organizador /stage; desligado nas
+   * telas públicas). Com hoverHints ligado, um tooltip com atraso de
+   * HOVER_DELAY (0,6s) aparece:
+   * - sobre um rosto (pendente ou revelado): a resposta daquela pessoa pra
+   *   pergunta atual (via answerTextFor);
+   * - sobre o rótulo de uma resposta: quem está nela e quem AINDA vai cair
+   *   nela quando for revelado — zoneAll traz revelados + pendentes; os
+   *   pendentes aparecem com borda tracejada no tooltip e a fila lá em cima
+   *   ganha um anel de destaque, ligando os dois lados da tela numa olhada.
+   * O atraso existe pra o mouse poder passear pelo placar sem o tooltip
+   * abrir/fechar a cada pixel: só "decide" mostrar depois de parar 0,6s em
+   * cima de algo (e fecha na hora quando sai).
+   */
+  export let hoverHints = false;
+  // answerTextFor(p) → texto legível da resposta de p (ou null se não tem).
+  export let answerTextFor = null;
+  // zoneAll → Map rótulo da resposta → participantes (revelados E pendentes).
+  export let zoneAll = null;
+  // onRevealZone(label): mini botão ⚡ do popup de zona — revela TODOS os
+  // pendentes DAQUELA resposta (os listados no popup), não a pergunta inteira.
+  // O Stage implementa com o mesmo escalonamento do "Revelar tudo" do rodapé.
+  export let onRevealZone = null;
 
   // Paleta da logo, na ordem das opções — a mesma cor identifica a zona no
   // telão e no celular.
@@ -359,7 +383,171 @@
         : { visible: g.participants.length, hidden: 0 };
     return { ...g, visible: g.participants.slice(0, slots.visible), hiddenCount: slots.hidden };
   });
+
+  // ---- Tooltip das dicas de hover (ver comentário das props lá em cima) ----
+  // O popup de ZONA é interativo: cada pessoa listada é um botão que chama
+  // onFaceClick — o organizador revela/desrevela direto pelo hover da
+  // pergunta, sem precisar caçar o rosto na fila (e o popup continua aberto
+  // pra revelar várias seguidas). Por isso o fechamento ganhou um atraso
+  // curto (HIDE_DELAY): ao mover o mouse do rótulo pro popup (ou do popup
+  // de volta) o tooltip não some no meio do caminho.
+  const HOVER_DELAY = 600;
+  const HIDE_DELAY = 200;
+  const TIP_PEOPLE_CAP = 12;
+  let hoverTimer = null;
+  let hideTimer = null;
+  let hover = null; // { kind: 'person', participant, answerText } | { kind: 'zone', label, participants, anchor }
+  let tipEl = null;
+  let tipReady = false;
+  let tipPos = { left: 0, top: 0 };
+
+  function clearTimers() {
+    if (hoverTimer) {
+      clearTimeout(hoverTimer);
+      hoverTimer = null;
+    }
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+
+  function scheduleHover(kind, payload, e) {
+    if (!hoverHints) return;
+    clearHover();
+    // O âncora é capturado na hora do evento: dentro do setTimeout o
+    // currentTarget do evento já não vale mais (e o nó pode até ter saído).
+    const anchor = e.currentTarget;
+    hoverTimer = setTimeout(() => showHover(kind, payload, anchor), HOVER_DELAY);
+  }
+
+  function showHover(kind, payload, anchor) {
+    hover = { kind, ...payload, anchor };
+    positionTip(anchor);
+  }
+
+  function positionTip(anchor) {
+    const rect = anchor.getBoundingClientRect();
+    if (tipReady) {
+      // Já visível (ex.: reancorou depois de revelar alguém pelo popup):
+      // reposiciona direto, sem piscar.
+      const tw = tipEl ? tipEl.offsetWidth : 0;
+      const th = tipEl ? tipEl.offsetHeight : 0;
+      tipPos = {
+        left: Math.max(8, Math.min(rect.left + rect.width / 2 - tw / 2, window.innerWidth - tw - 8)),
+        top: rect.top - th - 10 < 8 ? rect.bottom + 10 : rect.top - th - 10
+      };
+      return;
+    }
+    // Posição provisória (canto do âncora) antes de medir o tooltip — evita
+    // piscar fora do lugar no frame em que ele monta.
+    tipPos = { left: rect.left, top: rect.top };
+    tick().then(() => {
+      if (!tipEl || !hover) return;
+      const tw = tipEl.offsetWidth;
+      const th = tipEl.offsetHeight;
+      tipPos = {
+        left: Math.max(8, Math.min(rect.left + rect.width / 2 - tw / 2, window.innerWidth - tw - 8)),
+        top: rect.top - th - 10 < 8 ? rect.bottom + 10 : rect.top - th - 10
+      };
+      tipReady = true;
+    });
+  }
+
+  function clearHover() {
+    clearTimers();
+    hover = null;
+    tipReady = false;
+  }
+
+  // Mouse saiu do âncora/popup: espera HIDE_DELAY antes de fechar, pra quem
+  // está indo pro popup (ou voltando dele) não ver o tooltip sumir no meio.
+  function scheduleHide() {
+    clearTimers();
+    hideTimer = setTimeout(() => {
+      hideTimer = null;
+      hover = null;
+      tipReady = false;
+    }, HIDE_DELAY);
+  }
+
+  // Mouse entrou no popup: cancela o fechamento agendado (fica aberto pra
+  // dar tempo de clicar nas pessoas).
+  function keepOpen() {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+
+  function onFaceEnter(p, e) {
+    scheduleHover(
+      'person',
+      { participant: p, answerText: answerTextFor ? answerTextFor(p) : null },
+      e
+    );
+  }
+
+  function onZoneLabelEnter(g, e) {
+    const all = zoneAll ? zoneAll.get(g.label) : g.participants;
+    scheduleHover('zone', { label: g.label, participants: all || [] }, e);
+  }
+
+  // Quem já está revelado nesta pergunta — o tooltip de zona usa isso pra
+  // distinguir (com borda tracejada) quem ainda está pendente na fila e pra
+  // rotular os botões de revelar/desrevelar do popup.
+  $: revealedSet = new Set(groups.flatMap((g) => g.participants.map((p) => p.id)));
+
+  // Contagem de pendentes reativa: revelar/desrevelar pelo popup atualiza o
+  // rodapé sem precisar reabrir o tooltip.
+  $: zoneHoverPendingCount =
+    hover && hover.kind === 'zone'
+      ? hover.participants.filter((p) => !revealedSet.has(p.id)).length
+      : 0;
+
+  // Rostos pendentes que vão cair na zona em hover: anel de destaque na fila
+  // ligando o tooltip da resposta aos rostos que ainda estão lá em cima.
+  $: hoveredZoneIds =
+    hover && hover.kind === 'zone' ? new Set(hover.participants.map((p) => p.id)) : null;
+
+  // O tooltip de PESSOA ancora num rosto que pode sumir/mudar quando o placar
+  // muda (revelar/desrevelar, trocar de pergunta, reiniciar) — fecha na hora
+  // em vez de ficar flutuando num ponto órfão da tela. O tooltip de ZONA fica
+  // aberto (o rótulo da resposta não sai do lugar) e só se reancora. Compara
+  // uma assinatura do placar (ids da fila + ids das zonas) em vez das
+  // referências dos arrays, que o Svelte troca a cada re-render mesmo sem
+  // mudança real.
+  let boardSig = null;
+  $: {
+    const sig =
+      pending.map((p) => p.id).join(',') + '|' +
+      groups.map((g) => g.participants.map((p) => p.id).join(',')).join(';');
+    if (boardSig !== null && sig !== boardSig) {
+      if (hover && hover.kind === 'zone') {
+        if (hover.anchor) positionTip(hover.anchor);
+      } else if (hover && hover.kind === 'person') {
+        clearHover();
+      }
+    }
+    boardSig = sig;
+  }
+
+  // Trocar de pergunta troca o Map zoneAll por inteiro — o tooltip de zona
+  // aponta pra lista antiga e ficaria órfão; nesse caso fecha em vez de
+  // reancorar num rótulo que nem existe mais.
+  $: if (
+    hover && hover.kind === 'zone' && zoneAll && zoneAll.get(hover.label) !== hover.participants
+  ) {
+    clearHover();
+  }
+
+  // Desligar as dicas ("💡 Dicas" no CrumbBar) fecha qualquer tooltip aberto.
+  $: if (!hoverHints) clearHover();
+
+  onDestroy(() => clearHover());
 </script>
+
+<svelte:window on:resize={clearHover} />
 
 {#if layout === 'screen' && pending.length === 0}
   <!-- Sem ninguém na fila a faixa vira uma linha de texto: no telão, aqueles
@@ -368,16 +556,29 @@
     {totalParticipants === 0 ? 'Ninguém respondeu ainda.' : 'Todas as respostas foram reveladas.'}
   </p>
 {:else if layout === 'screen'}
-  <div class="pending-row" class:tight={pendingTight} class:scroll={pendingScroll}>
+  <div
+    class="pending-row"
+    class:tight={pendingTight}
+    class:scroll={pendingScroll}
+    on:scroll={clearHover}
+  >
     {#each visiblePending as p (p.id)}
-      <div class="face-wrap" animate:flip={{ duration: 350 }} out:fade={{ duration: 150 }}>
+      <div
+        class="face-wrap"
+        role="group"
+        class:zone-hinted={hoveredZoneIds && hoveredZoneIds.has(p.id)}
+        animate:flip={{ duration: 350 }}
+        out:fade={{ duration: 150 }}
+        on:mouseenter={(e) => onFaceEnter(p, e)}
+        on:mouseleave={scheduleHide}
+      >
         <button
           type="button"
           class="face pending"
           class:static={!onFaceClick}
           disabled={!onFaceClick}
-          title={p.name || p.email}
-          aria-label={onFaceClick ? `Revelar resposta de ${p.name || p.email}` : p.name || p.email}
+          title={hoverHints ? undefined : p.name || p.email}
+          aria-label={onFaceClick ? "Revelar resposta de " + (p.name || p.email) : p.name || p.email}
           on:click={() => onFaceClick && onFaceClick(p)}
         >
           {#if p.photo}
@@ -407,6 +608,7 @@
   style={zoneStyle}
   bind:clientWidth={zonesW}
   bind:clientHeight={zonesH}
+  on:scroll={clearHover}
 >
   {#if hideZones}
     <p class="text-muted present-empty">O organizador escondeu as respostas por enquanto.</p>
@@ -417,21 +619,33 @@
 
     {#each visibleGroups as group, gi (group.label)}
       <div class="zone" style="--zone-color:{zoneColor(gi)}">
-        <div class="zone-label">
+        <div
+          class="zone-label"
+          role="group"
+          on:mouseenter={(e) => onZoneLabelEnter(group, e)}
+          on:mouseleave={scheduleHide}
+        >
           <span class="zone-text">{group.label}</span>
           <span class="zone-count">{group.participants.length}</span>
         </div>
         <div class="zone-people">
           {#each group.visible as p (p.id)}
-            <div class="person-wrap" animate:flip={{ duration: 350 }} in:fly={{ y: -20, duration: 350 }}>
+            <div
+              class="person-wrap"
+              role="group"
+              animate:flip={{ duration: 350 }}
+              in:fly={{ y: -20, duration: 350 }}
+              on:mouseenter={(e) => onFaceEnter(p, e)}
+              on:mouseleave={scheduleHide}
+            >
               <button
                 type="button"
                 class="person"
                 class:face-only={!showNames}
                 class:static={!onFaceClick}
                 disabled={!onFaceClick}
-                title={p.name || p.email}
-                aria-label={onFaceClick ? `Desrevelar resposta de ${p.name || p.email}` : p.name || p.email}
+                title={hoverHints ? undefined : p.name || p.email}
+                aria-label={onFaceClick ? "Desrevelar resposta de " + (p.name || p.email) : p.name || p.email}
                 on:click={() => onFaceClick && onFaceClick(p)}
               >
                 <span class="person-face">
@@ -457,6 +671,97 @@
     {/each}
   {/if}
 </div>
+
+{#if hover}
+  <div
+    class="hover-tip"
+    class:ready={tipReady}
+    class:interactive={hover.kind === 'zone' && !!onFaceClick}
+    role="tooltip"
+    style="left:{tipPos.left}px;top:{tipPos.top}px"
+    bind:this={tipEl}
+    on:mouseenter={keepOpen}
+    on:mouseleave={scheduleHide}
+  >
+    {#if hover.kind === 'person'}
+      <div class="tip-person">
+        {#if hover.participant.photo}
+          <img class="tip-avatar" src={hover.participant.photo} alt="" />
+        {:else}
+          <span class="tip-avatar tip-avatar-placeholder">
+            {(hover.participant.name || hover.participant.email)[0].toUpperCase()}
+          </span>
+        {/if}
+        <div class="tip-person-info">
+          <strong class="tip-name">{hover.participant.name || hover.participant.email}</strong>
+          {#if hover.answerText}
+            <span class="tip-answer">{hover.answerText}</span>
+          {:else}
+            <span class="tip-answer tip-answer-none">Sem resposta</span>
+          {/if}
+        </div>
+      </div>
+    {:else}
+      <div class="tip-zone">
+        <div class="tip-zone-head">
+          <strong class="tip-zone-label">{hover.label}</strong>
+          <span class="tip-zone-actions">
+            <span class="tip-zone-count">{hover.participants.length}</span>
+            <button
+              type="button"
+              class="tip-reveal-all"
+              aria-label="Revelar todos desta resposta"
+              title="Revelar todos desta resposta"
+              disabled={!onRevealZone || zoneHoverPendingCount === 0}
+              on:click={() => onRevealZone && onRevealZone(hover.label)}
+            >⚡</button>
+          </span>
+        </div>
+        {#if hover.participants.length === 0}
+          <p class="text-muted tip-zone-empty">Ninguém respondeu isto ainda.</p>
+        {:else}
+          <div class="tip-people">
+            {#each hover.participants.slice(0, TIP_PEOPLE_CAP) as p (p.id)}
+              <button
+                type="button"
+                class="tip-person-pill"
+                class:pending={!revealedSet.has(p.id)}
+                class:static={!onFaceClick}
+                disabled={!onFaceClick}
+                aria-label={onFaceClick
+                  ? (revealedSet.has(p.id)
+                      ? 'Desrevelar resposta de ' + (p.name || p.email)
+                      : 'Revelar resposta de ' + (p.name || p.email))
+                  : undefined}
+                title={onFaceClick
+                  ? (revealedSet.has(p.id) ? 'Clique para desrevelar' : 'Clique para revelar')
+                  : undefined}
+                on:click={() => onFaceClick && onFaceClick(p)}
+              >
+                {#if p.photo}
+                  <img class="tip-pill-avatar" src={p.photo} alt="" />
+                {:else}
+                  <span class="tip-pill-avatar tip-pill-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+                {/if}
+                <span class="tip-pill-name">{displayName(p)}</span>
+              </button>
+            {/each}
+            {#if hover.participants.length > TIP_PEOPLE_CAP}
+              <span class="tip-more">+{hover.participants.length - TIP_PEOPLE_CAP}</span>
+            {/if}
+          </div>
+          <span class="tip-zone-foot">
+            {hover.participants.length}
+            {hover.participants.length === 1 ? 'pessoa' : 'pessoas'} nesta resposta
+            {#if zoneHoverPendingCount > 0}
+              · {zoneHoverPendingCount} {zoneHoverPendingCount === 1 ? 'ainda pendente' : 'ainda pendentes'}
+            {/if}
+          </span>
+        {/if}
+      </div>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .present-empty {
@@ -640,6 +945,28 @@
   .zones.scrollable {
     overflow-y: auto;
     overflow-x: hidden;
+  }
+
+  /* Anti-loop de barra de rolagem: o placar se mede por clientWidth/Height
+     (bind abaixo) pra densidade automática caber sem rolagem — mas quando o
+     conteúdo fica exatamente na borda de caber, a barra aparece, a largura
+     medida encolhe (~15px), a densidade recalcula e troca o nº de colunas, a
+     altura muda e a barra volta: ciclo sem fim (acontecia ao revelar gente,
+     dependendo da resolução da tela e dos tamanhos das respostas).
+     scrollbar-gutter: stable reserva o espaço da barra SEMPRE, então a
+     largura não oscila com ela aparecer/sumir. Onde não há suporte (Safari
+     antigo), overflow-y: scroll deixa a barra sempre presente — mesma
+     estabilidade, ao custo de um trilho visível mesmo quando cabe tudo. */
+  @supports (scrollbar-gutter: stable) {
+    .zones.scrollable {
+      scrollbar-gutter: stable;
+    }
+  }
+
+  @supports not (scrollbar-gutter: stable) {
+    .zones.scrollable {
+      overflow-y: scroll;
+    }
   }
 
   /* Com mais respostas, fitDensity (ou o menu ⚙) muda pra 2–4 colunas de
@@ -863,4 +1190,257 @@
   .zones.compact .person.more-pill {
     font-size: 0.8125rem;
   }
+
+  /* --- Tooltip das dicas de hover (painel do organizador, /stage) --- */
+
+  /* position:fixed + pointer-events:none: segue a tela e nunca atrapalha o
+     hover de quem está embaixo. Opacity 0 até posicionar (tipReady) pra não
+     piscar no canto do âncora enquanto mede o próprio tamanho. */
+  .hover-tip {
+    position: fixed;
+    z-index: 60;
+    max-width: 320px;
+    padding: 10px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+
+  .hover-tip.ready {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Só o popup de zona é interativo (dá pra clicar nas pessoas pra
+     revelar/desrevelar); o de pessoa continua só leitura. */
+  .hover-tip.interactive {
+    pointer-events: auto;
+  }
+
+  /* Rosto → resposta da pessoa */
+  .tip-person {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tip-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--accent);
+  }
+
+  .tip-avatar-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--on-accent);
+    font-size: 0.875rem;
+    font-weight: 800;
+  }
+
+  .tip-person-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .tip-name {
+    font-size: 0.8125rem;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tip-answer {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--accent);
+    word-break: break-word;
+  }
+
+  /* O prefixo "Resposta:" vem via ::before pra o texto do tooltip continuar
+     um nó de texto só (o matcher de texto dos testes bate direto nele). */
+  .tip-answer:not(.tip-answer-none)::before {
+    content: 'Resposta: ';
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .tip-answer-none {
+    color: var(--text-subtle);
+    font-weight: 600;
+  }
+
+  /* Resposta → quem está (e quem vai cair) nela */
+  .tip-zone-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .tip-zone-label {
+    font-size: 0.875rem;
+    font-weight: 800;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  .tip-zone-count {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--text-muted);
+  }
+
+  .tip-zone-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Mini botão ⚡ do popup: revela todos os pendentes da pergunta de uma vez
+     (ícone somente; o título/aria-label explicam). */
+  .tip-reveal-all {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+
+  .tip-reveal-all:not(:disabled):hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--surface-muted);
+  }
+
+  .tip-reveal-all:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .tip-people {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Pílula de pessoa no tooltip: pendente (ainda na fila) fica com borda
+     tracejada, igual aos rostos pendentes do placar. É um botão: clicar
+     revela/desrevela direto pelo popup (painel do organizador). */
+  .tip-person-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px 3px 3px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    max-width: 170px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .tip-person-pill:not(:disabled):hover {
+    border-color: var(--accent);
+    background: var(--bg-elev);
+  }
+
+  .tip-person-pill.static,
+  .tip-person-pill:disabled {
+    cursor: default;
+  }
+
+  .tip-person-pill.pending {
+    border-style: dashed;
+    border-color: var(--border-strong);
+  }
+
+  /* Além da borda tracejada: o nome de quem ainda não foi revelado fica
+     esmaecido (ainda não apareceu no placar); o já revelado mantém a cor
+     cheia herdada de .tip-person-pill. */
+  .tip-person-pill.pending .tip-pill-name {
+    color: var(--text-subtle);
+  }
+
+  .tip-pill-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--accent);
+  }
+
+  .tip-pill-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--on-accent);
+    font-size: 0.6875rem;
+    font-weight: 800;
+  }
+
+  .tip-pill-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tip-more {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1.5px dashed var(--border-strong);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+  }
+
+  .tip-zone-foot {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.6875rem;
+    color: var(--text-subtle);
+  }
+
+  .tip-zone-empty {
+    margin: 0;
+    font-size: 0.8125rem;
+  }
+
+  /* Rostos pendentes que vão cair na zona em hover ganham um anel, ligando
+     o tooltip da resposta à fila lá em cima. */
+  .face-wrap.zone-hinted .face {
+    box-shadow: 0 0 0 3px var(--accent);
+  }
+
 </style>
