@@ -46,6 +46,23 @@
    * escala mínima couber em nenhum candidato.
    */
   export let smart = false;
+  /*
+   * pendingScroll: no painel do organizador (/stage) a fila de pendentes
+   * vira UMA linha com scroll horizontal mostrando todos (sem teto
+   * PENDING_CAP, sem chip "+N") — o organizador navega a lista rolando na
+   * mão, mas o placar de respostas abaixo continua sem rolagem (fitDensity).
+   * O telão de projeção mantém o padrão: uma linha só, teto de rostos
+   * visíveis, resto em "+N", sem scroll.
+   */
+  export let pendingScroll = false;
+  /*
+   * scrollFallback: usado pelo painel do organizador (/stage). O placar
+   * tenta encaixar tudo na densidade automática (1–4 colunas, escala até
+   * MIN_SCALE); se mesmo assim não couber, em vez de cortar com "+N" como o
+   * telão faz, mostra TODAS as pílulas na escala mínima e deixa o placar
+   * rolar verticalmente (o organizador pode rolar; tela projetada não).
+   */
+  export let scrollFallback = false;
 
   // Paleta da logo, na ordem das opções — a mesma cor identifica a zona no
   // telão e no celular.
@@ -76,7 +93,9 @@
    * durante a dinâmica. A fila de pendentes tem um teto fixo de rostos
    * visíveis e o resto vira um chip "+N"; o teto garante caber em 1366×768
    * (o piso: notebook/projetor mais comum). Com muitas zonas (7+), a fila
-   * inteira encolhe (.tight) pra devolver ~35px de altura ao placar.
+   * inteira encolhe (.tight) pra devolver ~35px de altura ao placar. O
+   * painel do organizador (/stage) passa pendingScroll e ignora este teto:
+   * lá a fila rola na horizontal e mostra todos os pendentes.
    */
   const PENDING_CAP = 14;
 
@@ -87,13 +106,14 @@
     return { visible: cap - 1, hidden: count - (cap - 1) };
   }
 
-  $: pendingSlots = layout === 'screen' ? capWithChipRoom(pending.length, PENDING_CAP) : null;
+  $: pendingSlots =
+    layout === 'screen' && !pendingScroll ? capWithChipRoom(pending.length, PENDING_CAP) : null;
   $: visiblePending = pendingSlots ? pending.slice(0, pendingSlots.visible) : pending;
   $: hiddenPendingCount = pendingSlots ? pendingSlots.hidden : 0;
   // Depende só do nº de zonas (input estático), nunca de medida de tela —
   // senão o encolher da fila mudaria a altura medida do placar, que mudaria
   // a densidade, que mudaria a fila… (loop de layout).
-  $: pendingTight = layout === 'screen' && groups.length >= 7;
+  $: pendingTight = (layout === 'screen' && groups.length >= 7) || pendingScroll;
 
   /*
    * ---------- Placar com densidade automática ----------
@@ -227,7 +247,7 @@
     return lo;
   }
 
-  function fitDensity(gs, W, H, withName, forced, smart) {
+  function fitDensity(gs, W, H, withName, forced, smart, scrollFallback) {
     if (!W || !H || gs.length === 0) return null; // sem medida (1º frame/testes): CSS usa os fallbacks
     const labelW = Math.min(Math.max(200, W * 0.28), 460);
     const candidates = forced
@@ -264,9 +284,24 @@
       }
     }
 
-    // Nem na escala mínima coube: pra cada nº de colunas candidato, raciona
-    // as linhas de pílulas por zona e corta com "+N" — vence o arranjo que
-    // mostra mais gente no total.
+    // Nem na escala mínima coube. No painel do organizador (scrollFallback)
+    // não se corta nada: mostra TODAS as pílulas na escala mínima, no nº de
+    // colunas que estimar a MENOR altura total (menos rolagem), e o placar
+    // rola verticalmente (ver .zones.scrollable) — quem rola é o
+    // organizador, não a tela projetada.
+    if (scrollFallback) {
+      let best = null;
+      const z0 = sizesFor(MIN_SCALE);
+      for (const cols of candidates) {
+        const total = estimateTotal(gs, W, withName, cols, z0, labelW);
+        if (!best || total < best.total) best = { s: MIN_SCALE, cols, labelW, caps: null, total };
+      }
+      return best;
+    }
+
+    // Telão: pra cada nº de colunas candidato, raciona as linhas de pílulas
+    // por zona e corta com "+N" — vence o arranjo que mostra mais gente no
+    // total.
     let best = null;
     const z = sizesFor(MIN_SCALE);
     const lineH = pillHeight(z, withName) + z.pillGap;
@@ -297,7 +332,9 @@
   let zonesW = 0;
   let zonesH = 0;
 
-  $: metrics = layout === 'screen' ? fitDensity(groups, zonesW, zonesH, showNames, forceCols, smart) : null;
+  $: metrics = layout === 'screen'
+    ? fitDensity(groups, zonesW, zonesH, showNames, forceCols, smart, scrollFallback)
+    : null;
   $: cols = metrics ? metrics.cols : Math.max(1, forceCols || 1);
   $: zoneStyle = metrics
     ? (() => {
@@ -331,7 +368,7 @@
     {totalParticipants === 0 ? 'Ninguém respondeu ainda.' : 'Todas as respostas foram reveladas.'}
   </p>
 {:else if layout === 'screen'}
-  <div class="pending-row" class:tight={pendingTight}>
+  <div class="pending-row" class:tight={pendingTight} class:scroll={pendingScroll}>
     {#each visiblePending as p (p.id)}
       <div class="face-wrap" animate:flip={{ duration: 350 }} out:fade={{ duration: 150 }}>
         <button
@@ -366,6 +403,7 @@
   class="zones"
   class:compact={layout === 'compact'}
   class:multi={layout === 'screen' && cols > 1}
+  class:scrollable={layout === 'screen' && scrollFallback}
   style={zoneStyle}
   bind:clientWidth={zonesW}
   bind:clientHeight={zonesH}
@@ -432,8 +470,9 @@
 
   .pending-row {
     display: flex;
-    /* nowrap de propósito: é fila de projeção, não pode crescer em altura —
-       o teto de PENDING_CAP mantém isso sempre cabendo numa linha só. */
+    /* nowrap de propósito no telão: é fila de projeção, não pode crescer em
+       altura — o teto de PENDING_CAP mantém isso sempre cabendo numa linha
+       só. O painel do organizador (pendingScroll) rola na horizontal. */
     flex-wrap: nowrap;
     overflow: hidden;
     gap: 12px;
@@ -442,6 +481,19 @@
     background: var(--bg-elev);
     border: 1px solid var(--border);
     border-radius: var(--radius-row);
+    /* Nunca comprime a fila pra ceder espaço ao placar: quem encolhe é a
+       área de zonas (flex:1 / min-height:0), não os pendentes. */
+    flex-shrink: 0;
+  }
+
+  /* Modo "scroll" (painel do organizador, /stage): uma linha só com scroll
+     horizontal mostrando TODOS os pendentes (sem teto, sem "+N") — o placar
+     abaixo (PresentationStage .zones, flex:1) mantém a altura estável e
+     continua cabendo sem rolagem. */
+  .pending-row.scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   /* Fila de pendentes: rosto de 64px, nome a 15px — a fila é a "vitrine" de
@@ -580,6 +632,14 @@
     flex-direction: column;
     gap: var(--row-gap, 6px);
     overflow: hidden;
+  }
+
+  /* Painel do organizador (scrollFallback): se nem na escala mínima couber,
+     o placar rola verticalmente em vez de cortar opções — overflow-x travado
+     pra não aparecer scroll horizontal no placar. */
+  .zones.scrollable {
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /* Com mais respostas, fitDensity (ou o menu ⚙) muda pra 2–4 colunas de

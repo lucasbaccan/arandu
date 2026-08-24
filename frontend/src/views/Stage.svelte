@@ -2,8 +2,6 @@
   export let id = '';
 
   import { onDestroy, tick } from 'svelte';
-  import { fly, fade } from 'svelte/transition';
-  import { flip } from 'svelte/animate';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { questionKindInfo } from '../lib/eventStatus.js';
@@ -12,6 +10,7 @@
   import CrumbBar from '../components/CrumbBar.svelte';
   import Input from '../components/Input.svelte';
   import PinChip from '../components/PinChip.svelte';
+  import PresentationStage from '../components/PresentationStage.svelte';
   import Switch from '../components/Switch.svelte';
   import Tabs from '../components/Tabs.svelte';
   import TopBar from '../components/TopBar.svelte';
@@ -80,6 +79,7 @@
 
   onDestroy(() => {
     if (adminEventSource) adminEventSource.close();
+    clearTimeout(resizeTimer);
   });
 
   // Modos de densidade do placar da apresentação (ver fitDensity em
@@ -248,10 +248,6 @@
     api.events.live.setNamesHidden(id, namesHidden).catch(() => {});
   }
 
-  function firstName(p) {
-    return (p.name || p.email).split(' ')[0];
-  }
-
   function sendMessage() {
     message = messageDraft.trim();
     api.events.live.setMessage(id, message).catch(() => {});
@@ -278,6 +274,43 @@
 
   $: currentQuestion = questions[currentIndex];
   $: revealedIds = currentQuestion ? revealed[currentQuestion.id] : new Set();
+
+  // Título longo: encolhe a fonte até caber em ~TITLE_MAX_LINES (com folga),
+  // pra pergunta gigante não empurrar o placar pra fora da tela nem criar
+  // scroll. A fonte é multiplicada por --title-scale (ver
+  // .stage-question-title no CSS); pergunta curta mantém escala 1. Reavalia
+  // ao trocar de pergunta e ao redimensionar a janela.
+  let titleEl = null;
+  let titleScale = 1;
+  const TITLE_MAX_LINES = 3;
+  const TITLE_SCALE_MIN = 0.7;
+
+  $: if (currentQuestion) fitQuestionTitle();
+
+  function fitQuestionTitle() {
+    tick().then(measureTitle);
+  }
+
+  function measureTitle() {
+    if (!titleEl) return;
+    const cs = getComputedStyle(titleEl);
+    const lineH = parseFloat(cs.lineHeight) || 20;
+    const lines = titleEl.offsetHeight / lineH;
+    if (lines <= TITLE_MAX_LINES) {
+      titleScale = 1;
+      return;
+    }
+    // O nº de linhas cai ~proporcional à fonte: fator com folga de 5% pra
+    // não oscilar na borda (linha que "quase cabe" não fica pulando entre
+    // dois tamanhos a cada resize).
+    titleScale = Math.max(TITLE_SCALE_MIN, (TITLE_MAX_LINES / lines) * titleScale * 0.95);
+  }
+
+  let resizeTimer;
+  function handleWindowResize() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitQuestionTitle, 150);
+  }
 
   function answerFor(p, q) {
     return p.answers.find((a) => a.questionId === q.id) || null;
@@ -390,7 +423,7 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window on:keydown={handleKeydown} on:resize={handleWindowResize} />
 
 <ReactionBurstLayer />
 
@@ -433,68 +466,36 @@
       <div class="stage-layout">
         <div class="stage-main">
           <div class="stage-main-body">
-            <h2 class="stage-question-title">{currentQuestion.title}</h2>
+            <h2
+              class="stage-question-title"
+              bind:this={titleEl}
+              style="--title-scale:{titleScale}"
+            >{currentQuestion.title}</h2>
 
-            <div class="pending-block">
-              <div class="pending-head">
-                <span class="overline">Pendentes · clique para revelar</span>
-                <span class="overline">{pending.length}</span>
-              </div>
-              <div class="pending-strip">
-                {#each pending as p (p.id)}
-                  <div class="face-wrap" animate:flip={{ duration: 350 }} out:fade={{ duration: 150 }}>
-                    <button
-                      type="button"
-                      class="face"
-                      title={p.name || p.email}
-                      aria-label={`Revelar resposta de ${p.name || p.email}`}
-                      on:click={() => reveal(p)}
-                    >
-                      {#if p.photo}
-                        <img src={p.photo} alt="" />
-                      {:else}
-                        <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
-                      {/if}
-                    </button>
-                    <span class="face-name">{firstName(p)}</span>
-                  </div>
-                {/each}
-                {#if pending.length === 0}
-                  <p class="text-muted pending-empty">Todo mundo já foi revelado.</p>
-                {/if}
-              </div>
+            <!-- Placar de respostas: a MESMA densidade automática do telão
+                 (PresentationStage layout="screen", ver fitDensity) — mede o
+                 espaço real, usa 1–4 colunas e encolhe as pílulas até TODAS
+                 as respostas caberem na tela sem barra de rolagem.
+                 scrollFallback: se mesmo na escala mínima não couber (evento
+                 gigante), mostra tudo e deixa o placar rolar verticalmente
+                 em vez de cortar opções com "+N". pendingScroll mantém a
+                 lista de participantes numa linha com scroll horizontal
+                 (nenhum pendente escondido atrás de "+N"), sem afetar o
+                 placar. -->
+            <div class="pending-head">
+              <span class="overline">Pendentes · clique para revelar</span>
+              <span class="overline">{pending.length}</span>
             </div>
 
-            <div class="zones-grid">
-              {#each groups as group (group.label)}
-                <div class="zone">
-                  <div class="zone-head">
-                    <span class="zone-label">{group.label}</span>
-                    <span class="zone-count">{group.participants.length}</span>
-                  </div>
-                  <div class="zone-faces">
-                    {#each group.participants as p (p.id)}
-                      <div class="face-wrap" animate:flip={{ duration: 350 }} in:fly={{ y: -30, duration: 350 }}>
-                        <button
-                          type="button"
-                          class="face"
-                          title={p.name || p.email}
-                          aria-label={`Desrevelar resposta de ${p.name || p.email}`}
-                          on:click={() => reveal(p)}
-                        >
-                          {#if p.photo}
-                            <img src={p.photo} alt="" />
-                          {:else}
-                            <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
-                          {/if}
-                        </button>
-                        <span class="face-name">{firstName(p)}</span>
-                      </div>
-                    {/each}
-                  </div>
-                </div>
-              {/each}
-            </div>
+            <PresentationStage
+              layout="screen"
+              {pending}
+              {groups}
+              onFaceClick={reveal}
+              showNames
+              pendingScroll
+              scrollFallback
+            />
           </div>
 
           <!-- Ações de revelação à esquerda, navegação de pergunta ao centro,
@@ -677,159 +678,29 @@
     flex-direction: column;
     gap: 14px;
     padding: 18px 20px 16px;
+    /* O placar abaixo (PresentationStage layout="screen") se mede e se
+       encolhe pra caber inteiro — as respostas nunca precisam de scroll.
+       overflow fica só como rede de segurança pra casos extremos (ex: título
+       absurdamente longo), onde rolar é melhor que cortar. */
     overflow-y: auto;
   }
 
   .stage-question-title {
     margin: 0;
-    /* Menor que antes (era 2.125rem fixo) — junto com o padding reduzido
-       acima, dá mais chance da pergunta caber na tela sem precisar rolar.
-       Ainda quebra em quantas linhas precisar (sem clamp/corte), então uma
-       pergunta longa sempre fica legível por inteiro, só empurra o resto
-       do painel pra baixo do scroll quando não cabe. */
-    font-size: clamp(1.25rem, 1.5vw + 1rem, 1.75rem);
+    /* Escala com a tela (clamp) e, quando a pergunta é longa demais (mais de
+       TITLE_MAX_LINES), encolhe mais via --title-scale (ver fitQuestionTitle
+       no script) pra caber em ~3 linhas e sobrar altura pro placar. Nunca
+       corta: quebra em quantas linhas precisar, só que menor. */
+    font-size: calc(clamp(1.25rem, 1.5vw + 1rem, 1.75rem) * var(--title-scale, 1));
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.2;
-  }
-
-  .pending-block {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
   }
 
   .pending-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-  }
-
-  .pending-strip {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 10px;
-    min-height: 76px;
-    padding: 12px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-row);
-  }
-
-  .pending-empty {
-    margin: 0;
-    font-size: 0.875rem;
-  }
-
-  .zones-grid {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-auto-rows: minmax(120px, auto);
-    gap: 12px;
-  }
-
-  @media (max-width: 640px) {
-    .zones-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .zone {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border-radius: var(--radius-row);
-    border: 1px solid var(--border);
-    background: var(--bg-elev);
-  }
-
-  .zone-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .zone-label {
-    font-size: 1rem;
-    font-weight: 700;
-  }
-
-  .zone-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 26px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: var(--surface-muted);
-    font-size: 0.8125rem;
-    font-weight: 800;
-  }
-
-  .zone-faces {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    gap: 10px;
-    min-height: 52px;
-  }
-
-  .face-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 5px;
-    width: 56px;
-  }
-
-  .face {
-    width: 46px;
-    height: 46px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    border: none;
-    padding: 0;
-    overflow: hidden;
-    cursor: pointer;
-    background: var(--accent);
-    font-family: var(--font-ui);
-    font-weight: 800;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-
-  .face:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(23, 21, 42, 0.18);
-  }
-
-  .face img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .face-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-
-  .face-name {
-    max-width: 56px;
-    font-size: 0.6875rem;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .stage-dock {
