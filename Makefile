@@ -4,7 +4,7 @@ GOBIN := $(shell go env GOBIN 2>/dev/null)
 AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
 
 HOST ?= 0.0.0.0
-PORT ?= 8888
+PORT ?= 8080
 FRONTEND_PORT ?= 5173
 # Vazio de propósito: sem COOKIE_SECURE/COOKIE_SAMESITE o backend decide a
 # política do cookie por requisição (ver cookieAttrs em internal/api/server.go) —
