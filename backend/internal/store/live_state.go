@@ -12,11 +12,12 @@ import (
 // Existe pra sobreviver a um restart do servidor: live.Manager guarda tudo
 // em memória pra velocidade, mas cada mutação também é gravada aqui.
 type EventLiveState struct {
-	CurrentQuestionID int64
-	Blanked           bool
-	Message           string
-	AnswersHidden     bool
-	NamesHidden       bool
+	CurrentQuestionID  int64
+	Blanked            bool
+	Message            string
+	AnswersHidden      bool
+	NamesHidden        bool
+	PresentDensityMode string
 }
 
 // GetEventLiveState busca o estado ao vivo persistido do evento. Evento
@@ -25,11 +26,13 @@ type EventLiveState struct {
 func (s *Store) GetEventLiveState(ctx context.Context, eventID int64) (EventLiveState, error) {
 	var st EventLiveState
 	row := s.db.QueryRowContext(ctx,
-		`SELECT current_question_id, blanked, message, answers_hidden, names_hidden
+		`SELECT current_question_id, blanked, message, answers_hidden, names_hidden, present_density_mode
 		 FROM event_live_state WHERE event_id = ?`,
 		eventID,
 	)
-	err := row.Scan(&st.CurrentQuestionID, &st.Blanked, &st.Message, &st.AnswersHidden, &st.NamesHidden)
+	err := row.Scan(
+		&st.CurrentQuestionID, &st.Blanked, &st.Message, &st.AnswersHidden, &st.NamesHidden, &st.PresentDensityMode,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return EventLiveState{}, nil
 	}
@@ -95,6 +98,18 @@ func (s *Store) SetEventNamesHidden(ctx context.Context, eventID int64, hidden b
 	)
 	if err != nil {
 		return fmt.Errorf("store: definir ocultar nomes: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) SetEventPresentDensityMode(ctx context.Context, eventID int64, mode string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO event_live_state (event_id, present_density_mode) VALUES (?, ?)
+		 ON CONFLICT(event_id) DO UPDATE SET present_density_mode = excluded.present_density_mode`,
+		eventID, mode,
+	)
+	if err != nil {
+		return fmt.Errorf("store: definir modo de densidade da apresentação: %w", err)
 	}
 	return nil
 }

@@ -1,4 +1,6 @@
 <script>
+  import { navigate } from '../lib/router.js';
+
   export let shape = 'square';
 
   let open = false;
@@ -6,6 +8,12 @@
 
   function toggle() {
     open = !open;
+  }
+
+  function goToHowItWorks(e) {
+    e.preventDefault();
+    open = false;
+    navigate('/como-funciona');
   }
 
   function handleWindowMousedown(e) {
@@ -41,6 +49,7 @@
         <li>Quem organiza cria o evento, monta as perguntas e conduz a apresentação.</li>
         <li>As respostas só aparecem no telão quando o organizador revelar.</li>
       </ul>
+      <a href="/como-funciona" class="help-more" on:click={goToHowItWorks}>Saiba mais →</a>
       <p class="help-foot text-muted">Dúvidas sobre um evento: fale com quem organiza.</p>
     </div>
   {/if}
@@ -109,6 +118,14 @@
     font-size: 0.8125rem;
     line-height: 1.45;
     color: var(--text-muted);
+  }
+
+  .help-more {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--accent);
   }
 
   .help-foot {

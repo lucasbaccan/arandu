@@ -140,6 +140,15 @@
 
   $: currentQuestion =
     snapshot && snapshot.questions.find((q) => q.id === snapshot.currentQuestionId);
+
+  // Densidade do placar (colunas × escala das pílulas, ver fitDensity em
+  // PresentationStage.svelte) — escolhida pelo organizador nos botões de
+  // modo no rodapé de /stage e refletida aqui ao vivo (mesmo snapshot da
+  // janela de apresentação do organizador). Só o telão usa: o celular
+  // (layout="compact") ignora forceCols/smart.
+  $: densityMode = (snapshot && snapshot.presentDensityMode) || '';
+  $: presentIsSmart = densityMode === 'smart';
+  $: presentForceCols = presentIsSmart ? 0 : Number(densityMode) || 0;
 </script>
 
 <svelte:window on:resize={onResize} />
@@ -217,6 +226,8 @@
         <div class="stage-zones">
           <PresentationStage
             layout="screen"
+            forceCols={presentForceCols}
+            smart={presentIsSmart}
             pending={snapshot.pending || []}
             groups={snapshot.groups || []}
             hideZones={snapshot.answersHidden}

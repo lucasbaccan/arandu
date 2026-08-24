@@ -16,6 +16,8 @@
   import Stage from './views/Stage.svelte';
   import StagePresentation from './views/StagePresentation.svelte';
   import Audience from './views/Audience.svelte';
+  import HowItWorks from './views/HowItWorks.svelte';
+  import PrivacyPolicy from './views/PrivacyPolicy.svelte';
   import StyleGuide from './views/StyleGuide.svelte';
 
   onMount(initAuth);
@@ -23,11 +25,11 @@
   $: eventMatch = /^\/events\/(\d+)$/.exec($route);
   $: answerMatch = /^\/answer\/(\d+)$/.exec($route);
   $: stageMatch = /^\/stage\/(\d+)$/.exec($route);
-  // present: placar com colunas automáticas; present1..4: força 1–4 colunas
-  // (ver PresentationStage.svelte, prop forceCols, e o menu flutuante
-  // PresentVariantMenu.svelte).
-  $: stagePresentMatch = /^\/stage\/(\d+)\/present([1-4])?$/.exec($route);
-  $: stagePresentCols = stagePresentMatch ? Number(stagePresentMatch[2] || 0) : 0;
+  // A densidade do placar (auto/smart/1–4 colunas) não é mais parte da
+  // rota — é estado ao vivo (presentDensityMode), escolhido pelos botões de
+  // modo no rodapé de Stage.svelte e refletido em tempo real via SSE. Ver
+  // PresentationStage.svelte (props forceCols/smart) e StagePresentation.svelte.
+  $: stagePresentMatch = /^\/stage\/(\d+)\/present$/.exec($route);
   $: audienceMatch = /^\/audience\/(\d+)$/.exec($route);
 
   $: if ($authReady) {
@@ -64,6 +66,10 @@
     <Dashboard />
   {:else if $route === '/tela'}
     <StyleGuide />
+  {:else if $route === '/como-funciona'}
+    <HowItWorks />
+  {:else if $route === '/privacidade'}
+    <PrivacyPolicy />
   {:else if $route === '/events/new'}
     <EventCreate />
   {:else if eventMatch}
@@ -71,7 +77,7 @@
   {:else if answerMatch}
     <Answer id={answerMatch[1]} />
   {:else if stagePresentMatch}
-    <StagePresentation id={stagePresentMatch[1]} cols={stagePresentCols} />
+    <StagePresentation id={stagePresentMatch[1]} />
   {:else if stageMatch}
     <Stage id={stageMatch[1]} />
   {:else if audienceMatch}

@@ -30,6 +30,7 @@
   let error = '';
   let notFound = false;
   let activeTab = 'questions'; // questions | responses
+  let railCollapsed = false;
 
   $: answerLink = `${window.location.origin}/answer/${id}`;
   $: audienceLink = pinCode
@@ -65,6 +66,46 @@
   let photoDraft = '';
   let savingPhoto = false;
   let savingAnswerKey = '';
+
+  // Coluna de pessoas: arrastável, mas nunca menor que o tamanho de base —
+  // o valor que já era o padrão da tela antes de existir o redimensionamento.
+  const PEOPLE_COL_MIN = 250;
+  let peopleColWidth = PEOPLE_COL_MIN;
+  let responsesSplitEl;
+
+  function peopleColMax() {
+    const containerWidth = responsesSplitEl ? responsesSplitEl.getBoundingClientRect().width : Infinity;
+    // Reserva um mínimo pro detail-col não desaparecer atrás da coluna de pessoas.
+    return Math.max(PEOPLE_COL_MIN, containerWidth - 220);
+  }
+
+  function startPeopleColResize(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = peopleColWidth;
+    const maxWidth = peopleColMax();
+
+    function onMove(ev) {
+      const next = startWidth + (ev.clientX - startX);
+      peopleColWidth = Math.min(maxWidth, Math.max(PEOPLE_COL_MIN, next));
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  function handlePeopleColResizeKeydown(e) {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      peopleColWidth = Math.max(PEOPLE_COL_MIN, peopleColWidth - 16);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      peopleColWidth = Math.min(peopleColMax(), peopleColWidth + 16);
+    }
+  }
 
   async function loadQuestions() {
     const { questions: qs } = await api.events.questions.list(id);
@@ -471,7 +512,7 @@
       </svelte:fragment>
     </CrumbBar>
 
-    <div class="edit-layout">
+    <div class="edit-layout" class:rail-collapsed={railCollapsed}>
       <div class="questions-col">
         <Tabs
           bind:value={activeTab}
@@ -493,8 +534,8 @@
             {#if participants.length === 0}
               <p class="text-muted empty-note">Ninguém respondeu ainda.</p>
             {:else}
-              <div class="responses-split">
-                <div class="people-col">
+              <div class="responses-split" bind:this={responsesSplitEl}>
+                <div class="people-col" style="flex-basis: {peopleColWidth}px">
                   <input
                     class="people-search"
                     type="text"
@@ -524,7 +565,6 @@
                           class:selected={selectedParticipant && selectedParticipant.id === p.id}
                           on:click={() => selectPerson(p.id)}
                         >
-                          <span class="person-order">#{p.order}</span>
                           <span class="person-avatar">
                             {#if p.photo}
                               <img src={p.photo} alt="" />
@@ -534,13 +574,29 @@
                           </span>
                           <span class="person-info">
                             <span class="person-name">{p.name || p.email}</span>
-                            <span class="person-hour text-muted">{formatTime(p.createdAt)}</span>
+                            <span class="person-meta text-muted">
+                              <span class="person-order">#{p.order}</span>
+                              <span class="person-meta-sep" aria-hidden="true">·</span>
+                              <span class="person-hour">{formatTime(p.createdAt)}</span>
+                            </span>
                           </span>
                         </button>
                       </li>
                     {/each}
                   </ul>
                 </div>
+
+                <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+                <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+                <div
+                  class="col-resizer"
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Redimensionar lista de pessoas"
+                  tabindex="0"
+                  on:mousedown={startPeopleColResize}
+                  on:keydown={handlePeopleColResizeKeydown}
+                ></div>
 
                 {#if selectedParticipant}
                   <div class="detail-col">
@@ -824,106 +880,117 @@
           {/if}
       </div>
 
-      <aside class="side-rail">
-        <div
-          class="rail-card answers-switch"
-          style="--rail-accent:{status === 'OPEN_FOR_ANSWERS' ? 'var(--success)' : 'var(--border-strong)'}"
-        >
-          <div>
-            <strong>Respostas {status === 'OPEN_FOR_ANSWERS' ? 'abertas' : 'fechadas'}</strong>
-            <p class="text-muted">Só entram respostas enquanto estiver ligado.</p>
-          </div>
-          <Switch
-            checked={status === 'OPEN_FOR_ANSWERS'}
-            disabled={statusBusy}
-            on:change={toggleAnswersOpen}
-          />
-        </div>
+      <aside class="side-rail" class:collapsed={railCollapsed}>
+        <button
+          type="button"
+          class="icon-btn rail-toggle"
+          aria-label={railCollapsed ? 'Expandir painel lateral' : 'Recolher painel lateral'}
+          title={railCollapsed ? 'Expandir painel lateral' : 'Recolher painel lateral'}
+          aria-expanded={!railCollapsed}
+          on:click={() => (railCollapsed = !railCollapsed)}
+        >{railCollapsed ? '‹' : '›'}</button>
 
-        <div class="stat-row">
-          <div class="rail-card stat-box">
-            <span class="stat-num">{questions.length}</span>
-            <span class="stat-label">pergunta{questions.length === 1 ? '' : 's'}</span>
-          </div>
-          <div class="rail-card stat-box">
-            <span class="stat-num">{participantCount}</span>
-            <span class="stat-label">{participantCount === 1 ? 'respondeu' : 'responderam'}</span>
-          </div>
-        </div>
-
-        <div class="rail-card rail-section">
-          <span class="overline">Compartilhar</span>
-          <div class="share-link">
-            <div class="share-link-info">
-              <span class="share-link-label">Link de participação</span>
-              <span class="share-link-url">{answerLink}</span>
+        {#if !railCollapsed}
+          <div
+            class="rail-card answers-switch"
+            style="--rail-accent:{status === 'OPEN_FOR_ANSWERS' ? 'var(--success)' : 'var(--border-strong)'}"
+          >
+            <div>
+              <strong>Respostas {status === 'OPEN_FOR_ANSWERS' ? 'abertas' : 'fechadas'}</strong>
+              <p class="text-muted">Só entram respostas enquanto estiver ligado.</p>
             </div>
-            <CopyButton text={answerLink} label="Copiar link de participação" />
-          </div>
-          <div class="share-link">
-            <div class="share-link-info">
-              <span class="share-link-label">Apresentação pública</span>
-              <span class="share-link-url">{audienceLink}</span>
-            </div>
-            <CopyButton text={audienceLink} label="Copiar link da apresentação pública" />
-          </div>
-        </div>
-
-        <div class="rail-card rail-section">
-          <span class="overline">Configurações</span>
-          <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
-            <Input
-              label="Título"
-              bind:value={title}
-              placeholder="Ex: Conecta DevOps 2026"
-              autocomplete="off"
-              required
+            <Switch
+              checked={status === 'OPEN_FOR_ANSWERS'}
+              disabled={statusBusy}
+              on:change={toggleAnswersOpen}
             />
+          </div>
 
-            <Input
-              label="PIN"
-              bind:value={pinCode}
-              placeholder="Ex: dev-team"
-              hint="1 a 25 caracteres: letras, números, _ ou -"
-              uppercase
-            />
-
-            <div class="config-row">
-              <span>Exibir ranking de pontos</span>
-              <Switch
-                aria-label="Exibir ranking de pontos"
-                checked={showRanking}
-                on:change={() => (showRanking = !showRanking)}
-              />
+          <div class="stat-row">
+            <div class="rail-card stat-box">
+              <span class="stat-num">{questions.length}</span>
+              <span class="stat-label">pergunta{questions.length === 1 ? '' : 's'}</span>
             </div>
-
-            <div class="config-row config-row-hint">
-              <span>
-                Permitir editar depois
-                <p class="text-muted">
-                  {allowEdit
-                    ? 'Cada pessoa recebe um link privado para corrigir respostas e foto.'
-                    : 'O envio é único. Só você pode corrigir respostas por aqui.'}
-                </p>
-              </span>
-              <Switch
-                aria-label="Permitir editar depois"
-                checked={allowEdit}
-                on:change={() => (allowEdit = !allowEdit)}
-              />
+            <div class="rail-card stat-box">
+              <span class="stat-num">{participantCount}</span>
+              <span class="stat-label">{participantCount === 1 ? 'respondeu' : 'responderam'}</span>
             </div>
+          </div>
 
-            {#if error}
-              <p class="form-error">{error}</p>
-            {/if}
+          <div class="rail-card rail-section">
+            <span class="overline">Compartilhar</span>
+            <div class="share-link">
+              <div class="share-link-info">
+                <span class="share-link-label">Link de participação</span>
+                <span class="share-link-url">{answerLink}</span>
+              </div>
+              <CopyButton text={answerLink} label="Copiar link de participação" />
+            </div>
+            <div class="share-link">
+              <div class="share-link-info">
+                <span class="share-link-label">Apresentação pública</span>
+                <span class="share-link-url">{audienceLink}</span>
+              </div>
+              <CopyButton text={audienceLink} label="Copiar link da apresentação pública" />
+            </div>
+          </div>
 
-            <!-- Secundário: a ação primária desta tela é abrir o painel ao vivo,
-                 no breadcrumb. -->
-            <Button type="submit" variant="secondary" block disabled={submitting}>
-              {submitting ? 'Salvando…' : 'Salvar alterações'}
-            </Button>
-          </form>
-        </div>
+          <div class="rail-card rail-section">
+            <span class="overline">Configurações</span>
+            <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
+              <Input
+                label="Título"
+                bind:value={title}
+                placeholder="Ex: Conecta DevOps 2026"
+                autocomplete="off"
+                required
+              />
+
+              <Input
+                label="PIN"
+                bind:value={pinCode}
+                placeholder="Ex: dev-team"
+                hint="1 a 25 caracteres: letras, números, _ ou -"
+                uppercase
+              />
+
+              <div class="config-row">
+                <span>Exibir ranking de pontos</span>
+                <Switch
+                  aria-label="Exibir ranking de pontos"
+                  checked={showRanking}
+                  on:change={() => (showRanking = !showRanking)}
+                />
+              </div>
+
+              <div class="config-row config-row-hint">
+                <span>
+                  Permitir editar depois
+                  <p class="text-muted">
+                    {allowEdit
+                      ? 'Cada pessoa recebe um link privado para corrigir respostas e foto.'
+                      : 'O envio é único. Só você pode corrigir respostas por aqui.'}
+                  </p>
+                </span>
+                <Switch
+                  aria-label="Permitir editar depois"
+                  checked={allowEdit}
+                  on:change={() => (allowEdit = !allowEdit)}
+                />
+              </div>
+
+              {#if error}
+                <p class="form-error">{error}</p>
+              {/if}
+
+              <!-- Secundário: a ação primária desta tela é abrir o painel ao vivo,
+                   no breadcrumb. -->
+              <Button type="submit" variant="secondary" block disabled={submitting}>
+                {submitting ? 'Salvando…' : 'Salvar alterações'}
+              </Button>
+            </form>
+          </div>
+        {/if}
       </aside>
     </div>
   {/if}
@@ -953,6 +1020,12 @@
 {/if}
 
 <style>
+  .shell {
+    flex: none;
+    height: 100vh;
+    height: 100dvh;
+  }
+
   .edit-center {
     flex: 1;
     display: flex;
@@ -966,30 +1039,45 @@
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr 320px;
+    grid-template-rows: minmax(0, 1fr);
     gap: 20px;
     padding: 24px;
-    align-items: start;
+    align-items: stretch;
+    transition: grid-template-columns 0.16s ease;
   }
 
-  @media (max-width: 980px) {
-    .edit-layout {
-      grid-template-columns: 1fr;
-    }
+  .edit-layout.rail-collapsed {
+    grid-template-columns: 1fr 48px;
   }
 
   /* O conteúdo manda: perguntas ocupam a coluna larga, configurações viram um
-     trilho de apoio à direita. */
+     trilho de apoio à direita. Cada coluna rola por conta própria dentro da
+     altura fixa do shell, então a coluna lateral nunca sai da tela. */
   .questions-col {
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow: hidden;
   }
 
   .side-rail {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .rail-toggle {
+    flex-shrink: 0;
+    align-self: flex-end;
+  }
+
+  .side-rail.collapsed {
+    align-items: center;
+    overflow: visible;
   }
 
   .rail-card {
@@ -1113,9 +1201,12 @@
     list-style: none;
     margin: 0;
     padding: 0;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
+    overflow-y: auto;
   }
 
   .question-item {
@@ -1289,23 +1380,57 @@
   /* --- Respostas --- */
 
   .responses-split {
+    flex: 1;
+    min-height: 0;
     display: flex;
-    gap: 18px;
-    align-items: flex-start;
+    gap: 0;
+    align-items: stretch;
   }
 
   @media (max-width: 760px) {
     .responses-split {
       flex-direction: column;
     }
+
+    .col-resizer {
+      display: none;
+    }
   }
 
   .people-col {
-    flex: 0 1 280px;
-    min-width: 180px;
+    flex: 0 0 250px;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
+  }
+
+  .col-resizer {
+    flex: 0 0 17px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: col-resize;
+    touch-action: none;
+  }
+
+  .col-resizer::before {
+    content: '';
+    width: 3px;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--border);
+    transition: background 0.15s ease;
+  }
+
+  .col-resizer:hover::before,
+  .col-resizer:focus-visible::before {
+    background: var(--accent);
+  }
+
+  .col-resizer:focus-visible {
+    outline: none;
   }
 
   .people-search {
@@ -1356,7 +1481,8 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: 480px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -1368,7 +1494,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-radius: var(--radius-row);
     text-align: left;
     cursor: pointer;
@@ -1386,15 +1512,6 @@
   .person-row.selected {
     background: var(--tint-purple);
     border-color: var(--accent);
-  }
-
-  .person-order {
-    width: 24px;
-    flex-shrink: 0;
-    text-align: right;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    color: var(--text-subtle);
   }
 
   .person-avatar,
@@ -1425,7 +1542,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
   }
 
   .person-name {
@@ -1436,13 +1553,26 @@
     white-space: nowrap;
   }
 
-  .person-hour {
+  .person-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
     font-size: 0.75rem;
+  }
+
+  .person-order {
+    font-weight: 700;
+    color: var(--text-subtle);
+  }
+
+  .person-meta-sep {
+    color: var(--text-subtle);
   }
 
   .detail-col {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     background: var(--bg-elev);
@@ -1454,15 +1584,15 @@
   .detail-head {
     display: flex;
     align-items: flex-start;
-    gap: 16px;
-    padding: 20px 22px;
+    gap: 14px;
+    padding: 12px 22px;
     border-bottom: 1px solid var(--border);
   }
 
   .detail-avatar-btn {
     position: relative;
-    width: 64px;
-    height: 64px;
+    width: 46px;
+    height: 46px;
     flex-shrink: 0;
     padding: 0;
     border: none;
@@ -1471,17 +1601,17 @@
   }
 
   .detail-avatar {
-    width: 64px;
-    height: 64px;
-    font-size: 1.375rem;
+    width: 46px;
+    height: 46px;
+    font-size: 1.0625rem;
   }
 
   .detail-avatar-edit {
     position: absolute;
     right: -2px;
     bottom: -2px;
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     border: 2px solid var(--bg-elev);
     background: var(--surface-muted);
@@ -1489,7 +1619,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 0.625rem;
   }
 
   .detail-identity {
@@ -1528,11 +1658,12 @@
   }
 
   .detail-answers {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
     padding: 16px 22px 20px;
-    max-height: 480px;
     overflow-y: auto;
   }
 
@@ -1673,5 +1804,31 @@
 
   .modal-cancel:hover {
     color: var(--text);
+  }
+
+  /* Em telas estreitas a coluna lateral desce pra baixo das perguntas (ver
+     .edit-layout acima) — nesse layout empilhado não faz sentido cada bloco
+     rolar por conta própria, então aqui isso é desfeito e quem rola é a
+     página toda, de cima a baixo, como qualquer tela pública. */
+  @media (max-width: 980px) {
+    .edit-layout {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .questions-col,
+    .side-rail {
+      overflow: visible;
+    }
+
+    .question-list,
+    .responses-split,
+    .people-list,
+    .detail-answers {
+      flex: none;
+      max-height: none;
+      overflow: visible;
+    }
   }
 </style>

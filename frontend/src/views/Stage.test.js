@@ -22,6 +22,7 @@ vi.mock('../lib/api.js', () => ({
         setBlanked: vi.fn().mockResolvedValue({ ok: true }),
         setAnswersHidden: vi.fn().mockResolvedValue({ ok: true }),
         setNamesHidden: vi.fn().mockResolvedValue({ ok: true }),
+        setDensityMode: vi.fn().mockResolvedValue({ ok: true }),
         setMessage: vi.fn().mockResolvedValue({ ok: true }),
         setInteractionsEnabled: vi.fn().mockResolvedValue({ ok: true }),
         adminState: vi.fn(),
@@ -320,16 +321,45 @@ describe('Preview da apresentação', () => {
     expect(await view.findByText('Este evento ainda não tem perguntas.')).toBeInTheDocument();
   });
 
-  it('abre a janela de apresentação somente leitura numa nova aba', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
+  it('abre a janela de apresentação somente leitura numa janela nomeada', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => ({ closed: false }));
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
-    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', '_blank', 'noopener,width=1366,height=768');
+    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', 'arandu-present-42', 'width=1366,height=768');
     // não é toggle de estado local — os controles de admin continuam aqui
     expect(view.getByLabelText('Próxima pergunta')).toBeInTheDocument();
+    openSpy.mockRestore();
+  });
+
+  it('os botões de modo no rodapé mudam a densidade ao vivo (sem navegar) e abrem/focam a janela de apresentação', async () => {
+    const fakeWindow = { closed: false, focus: vi.fn() };
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => fakeWindow);
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const smartBtn = view.getByRole('button', { name: 'Modo apresentação — Smart' });
+    await fireEvent.click(smartBtn);
+
+    // muda o estado no servidor — quem já tiver /present ou /audience
+    // abertos vê ao vivo, sem precisar recarregar nem trocar de URL.
+    expect(api.events.live.setDensityMode).toHaveBeenCalledWith('42', 'smart');
+    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', 'arandu-present-42', 'width=1366,height=768');
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(smartBtn).toHaveAttribute('aria-pressed', 'true');
+
+    const cols2Btn = view.getByRole('button', { name: 'Modo apresentação — 2 colunas' });
+    await fireEvent.click(cols2Btn);
+
+    expect(api.events.live.setDensityMode).toHaveBeenCalledWith('42', '2');
+    // janela já aberta: só foca, não abre de novo
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(fakeWindow.focus).toHaveBeenCalledTimes(1);
+    expect(cols2Btn).toHaveAttribute('aria-pressed', 'true');
+    expect(smartBtn).toHaveAttribute('aria-pressed', 'false');
+
     openSpy.mockRestore();
   });
 

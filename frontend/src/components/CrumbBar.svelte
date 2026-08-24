@@ -35,6 +35,9 @@
 
 <style>
   .crumbbar {
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 19;
     flex-shrink: 0;
     display: flex;
     align-items: center;

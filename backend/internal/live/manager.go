@@ -29,6 +29,14 @@ type EventState struct {
 	// janela de apresentação e na tela da plateia — o painel do próprio
 	// organizador (/stage) sempre mostra os nomes, independente disso.
 	NamesHidden bool
+	// PresentDensityMode escolhe como o placar de respostas (fitDensity, em
+	// PresentationStage.svelte) decide colunas × escala das pílulas: ""
+	// (zero value) = automático, "smart" = testa todas as colunas e fica com
+	// a maior escala, "1".."4" = força esse nº de colunas. Escolhido pelos
+	// botões no rodapé de /stage e refletido em tempo real tanto na janela
+	// de apresentação (/stage/{id}/present) quanto na tela pública
+	// (/audience/{id}) — as duas usam o mesmo snapshot (buildLiveSnapshot).
+	PresentDensityMode string
 }
 
 func newEventState() *EventState {
@@ -45,12 +53,13 @@ func (s *EventState) clone() EventState {
 		revealed[questionID] = copySet
 	}
 	return EventState{
-		CurrentQuestionID: s.CurrentQuestionID,
-		Revealed:          revealed,
-		Blanked:           s.Blanked,
-		Message:           s.Message,
-		AnswersHidden:     s.AnswersHidden,
-		NamesHidden:       s.NamesHidden,
+		CurrentQuestionID:  s.CurrentQuestionID,
+		Revealed:           revealed,
+		Blanked:            s.Blanked,
+		Message:            s.Message,
+		AnswersHidden:      s.AnswersHidden,
+		NamesHidden:        s.NamesHidden,
+		PresentDensityMode: s.PresentDensityMode,
 	}
 }
 
@@ -232,6 +241,14 @@ func (m *Manager) SetNamesHidden(eventID int64, hidden bool) {
 	e := m.entry(eventID)
 	e.mu.Lock()
 	e.state.NamesHidden = hidden
+	e.mu.Unlock()
+	e.notify()
+}
+
+func (m *Manager) SetPresentDensityMode(eventID int64, mode string) {
+	e := m.entry(eventID)
+	e.mu.Lock()
+	e.state.PresentDensityMode = mode
 	e.mu.Unlock()
 	e.notify()
 }

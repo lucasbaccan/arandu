@@ -30,11 +30,22 @@
   /*
    * forceCols: força o nº de colunas do placar (1–4) — usado pelo menu ⚙ da
    * tela de apresentação (/present1..4) pra comparar. 0 = automático
-   * (/present): fitDensity escolhe quantas colunas cabem sem cortar
-   * ninguém, sempre no tamanho mínimo de pílula (ver comentário mais
-   * abaixo). O celular (.compact) ignora.
+   * (/present): fitDensity escolhe o menor nº de colunas que cabe sem
+   * cortar ninguém. Em ambos os casos a escala das pílulas cresce ou
+   * encolhe pra usar o máximo de espaço possível nesse nº de colunas (ver
+   * comentário mais abaixo) — não é um tamanho fixo. O celular (.compact)
+   * ignora.
    */
   export let forceCols = 0;
+  /*
+   * smart: modo "Smart" do menu ⚙ (/presentsmart). Em vez de ficar com o
+   * menor nº de colunas que já cabe (comportamento padrão de forceCols=0),
+   * testa cada nº de colunas (1–4) e fica com o que render a MAIOR escala
+   * — às vezes isso pede mais colunas que o Auto escolheria, mas resulta em
+   * pílulas maiores. Cai pro mesmo corte com "+N" do modo padrão se nem a
+   * escala mínima couber em nenhum candidato.
+   */
+  export let smart = false;
 
   // Paleta da logo, na ordem das opções — a mesma cor identifica a zona no
   // telão e no celular.
@@ -43,8 +54,17 @@
   $: totalParticipants =
     pending.length + groups.reduce((sum, g) => sum + g.participants.length, 0);
 
-  function firstName(p) {
-    return (p.name || p.email).split(' ')[0];
+  // Primeiro nome + inicial do sobrenome: "Lucas Elias Baccan" vira
+  // "Lucas B." — mais compacto que o nome completo (a pílula não estoura de
+  // largura), mas ainda identifica melhor que só o primeiro nome quando tem
+  // gente com o mesmo primeiro nome na sala. Nomes com uma palavra só (ou o
+  // fallback pro e-mail, sem nome cadastrado) mostram só essa palavra.
+  function displayName(p) {
+    const raw = (p.name || p.email || '').trim();
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (!p.name || parts.length < 2) return parts[0] || raw;
+    const last = parts[parts.length - 1];
+    return `${parts[0]} ${last[0].toUpperCase()}.`;
   }
 
   function zoneColor(i) {
@@ -79,18 +99,25 @@
    * ---------- Placar com densidade automática ----------
    *
    * Cada resposta vira uma zona (rótulo + contagem, e os respondentes como
-   * pílulas de rosto + primeiro nome). Por pedido explícito, as pílulas
-   * ficam sempre na MENOR fonte/avatar definidos (sizesFor(MIN_SCALE)) — não
-   * existe mais busca por uma escala maior que caiba; o único grau de
-   * liberdade automático é quantas colunas (1–4) evitam cortar gente. Como o
-   * telão não rola, o componente mede o espaço real
-   * (bind:clientWidth/Height em .zones) e ESTIMA (fator 0.6 × fonte pra
-   * largura de texto) se aquele nº de colunas, no tamanho mínimo, cabe sem
-   * cortar ninguém. Só se nem assim coubesse (evento gigante) é que volta o
-   * chip "+N", com teto por zona. O overflow:hidden + máscara em
-   * .zone-people é a rede de segurança pra qualquer erro de arredondamento.
+   * pílulas de rosto + primeiro nome). Como o telão não rola, o componente
+   * mede o espaço real (bind:clientWidth/Height em .zones) e ESTIMA (fator
+   * 0.6 × fonte pra largura de texto) se um nº de colunas cabe sem cortar
+   * ninguém — e, se coubesse, até que escala (sizesFor) dá pra crescer sem
+   * estourar. Não existe um tamanho de pílula fixo: com pouca gente as
+   * pílulas expandem até o teto (MAX_SCALE) pra ocupar o espaço sobrando;
+   * com muita, encolhem até o piso (MIN_SCALE) que ainda cabe tudo — cada
+   * combinação de colunas tem a sua própria escala máxima (maxFeasibleScale).
+   * Auto e forçado (1–4) pegam o candidato certo e usam a escala máxima
+   * dele; Smart testa todos e fica com a maior escala entre eles (ver
+   * fitDensity). Só se nem a escala mínima coubesse em nenhum candidato
+   * (evento gigante) é que volta o chip "+N", com teto por zona. O
+   * overflow:hidden em .zone-people é a rede de segurança pra qualquer erro
+   * de arredondamento.
    */
   const MIN_SCALE = 0.3;
+  // Teto do modo "smart" — alinhado ao rosto de 64px da fila de pendentes
+  // (avatar 46×MAX_SCALE ≈ 64px), pra não crescer além do resto do telão.
+  const MAX_SCALE = 1.4;
   const MAX_COLS = 4;
   const COL_GAP = 16;
   // Título da resposta NÃO escala com a densidade: fixo e legível — quem
@@ -100,8 +127,9 @@
 
   // Tamanhos derivados da escala — os valores em s=1 são os mesmos dos
   // fallbacks das custom properties no CSS abaixo; mudou um, mude o outro.
-  // Os pisos (Math.max) é que definem o "menor possível" de verdade, já que
-  // hoje só se usa sizesFor(MIN_SCALE) — mudou um piso, ajuste o outro lado.
+  // Os pisos (Math.max) travam o "menor possível" mesmo em escalas abaixo
+  // de MIN_SCALE (não deveria acontecer, mas evita pílula ilegível se
+  // algum arredondamento escorregar pra fora do intervalo esperado).
   function sizesFor(s) {
     return {
       avatar: Math.max(20, Math.round(46 * s)),
@@ -131,7 +159,7 @@
     let lines = 1;
     let x = 0;
     for (const p of group.participants) {
-      const w = pillWidth(firstName(p).length, z, withName);
+      const w = pillWidth(displayName(p).length, z, withName);
       if (x > 0 && x + z.pillGap + w > areaW) {
         lines += 1;
         x = w;
@@ -178,19 +206,61 @@
     return total + (rows - 1) * z.rowGap;
   }
 
-  function fitDensity(gs, W, H, withName, forced) {
+  // Busca binária pela MAIOR escala que ainda cabe (sem cortar ninguém) num
+  // nº de colunas fixo. estimateTotal só cresce com a escala — nunca
+  // diminui — então existe um único ponto de corte entre "cabe" e "não
+  // cabe", e a busca binária converge pra ele. Retorna null se nem a
+  // escala mínima coube nessas colunas.
+  function maxFeasibleScale(gs, W, H, withName, cols, labelW) {
+    if (estimateTotal(gs, W, withName, cols, sizesFor(MIN_SCALE), labelW) > H) return null;
+    if (estimateTotal(gs, W, withName, cols, sizesFor(MAX_SCALE), labelW) <= H) return MAX_SCALE;
+    let lo = MIN_SCALE;
+    let hi = MAX_SCALE;
+    for (let i = 0; i < 18; i++) {
+      const mid = (lo + hi) / 2;
+      if (estimateTotal(gs, W, withName, cols, sizesFor(mid), labelW) <= H) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
+
+  function fitDensity(gs, W, H, withName, forced, smart) {
     if (!W || !H || gs.length === 0) return null; // sem medida (1º frame/testes): CSS usa os fallbacks
     const labelW = Math.min(Math.max(200, W * 0.28), 460);
     const candidates = forced
       ? [Math.min(forced, Math.max(1, gs.length))]
       : [1, 2, 3, 4].filter((c) => c <= MAX_COLS && c <= Math.max(1, gs.length));
 
-    // Fonte fixa no mínimo (ver comentário acima) — só varia quantas
-    // colunas cabem sem cortar ninguém.
-    const zFixed = sizesFor(MIN_SCALE);
-    for (const cols of candidates) {
-      if (estimateTotal(gs, W, withName, cols, zFixed, labelW) <= H) {
-        return { s: MIN_SCALE, cols, labelW, caps: null };
+    // Escala sempre cresce até o maior valor que ainda cabe (maxFeasibleScale)
+    // — nunca fica travada no tamanho mínimo, seja qual for o modo. O que
+    // muda de um modo pro outro é só QUAL(IS) nº de colunas entram na
+    // disputa e como se escolhe entre eles:
+    if (smart) {
+      // Modo "Smart": testa todos os candidatos e fica com a combinação
+      // (colunas × escala) que usa o MAIOR espaço possível, não importa
+      // quantas colunas isso peça — as respostas crescem até o teto
+      // MAX_SCALE, sempre repartidas em colunas de largura igual.
+      let bestSmart = null;
+      for (const cols of candidates) {
+        const s = maxFeasibleScale(gs, W, H, withName, cols, labelW);
+        if (s !== null && (!bestSmart || s > bestSmart.s)) bestSmart = { s, cols, labelW, caps: null };
+      }
+      if (bestSmart) return bestSmart;
+      // Nem a escala mínima coube em nenhum nº de colunas — cai pro mesmo
+      // corte com "+N" do modo padrão, abaixo.
+    } else {
+      // Auto (0 colunas forçadas) prefere o menor nº de colunas que já
+      // couber — testa 1, depois 2, etc., e fica no primeiro que tiver
+      // alguma escala viável. Forçado (1–4) só tem esse candidato mesmo.
+      // Em ambos os casos a escala desse nº de colunas é maximizada, não
+      // fixa: com pouca gente ela expande pra ocupar o espaço sobrando; com
+      // muita, encolhe até o ponto que ainda cabe tudo.
+      for (const cols of candidates) {
+        const s = maxFeasibleScale(gs, W, H, withName, cols, labelW);
+        if (s !== null) return { s, cols, labelW, caps: null };
       }
     }
 
@@ -198,7 +268,7 @@
     // as linhas de pílulas por zona e corta com "+N" — vence o arranjo que
     // mostra mais gente no total.
     let best = null;
-    const z = zFixed;
+    const z = sizesFor(MIN_SCALE);
     const lineH = pillHeight(z, withName) + z.pillGap;
     const labelH = Math.round(LABEL_FONT * 1.25);
     for (const cols of candidates) {
@@ -211,7 +281,7 @@
       let shown = 0;
       for (const g of gs) {
         const avgW = g.participants.length
-          ? g.participants.reduce((sum, p) => sum + pillWidth(firstName(p).length, z, withName), 0) /
+          ? g.participants.reduce((sum, p) => sum + pillWidth(displayName(p).length, z, withName), 0) /
             g.participants.length
           : areaW;
         const perLine = Math.max(1, Math.floor(areaW / (avgW + z.pillGap)));
@@ -227,7 +297,7 @@
   let zonesW = 0;
   let zonesH = 0;
 
-  $: metrics = layout === 'screen' ? fitDensity(groups, zonesW, zonesH, showNames, forceCols) : null;
+  $: metrics = layout === 'screen' ? fitDensity(groups, zonesW, zonesH, showNames, forceCols, smart) : null;
   $: cols = metrics ? metrics.cols : Math.max(1, forceCols || 1);
   $: zoneStyle = metrics
     ? (() => {
@@ -280,7 +350,7 @@
           {/if}
         </button>
         {#if showNames}
-          <span class="face-name">{firstName(p)}</span>
+          <span class="face-name">{displayName(p)}</span>
         {/if}
       </div>
     {/each}
@@ -334,7 +404,7 @@
                   {/if}
                 </span>
                 {#if showNames}
-                  <span class="person-name">{firstName(p)}</span>
+                  <span class="person-name">{displayName(p)}</span>
                 {/if}
               </button>
             </div>
@@ -585,10 +655,13 @@
     align-items: center;
     align-content: center;
     gap: var(--pill-gap, 5px);
+    /* Rede de segurança pra erro de arredondamento na estimativa (ver
+       comentário lá em cima) — nunca deveria disparar de verdade. Só
+       overflow:hidden, sem máscara de desvanecer: como align-content:center
+       centraliza as linhas de pílula na altura sobrando, um degradê fixo na
+       borda inferior acabava desbotando a última linha inteira sempre que o
+       conteúdo enchia a zona (sem overflow nenhum) — não só nesse caso raro. */
     overflow: hidden;
-    /* Se a estimativa errar por uma linha, desvanece a borda cortada em vez
-       de um corte reto no meio de uma pílula. */
-    mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
   }
 
   .zones.multi .zone-people {
@@ -701,7 +774,6 @@
     align-self: auto;
     align-content: flex-start;
     overflow: visible;
-    mask-image: none;
     gap: 6px;
   }
 

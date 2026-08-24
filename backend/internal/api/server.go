@@ -73,12 +73,13 @@ func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *li
 			log.Printf("api: carregar estado ao vivo salvo do evento %d: %v", eventID, err)
 		}
 		return live.EventState{
-			CurrentQuestionID: liveState.CurrentQuestionID,
-			Revealed:          revealed,
-			Blanked:           liveState.Blanked,
-			Message:           liveState.Message,
-			AnswersHidden:     liveState.AnswersHidden,
-			NamesHidden:       liveState.NamesHidden,
+			CurrentQuestionID:  liveState.CurrentQuestionID,
+			Revealed:           revealed,
+			Blanked:            liveState.Blanked,
+			Message:            liveState.Message,
+			AnswersHidden:      liveState.AnswersHidden,
+			NamesHidden:        liveState.NamesHidden,
+			PresentDensityMode: liveState.PresentDensityMode,
 		}
 	})
 	return &API{cfg: cfg, store: st, ids: gen, live: liveManager}
@@ -113,6 +114,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/events/{id}/live/blank", a.requireAuth(a.handleLiveSetBlanked))
 	mux.HandleFunc("POST /api/events/{id}/live/hide-answers", a.requireAuth(a.handleLiveSetAnswersHidden))
 	mux.HandleFunc("POST /api/events/{id}/live/hide-names", a.requireAuth(a.handleLiveSetNamesHidden))
+	mux.HandleFunc("POST /api/events/{id}/live/density-mode", a.requireAuth(a.handleLiveSetPresentDensityMode))
 	mux.HandleFunc("POST /api/events/{id}/live/message", a.requireAuth(a.handleLiveSetMessage))
 	mux.HandleFunc("POST /api/events/{id}/live/interactions", a.requireAuth(a.handleLiveSetInteractions))
 	mux.HandleFunc("POST /api/events/{id}/live/qa/{messageId}/dismiss", a.requireAuth(a.handleLiveDismissQA))

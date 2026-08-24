@@ -118,12 +118,13 @@ func Migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_live_qa_messages_event ON live_qa_messages(event_id);
 
 		CREATE TABLE IF NOT EXISTS event_live_state (
-			event_id            INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
-			current_question_id INTEGER NOT NULL DEFAULT 0,
-			blanked             BOOLEAN NOT NULL DEFAULT 0,
-			message             TEXT    NOT NULL DEFAULT '',
-			answers_hidden      BOOLEAN NOT NULL DEFAULT 0,
-			names_hidden        BOOLEAN NOT NULL DEFAULT 0
+			event_id              INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
+			current_question_id   INTEGER NOT NULL DEFAULT 0,
+			blanked               BOOLEAN NOT NULL DEFAULT 0,
+			message               TEXT    NOT NULL DEFAULT '',
+			answers_hidden        BOOLEAN NOT NULL DEFAULT 0,
+			names_hidden          BOOLEAN NOT NULL DEFAULT 0,
+			present_density_mode  TEXT    NOT NULL DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS revealed_answers (
@@ -177,6 +178,14 @@ func Migrate(db *sql.DB) error {
 	if _, err := db.Exec(`ALTER TABLE events ADD COLUMN allow_edit BOOLEAN NOT NULL DEFAULT 1`); err != nil {
 		if !strings.Contains(err.Error(), "duplicate column name") {
 			return fmt.Errorf("store: migração (allow_edit): %w", err)
+		}
+	}
+
+	// Bancos criados antes de present_density_mode existir: adiciona sem
+	// quebrar dados existentes, default '' (automático).
+	if _, err := db.Exec(`ALTER TABLE event_live_state ADD COLUMN present_density_mode TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("store: migração (present_density_mode): %w", err)
 		}
 	}
 

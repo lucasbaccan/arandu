@@ -1,14 +1,9 @@
 <script>
   export let id = '';
-  // cols: nº de colunas do placar — 0 (padrão, /present) deixa o
-  // PresentationStage escolher sozinho; 1..4 (/present1..4) forçam, pra
-  // comparar pelo menu flutuante (PresentVariantMenu.svelte).
-  export let cols = 0;
 
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { api } from '../lib/api.js';
   import PresentationStage from '../components/PresentationStage.svelte';
-  import PresentVariantMenu from '../components/PresentVariantMenu.svelte';
   import ReactionBurstLayer from '../components/ReactionBurstLayer.svelte';
   import { fireReaction } from '../lib/reactionStore.js';
 
@@ -24,7 +19,10 @@
 
   onDestroy(() => {
     if (eventSource) eventSource.close();
+    window.removeEventListener('resize', measureQuestionOverflow);
   });
+
+  window.addEventListener('resize', measureQuestionOverflow);
 
   load();
 
@@ -51,6 +49,31 @@
 
   $: currentQuestion =
     snapshot && snapshot.questions.find((q) => q.id === snapshot.currentQuestionId);
+
+  // Pergunta longa demais pro clamp de altura: em vez de cortar o texto,
+  // rola verticalmente devagar (ninguém rola uma tela projetada na mão) até
+  // dar pra ler tudo, e volta pro início — ver .present-question-scrolling.
+  let questionWrapEl;
+  let questionInnerEl;
+  let scrollDistance = 0;
+
+  $: if (currentQuestion) measureQuestionOverflow();
+
+  async function measureQuestionOverflow() {
+    await tick();
+    if (!questionWrapEl || !questionInnerEl) return;
+    const overflow = questionInnerEl.scrollHeight - questionWrapEl.clientHeight;
+    scrollDistance = overflow > 4 ? overflow : 0;
+  }
+
+  // Densidade do placar (colunas × escala das pílulas, ver fitDensity em
+  // PresentationStage.svelte) — vem do snapshot ao vivo, não da URL: os
+  // botões de modo no rodapé de Stage.svelte mudam isso no servidor, e essa
+  // janela só reflete o que chega por SSE, em tempo real, sem navegar.
+  // '' = automático, 'smart', ou '1'..'4' colunas forçadas.
+  $: densityMode = (snapshot && snapshot.presentDensityMode) || '';
+  $: isSmart = densityMode === 'smart';
+  $: forceCols = isSmart ? 0 : Number(densityMode) || 0;
 </script>
 
 <main class="present-page" class:present-center={loading || error || !snapshot}>
@@ -71,11 +94,19 @@
     {:else if snapshot.questions.length === 0}
       <div class="present-overlay"><p class="text-muted">Este evento ainda não tem perguntas.</p></div>
     {:else if currentQuestion}
-      <h1 class="present-question">{currentQuestion.title}</h1>
+      <h1 class="present-question" bind:this={questionWrapEl}>
+        <span
+          class="present-question-inner"
+          class:present-question-scrolling={scrollDistance > 0}
+          style={scrollDistance > 0 ? `--scroll-distance: -${scrollDistance}px` : ''}
+          bind:this={questionInnerEl}
+        >{currentQuestion.title}</span>
+      </h1>
       <div class="present-zones">
         <PresentationStage
           layout="screen"
-          forceCols={cols}
+          {forceCols}
+          smart={isSmart}
           pending={snapshot.pending || []}
           groups={snapshot.groups || []}
           hideZones={snapshot.answersHidden}
@@ -86,9 +117,6 @@
   {/if}
 
   <ReactionBurstLayer />
-  {#if !loading && !error}
-    <PresentVariantMenu {id} active={cols} />
-  {/if}
 </main>
 
 <style>
@@ -107,7 +135,7 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 3vh 3.5vw 2.5vh;
+    padding: 1.75vh 3vw 1.75vh;
     box-sizing: border-box;
   }
 
@@ -135,24 +163,45 @@
   }
 
   .present-question {
-    margin: 2.5vh 0 0;
+    margin: 1.25vh 0 0;
     flex-shrink: 0;
-    /* Escala com a altura da tela em vez de um px fixo — em 768px de altura
-       (piso: 1366×768) isso fica ~40px, dando espaço de sobra pra 2 linhas
-       sem empurrar as zonas pra fora. */
-    font-size: clamp(1.75rem, 5.2vh, 3.25rem);
+    /* Escala com a altura da tela em vez de um px fixo — menor que antes pra
+       sobrar altura pro título inteiro (até 3 linhas) sem cortar. */
+    font-size: clamp(1.15rem, 3.2vh, 2.1rem);
     font-weight: 800;
     letter-spacing: -0.025em;
-    line-height: 1.15;
+    line-height: 1.2;
     /* Ocupa toda a largura útil da página em vez de travar num px fixo — num
        telão largo, um cap de 1000px deixava metade da tela vazia à direita
        do título. */
     width: 100%;
-    /* Título absurdamente longo (raro) corta em 2 linhas em vez de vazar. */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    /* Título absurdamente longo (raro): em vez de cortar, trava a altura e
+       deixa o .present-question-scrolling rolar o texto até dar pra ler tudo. */
+    max-height: 22vh;
     overflow: hidden;
+    position: relative;
+  }
+
+  .present-question-inner {
+    display: block;
+  }
+
+  .present-question-scrolling {
+    animation: present-question-scroll 14s ease-in-out infinite;
+  }
+
+  @keyframes present-question-scroll {
+    0%,
+    10% {
+      transform: translateY(0);
+    }
+    50%,
+    60% {
+      transform: translateY(var(--scroll-distance));
+    }
+    100% {
+      transform: translateY(0);
+    }
   }
 
   .present-zones {
@@ -161,7 +210,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-top: 2.5vh;
+    margin-top: 1.5vh;
   }
 
   .present-overlay {

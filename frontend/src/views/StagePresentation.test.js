@@ -94,12 +94,9 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
 
     // os rostos renderizam como <button> (mesmo componente da tela pública),
     // mas sem onFaceClick eles ficam sempre desabilitados — nada clicável.
-    // O menu flutuante de variantes (PresentVariantMenu) é a única exceção
-    // proposital: não mexe no estado da apresentação, só troca qual layout
-    // é exibido, então fica de fora desta checagem.
-    const faceButtons = view
-      .getAllByRole('button')
-      .filter((btn) => !btn.closest('.variant-menu'));
+    // Esta tela não tem mais controles próprios (o menu de modo virou os
+    // botões no rodapé de Stage.svelte), então todo <button> aqui é rosto.
+    const faceButtons = view.getAllByRole('button');
     expect(faceButtons.length).toBeGreaterThan(0);
     for (const btn of faceButtons) {
       expect(btn).toBeDisabled();
@@ -157,14 +154,14 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
     const view = mount();
     await view.findByText('Qual sua linguagem favorita?');
 
-    expect(view.getByText('Ana')).toBeInTheDocument();
-    expect(view.getByText('Bob')).toBeInTheDocument();
+    expect(view.getByText('Ana R.')).toBeInTheDocument();
+    expect(view.getByText('Bob S.')).toBeInTheDocument();
 
     FakeEventSource.instances[0].onmessage({ data: JSON.stringify({ ...snapshot, namesHidden: true }) });
 
     expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-    expect(view.queryByText('Ana')).not.toBeInTheDocument();
-    expect(view.queryByText('Bob')).not.toBeInTheDocument();
+    expect(view.queryByText('Ana R.')).not.toBeInTheDocument();
+    expect(view.queryByText('Bob S.')).not.toBeInTheDocument();
   });
 
   it('mostra uma reação recebida via evento SSE nomeado', async () => {

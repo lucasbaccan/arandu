@@ -122,15 +122,25 @@ describe('PresentationStage', () => {
     expect(view.queryByText('bob@exemplo.com', { selector: '.face-name' })).not.toBeInTheDocument();
   });
 
-  it('com showNames, mostra o primeiro nome sob cada rosto (pendente e revelado)', () => {
+  it('com showNames, mostra o primeiro nome + inicial do sobrenome sob cada rosto (pendente e revelado)', () => {
     const view = mount({
       pending: [{ id: 'p3', name: 'Carla Dias', email: 'carla@exemplo.com', photo: '' }],
       groups: [{ label: 'Go', participants: [{ id: 'p4', name: 'Diego Alves', email: 'diego@exemplo.com', photo: '' }] }],
       showNames: true
     });
 
-    expect(view.getByText('Carla')).toBeInTheDocument();
-    expect(view.getByText('Diego')).toBeInTheDocument();
+    expect(view.getByText('Carla D.')).toBeInTheDocument();
+    expect(view.getByText('Diego A.')).toBeInTheDocument();
+  });
+
+  it('com showNames, nome de uma palavra só mostra só essa palavra (sem inicial)', () => {
+    const view = mount({
+      pending: [{ id: 'p3', name: 'Madonna', email: 'madonna@exemplo.com', photo: '' }],
+      groups: [],
+      showNames: true
+    });
+
+    expect(view.getByText('Madonna')).toBeInTheDocument();
   });
 
   it('rostos pendentes usam estilo tracejado, diferente dos revelados', () => {

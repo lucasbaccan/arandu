@@ -270,6 +270,45 @@ func (a *API) handleLiveSetNamesHidden(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+type liveSetPresentDensityModeRequest struct {
+	Mode string `json:"mode"`
+}
+
+// validPresentDensityModes: "" = automático, "smart" = testa todas as
+// colunas e fica com a maior escala, "1".."4" = força esse nº de colunas —
+// ver PresentationStage.svelte (forceCols/smart) e fitDensity lá.
+var validPresentDensityModes = map[string]bool{
+	"": true, "smart": true, "1": true, "2": true, "3": true, "4": true,
+}
+
+// handleLiveSetPresentDensityMode escolhe o modo de densidade do placar de
+// respostas (colunas × escala das pílulas) — reflete em tempo real tanto na
+// janela de apresentação (/stage/{id}/present) quanto na tela pública
+// (/audience/{id}), já que as duas leem o mesmo snapshot (buildLiveSnapshot).
+// Escolhido pelos botões no rodapé de /stage.
+func (a *API) handleLiveSetPresentDensityMode(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+	var req liveSetPresentDensityModeRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !validPresentDensityModes[req.Mode] {
+		writeError(w, http.StatusBadRequest, "Modo de apresentação inválido.")
+		return
+	}
+	if err := a.store.SetEventPresentDensityMode(r.Context(), eventID, req.Mode); err != nil {
+		log.Printf("api: salvar modo de densidade da apresentação: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	a.live.SetPresentDensityMode(eventID, req.Mode)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 type liveSetMessageRequest struct {
 	Message string `json:"message"`
 }
@@ -827,6 +866,9 @@ type liveSnapshotDTO struct {
 	InteractionsEnabled bool                 `json:"interactionsEnabled"`
 	AnswersHidden       bool                 `json:"answersHidden"`
 	NamesHidden         bool                 `json:"namesHidden"`
+	// PresentDensityMode escolhe colunas × escala do placar de respostas em
+	// PresentationStage.svelte — ver live.EventState.PresentDensityMode.
+	PresentDensityMode string `json:"presentDensityMode"`
 }
 
 type liveQAMessageDTO struct {
@@ -843,6 +885,7 @@ type liveAdminSnapshotDTO struct {
 	InteractionsEnabled bool                `json:"interactionsEnabled"`
 	AnswersHidden       bool                `json:"answersHidden"`
 	NamesHidden         bool                `json:"namesHidden"`
+	PresentDensityMode  string              `json:"presentDensityMode"`
 	CurrentQuestionID   string              `json:"currentQuestionId"`
 	// Revealed mapeia questionID (string) -> participantIDs (string) já
 	// revelados nessa pergunta — deixa o painel do organizador retomar de
@@ -905,6 +948,7 @@ func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAd
 		InteractionsEnabled: event.InteractionsEnabled,
 		AnswersHidden:       state.AnswersHidden,
 		NamesHidden:         state.NamesHidden,
+		PresentDensityMode:  state.PresentDensityMode,
 		CurrentQuestionID:   currentQuestionID,
 		Revealed:            revealed,
 		QAInbox:             qaDTOs,
@@ -968,6 +1012,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 		InteractionsEnabled: event.InteractionsEnabled,
 		AnswersHidden:       state.AnswersHidden,
 		NamesHidden:         state.NamesHidden,
+		PresentDensityMode:  state.PresentDensityMode,
 	}
 	if current == nil {
 		return snapshot, nil

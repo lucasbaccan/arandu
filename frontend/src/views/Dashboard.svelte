@@ -189,6 +189,12 @@
     flex-shrink: 0;
   }
 
+  .shell {
+    flex: none;
+    height: 100vh;
+    height: 100dvh;
+  }
+
   .empty-wrap {
     display: flex;
     justify-content: center;
@@ -253,6 +259,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
   }
 

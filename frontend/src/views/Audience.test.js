@@ -244,16 +244,16 @@ describe('Tela pública da apresentação (Audience)', () => {
     const view = mount('?pin=dev-team');
     await joinAndWatch(view, withNames);
 
-    expect(await view.findByText('Ana')).toBeInTheDocument();
-    expect(view.getByText('Bob')).toBeInTheDocument();
+    expect(await view.findByText('Ana R.')).toBeInTheDocument();
+    expect(view.getByText('Bob S.')).toBeInTheDocument();
 
     FakeEventSource.instances[0].onmessage({
       data: JSON.stringify({ ...snapshot, ...withNames, namesHidden: true })
     });
 
     expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-    expect(view.queryByText('Ana')).not.toBeInTheDocument();
-    expect(view.queryByText('Bob')).not.toBeInTheDocument();
+    expect(view.queryByText('Ana R.')).not.toBeInTheDocument();
+    expect(view.queryByText('Bob S.')).not.toBeInTheDocument();
   });
 
   it('mostra a barra de reações e envia ao clicar num emoji', async () => {

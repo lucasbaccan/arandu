@@ -1,7 +1,7 @@
 <script>
   export let id = '';
 
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { api } from '../lib/api.js';
@@ -34,28 +34,98 @@
   let messageDraft = '';
   let qaInbox = [];
   let adminEventSource = null;
+  // '' = automático, 'smart', ou '1'..'4' — ver PresentationStage.svelte
+  // (forceCols/smart). Estado do servidor, igual blanked/answersHidden: os
+  // botões de modo no rodapé mudam isso ao vivo pra quem já tiver a janela
+  // de apresentação (ou a tela pública /audience) aberta.
+  let presentDensityMode = '';
 
   // Trilho com abas no lugar de quatro blocos empilhados.
   let railTab = 'questions'; // questions | qa | notice
+
+  // Navegar pelas setas (goPrev/goNext) muda currentIndex sem clicar na
+  // lista — rola o painel sozinho pra pergunta ativa nunca ficar fora da
+  // vista, sem exigir scroll manual do organizador.
+  let railPanelEl;
+  $: if (railTab === 'questions' && currentIndex >= 0) scrollActiveQuestionIntoView();
+
+  async function scrollActiveQuestionIntoView() {
+    await tick();
+    if (!railPanelEl || typeof railPanelEl.scrollTo !== 'function') return;
+    const activeEl = railPanelEl.querySelector('.question-row.active');
+    if (!activeEl) return;
+
+    // Inclui até 2 perguntas antes/depois na área visível (não só a ativa),
+    // pra dar uma prévia do que vem antes/depois sem precisar rolar na mão.
+    const sibling = (el, prop, steps) => {
+      for (let i = 0; i < steps && el[prop]; i += 1) el = el[prop];
+      return el;
+    };
+    const prevEl = sibling(activeEl, 'previousElementSibling', 2);
+    const nextEl = sibling(activeEl, 'nextElementSibling', 2);
+    // offsetTop é relativo ao offsetParent posicionado mais próximo, não ao
+    // scroll container — por isso .rail-panel precisa de position:relative
+    // (senão os cálculos abaixo ficam num sistema de coordenadas errado e a
+    // rolagem pra cima nunca dispara).
+    const rangeTop = prevEl.offsetTop;
+    const rangeBottom = nextEl.offsetTop + nextEl.offsetHeight;
+    const { scrollTop, clientHeight } = railPanelEl;
+
+    if (rangeTop < scrollTop) {
+      railPanelEl.scrollTo({ top: rangeTop, behavior: 'smooth' });
+    } else if (rangeBottom > scrollTop + clientHeight) {
+      railPanelEl.scrollTo({ top: rangeBottom - clientHeight, behavior: 'smooth' });
+    }
+  }
 
   onDestroy(() => {
     if (adminEventSource) adminEventSource.close();
   });
 
-  // Modo apresentação: abre uma janela separada, somente leitura (sem
-  // clique, sem controles de admin) com só a pergunta, as opções e os
-  // participantes — feita pra projetar ou compartilhar numa chamada sem
-  // expor o painel do organizador. Só quem está autenticado como dono do
-  // evento consegue abrir essa janela (StagePresentation.svelte).
+  // Modos de densidade do placar da apresentação (ver fitDensity em
+  // PresentationStage.svelte) — o mesmo menu que antes era só a
+  // engrenagem ⚙ dentro da janela de apresentação, agora como botões no
+  // rodapé daqui. Cada clique manda o modo pro servidor (como
+  // blanked/answersHidden) — quem já estiver com /present ou /audience
+  // abertos vê a densidade trocar ao vivo, sem precisar recarregar nem
+  // alternar pra tela do projetor. `mode` é o valor exato que o servidor
+  // espera (ver validPresentDensityModes no backend).
+  const PRESENT_MODES = [
+    { mode: '', label: 'Automático', icon: 'A' },
+    { mode: 'smart', label: 'Smart', icon: '★' },
+    { mode: '1', label: '1 coluna', icon: '1' },
+    { mode: '2', label: '2 colunas', icon: '2' },
+    { mode: '3', label: '3 colunas', icon: '3' },
+    { mode: '4', label: '4 colunas', icon: '4' }
+  ];
+
+  function selectPresentMode(mode) {
+    presentDensityMode = mode;
+    api.events.live.setDensityMode(id, mode).catch(() => {});
+    openPresentationWindow();
+  }
+
+  // Referência da janela de apresentação (somente leitura, sem clique, sem
+  // controles de admin — só a pergunta, as opções e os participantes; feita
+  // pra projetar ou compartilhar numa chamada sem expor o painel do
+  // organizador). Guardar a referência deixa reaproveitar a MESMA janela em
+  // vez de abrir uma nova a cada clique em "Modo apresentação" ou num botão
+  // de modo — a densidade em si não depende mais da URL (ver
+  // presentDensityMode acima), então aqui só importa abrir/focar.
+  let presentWindow = null;
+
   function openPresentationWindow() {
+    if (presentWindow && !presentWindow.closed) {
+      presentWindow.focus();
+      return;
+    }
     // Passar "features" (largura/altura) faz o navegador abrir uma janela
     // de verdade (sem abas, sem barra de endereço) em vez de só uma nova
-    // aba — é esse detalhe que muda o comportamento, não o '_blank'.
-    // 1366×768: a resolução nativa mais comum de notebook/projetor — o
-    // conteúdo em si é feito pra caber nesse piso sem rolagem (ver
+    // aba. 1366×768: a resolução nativa mais comum de notebook/projetor —
+    // o conteúdo em si é feito pra caber nesse piso sem rolagem (ver
     // StagePresentation.svelte); isso só evita abrir menor que isso por
     // padrão. Pra projetar de verdade, dá F11 na janela.
-    window.open(`/stage/${id}/present`, '_blank', 'noopener,width=1366,height=768');
+    presentWindow = window.open(`/stage/${id}/present`, `arandu-present-${id}`, 'width=1366,height=768');
   }
 
   function handleKeydown(e) {
@@ -108,6 +178,7 @@
       message = adminSnap.message;
       messageDraft = adminSnap.message;
       qaInbox = adminSnap.qaInbox;
+      presentDensityMode = adminSnap.presentDensityMode || '';
 
       if (qs.length > 0) {
         const resumeIndex = qs.findIndex((q) => q.id === adminSnap.currentQuestionId);
@@ -146,6 +217,7 @@
       message = snap.message;
       messageDraft = snap.message;
       qaInbox = snap.qaInbox;
+      presentDensityMode = snap.presentDensityMode || '';
     };
     adminEventSource.addEventListener('reaction', (e) => {
       fireReaction(JSON.parse(e.data).emoji);
@@ -425,15 +497,18 @@
             </div>
           </div>
 
-          <!-- Ações de revelação só aqui; modo apresentação só no breadcrumb. -->
+          <!-- Ações de revelação à esquerda, navegação de pergunta ao centro,
+               modos da janela de apresentação à direita. -->
           <div class="stage-dock">
-            <Button size="sm" on:click={revealAll} disabled={pending.length === 0}>
-              Revelar tudo
-            </Button>
-            <Button variant="secondary" size="sm" on:click={resetReveal} disabled={revealedIds.size === 0}>
-              Reiniciar pergunta
-            </Button>
-            <span class="dock-spacer"></span>
+            <div class="dock-left">
+              <Button size="sm" on:click={revealAll} disabled={pending.length === 0}>
+                Revelar tudo
+              </Button>
+              <Button variant="secondary" size="sm" on:click={resetReveal} disabled={revealedIds.size === 0}>
+                Reiniciar pergunta
+              </Button>
+            </div>
+
             <div class="dock-nav">
               <button
                 type="button"
@@ -451,6 +526,22 @@
                 on:click={goNext}
               >→</button>
             </div>
+
+            <div class="dock-right">
+              <div class="present-modes">
+                {#each PRESENT_MODES as mode (mode.mode)}
+                  <button
+                    type="button"
+                    class="mode-btn"
+                    class:active={presentDensityMode === mode.mode}
+                    title={`Modo apresentação — ${mode.label}`}
+                    aria-label={`Modo apresentação — ${mode.label}`}
+                    aria-pressed={presentDensityMode === mode.mode}
+                    on:click={() => selectPresentMode(mode.mode)}
+                  >{mode.icon}</button>
+                {/each}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -465,7 +556,7 @@
             ]}
           />
 
-          <div class="rail-panel">
+          <div class="rail-panel" bind:this={railPanelEl}>
             {#if railTab === 'questions'}
               {#each questions as q, i (q.id)}
                 <button
@@ -552,6 +643,12 @@
 </main>
 
 <style>
+  .shell {
+    flex: none;
+    height: 100vh;
+    height: 100dvh;
+  }
+
   .stage-center {
     flex: 1;
     display: flex;
@@ -578,17 +675,22 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: 28px 28px 20px;
+    gap: 14px;
+    padding: 18px 20px 16px;
     overflow-y: auto;
   }
 
   .stage-question-title {
     margin: 0;
-    font-size: 2.125rem;
+    /* Menor que antes (era 2.125rem fixo) — junto com o padding reduzido
+       acima, dá mais chance da pergunta caber na tela sem precisar rolar.
+       Ainda quebra em quantas linhas precisar (sem clamp/corte), então uma
+       pergunta longa sempre fica legível por inteiro, só empurra o resto
+       do painel pra baixo do scroll quando não cabe. */
+    font-size: clamp(1.25rem, 1.5vw + 1rem, 1.75rem);
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1.15;
+    line-height: 1.2;
   }
 
   .pending-block {
@@ -732,7 +834,8 @@
 
   .stage-dock {
     flex-shrink: 0;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 10px;
     padding: 14px 24px;
@@ -740,14 +843,24 @@
     border-top: 1px solid var(--border);
   }
 
-  .dock-spacer {
-    flex: 1;
+  .dock-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
   }
 
   .dock-nav {
     display: flex;
     align-items: center;
     gap: 10px;
+    justify-self: center;
+  }
+
+  .dock-right {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
   }
 
   .nav-btn {
@@ -790,6 +903,42 @@
     letter-spacing: 0.04em;
   }
 
+  .present-modes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mode-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mode-btn:hover {
+    background: var(--surface-muted);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  .mode-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+
   /* --- Trilho --- */
 
   .stage-rail {
@@ -813,6 +962,15 @@
       border-left: none;
       border-top: 1px solid var(--border);
     }
+
+    .stage-dock {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+
+    .dock-right {
+      justify-content: center;
+    }
   }
 
   .rail-panel {
@@ -823,6 +981,9 @@
     gap: 6px;
     padding: 14px 12px;
     overflow-y: auto;
+    /* offsetParent do question-row: sem isso, offsetTop fica num sistema de
+       coordenadas diferente do scrollTop e a rolagem automática quebra. */
+    position: relative;
   }
 
   .rail-empty {

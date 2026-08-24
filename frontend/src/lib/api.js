@@ -108,6 +108,8 @@ export const api = {
         request(`/api/events/${id}/live/hide-answers`, { method: 'POST', body: { hidden } }),
       setNamesHidden: (id, hidden) =>
         request(`/api/events/${id}/live/hide-names`, { method: 'POST', body: { hidden } }),
+      setDensityMode: (id, mode) =>
+        request(`/api/events/${id}/live/density-mode`, { method: 'POST', body: { mode } }),
       setMessage: (id, message) =>
         request(`/api/events/${id}/live/message`, { method: 'POST', body: { message } }),
       setInteractionsEnabled: (id, enabled) =>

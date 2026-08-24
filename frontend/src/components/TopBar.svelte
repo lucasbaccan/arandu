@@ -75,6 +75,9 @@
 
 <style>
   .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
     flex-shrink: 0;
     display: flex;
     align-items: center;
