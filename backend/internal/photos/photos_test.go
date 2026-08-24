@@ -84,6 +84,9 @@ func TestServeMaterializesAndServes(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "image/jpeg") {
 		t.Errorf("content-type esperado image/jpeg, got %q", ct)
 	}
+	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "max-age=3600") {
+		t.Errorf("cache-control deveria permitir cache de 1h, got %q", cc)
+	}
 	if _, err := os.Stat(s.path(7)); err != nil {
 		t.Errorf("arquivo deveria ter sido materializado: %v", err)
 	}

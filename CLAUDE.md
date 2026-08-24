@@ -49,7 +49,9 @@ so the Go server can proxy to or serve from an unbuilt frontend instead of the e
 `backend/internal/photos` materializes them as files under `PHOTOS_DIR` (`./data/photos`) and serves
 them via `GET /api/photos/{participantId}` — DTOs (`responses`, public participant, live snapshots)
 carry only that URL (`a.photoURL(p)`). The first request for a photo decodes the DB value and writes
-the file (slower); later requests serve straight from disk with `Cache-Control` revalidation. Updating
+the file (slower); later requests serve straight from disk with `Cache-Control`
+`public, max-age=3600, must-revalidate` (`photos.ImageMaxAge` = 1h, then revalidation via
+If-Modified-Since → 304). Updating
 or removing a photo invalidates the cached file (`photos.Remove`). `cmd/server/main.go` runs a daily
 cleanup loop (`RunCleanupLoop`, 24h tick) that deletes files older than 7 days (`PHOTOS_DIR` files are
 recreated on demand from the DB, so deletion is safe).

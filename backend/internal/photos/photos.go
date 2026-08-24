@@ -34,6 +34,13 @@ const (
 	// serem apagados pela limpeza diária.
 	DefaultMaxAge = 7 * 24 * time.Hour
 
+	// ImageMaxAge é quanto tempo o navegador pode servir a foto direto do
+	// cache antes de revalidar com o servidor (If-Modified-Since → 304).
+	// Pelo menos 1h para aliviar o tráfego na apresentação (muitas fotos
+	// sendo re-solicitadas), sem travar a atualização de uma foto trocada
+	// por mais de uma hora.
+	ImageMaxAge = time.Hour
+
 	// CleanupInterval roda a limpeza uma vez por dia.
 	CleanupInterval = 24 * time.Hour
 )
@@ -105,10 +112,11 @@ func (s *Store) Serve(w http.ResponseWriter, r *http.Request, id int64, load fun
 	return nil
 }
 
-// serveImage entrega o arquivo com cache de revalidação: o navegador pode
-// reusar a imagem, mas precisa revalidar (If-Modified-Since → 304) antes, o
-// que garante que uma foto trocada pelo organizador apareça sem esperar a
-// expiração — e sem nunca trafegar base64 no JSON.
+// serveImage entrega o arquivo com cache de ImageMaxAge (1h): nesse período
+// o navegador reusa a imagem sem revalidar; depois disso revalida
+// (If-Modified-Since → 304) antes de usar, então uma foto trocada pelo
+// organizador aparece em no máximo uma hora — e o base64 nunca trafega no
+// JSON.
 func serveImage(w http.ResponseWriter, r *http.Request, path, mime string) {
 	if mime == "" {
 		if f, err := os.Open(path); err == nil {
@@ -122,7 +130,7 @@ func serveImage(w http.ResponseWriter, r *http.Request, path, mime string) {
 	if mime != "" {
 		w.Header().Set("Content-Type", mime)
 	}
-	w.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
+	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d, must-revalidate", int(ImageMaxAge.Seconds())))
 	http.ServeFile(w, r, path)
 }
 
