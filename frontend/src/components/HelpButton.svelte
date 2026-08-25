@@ -16,6 +16,12 @@
     navigate('/como-funciona');
   }
 
+  function goToSiteMap(e) {
+    e.preventDefault();
+    open = false;
+    navigate('/mapa-do-site');
+  }
+
   function handleWindowMousedown(e) {
     if (!open) return;
     if (wrapEl && wrapEl.contains(e.target)) return;
@@ -50,6 +56,7 @@
         <li>As respostas só aparecem no telão quando o organizador revelar.</li>
       </ul>
       <a href="/como-funciona" class="help-more" on:click={goToHowItWorks}>Saiba mais →</a>
+      <a href="/mapa-do-site" class="help-more" on:click={goToSiteMap}>Mapa do site →</a>
       <p class="help-foot text-muted">Dúvidas sobre um evento: fale com quem organiza.</p>
     </div>
   {/if}
