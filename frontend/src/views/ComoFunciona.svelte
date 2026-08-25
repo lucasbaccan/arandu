@@ -23,9 +23,9 @@
       </p>
     </div>
 
-    <section class="how-section">
-      <h2 class="how-heading">Para quem participa</h2>
-      <ol class="how-steps">
+    <section class="como-section">
+      <h2 class="como-heading">Para quem participa</h2>
+      <ol class="como-steps">
         <li>
           <strong>Recebe o código do evento.</strong> Quem organiza compartilha um código (PIN) ou
           um link — no grupo, por e-mail, do jeito que preferir.
@@ -45,9 +45,9 @@
       </ol>
     </section>
 
-    <section class="how-section">
-      <h2 class="how-heading">Para quem organiza</h2>
-      <ol class="how-steps">
+    <section class="como-section">
+      <h2 class="como-heading">Para quem organiza</h2>
+      <ol class="como-steps">
         <li>
           <strong>Cria uma conta e um evento.</strong> Define um título e um código (PIN) pro
           grupo usar.
@@ -67,8 +67,8 @@
       </ol>
     </section>
 
-    <section class="how-section">
-      <h2 class="how-heading">Seus dados</h2>
+    <section class="como-section">
+      <h2 class="como-heading">Seus dados</h2>
       <p class="text-muted">
         As respostas e fotos existem só pra dinâmica de cada evento — não viram anúncio, lista de
         contatos nem relatório cruzado com outros eventos.
@@ -77,7 +77,7 @@
     </section>
   </main>
 
-  <footer class="how-footer">
+  <footer class="como-footer">
     <a href="/" on:click={go('/')}>‹ Voltar ao início</a>
     <a href="/privacidade" on:click={go('/privacidade')}>Política de privacidade</a>
   </footer>
@@ -109,7 +109,7 @@
     margin-top: 8px;
   }
 
-  .how-section {
+  .como-section {
     width: 100%;
     max-width: 640px;
     margin-top: 32px;
@@ -117,13 +117,13 @@
     border-top: 1px solid var(--border);
   }
 
-  .how-heading {
+  .como-heading {
     margin: 0 0 16px;
     font-size: 1.0625rem;
     font-weight: 800;
   }
 
-  .how-steps {
+  .como-steps {
     margin: 0;
     padding-left: 20px;
     display: flex;
@@ -134,11 +134,11 @@
     line-height: 1.5;
   }
 
-  .how-steps strong {
+  .como-steps strong {
     color: var(--text);
   }
 
-  .how-footer {
+  .como-footer {
     flex-shrink: 0;
     display: flex;
     justify-content: center;
@@ -148,13 +148,13 @@
     background: var(--bg-elev);
   }
 
-  .how-footer a {
+  .como-footer a {
     font-size: 0.8125rem;
     font-weight: 700;
     color: var(--text-muted);
   }
 
-  .how-footer a:hover {
+  .como-footer a:hover {
     color: var(--accent);
   }
 </style>

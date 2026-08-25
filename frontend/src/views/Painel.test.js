@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, within, waitFor } from '@testing-library/dom';
-import Dashboard from './Dashboard.svelte';
+import Painel from './Painel.svelte';
 import { user } from '../lib/authStore.js';
 
 vi.mock('../lib/router.js', () => ({
@@ -20,7 +20,7 @@ import { api } from '../lib/api.js';
 function mountDashboard() {
   const target = document.createElement('div');
   document.body.appendChild(target);
-  new Dashboard({ target });
+  new Painel({ target });
   return within(target);
 }
 
@@ -47,7 +47,7 @@ describe('Dashboard (meus eventos)', () => {
 
     expect(await view.findByText('Nenhum evento ainda')).toBeInTheDocument();
     await fireEvent.click(view.getByRole('button', { name: 'Criar evento' }));
-    expect(navigate).toHaveBeenCalledWith('/events/new');
+    expect(navigate).toHaveBeenCalledWith('/eventos/novo');
   });
 
   it('lista os eventos com PIN, status e data em formato brasileiro', async () => {
@@ -115,7 +115,7 @@ describe('Dashboard (meus eventos)', () => {
 
     await fireEvent.click(view.getByText('Conecta DevOps'));
 
-    expect(navigate).toHaveBeenCalledWith('/events/1');
+    expect(navigate).toHaveBeenCalledWith('/eventos/1');
   });
 
   it('filtra eventos pela busca de título ou PIN', async () => {

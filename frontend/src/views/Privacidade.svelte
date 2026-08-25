@@ -49,23 +49,23 @@
       </p>
     </div>
 
-    <div class="privacy-items">
+    <div class="privacidade-items">
       {#each PRIVACY_ITEMS as p (p.title)}
-        <div class="privacy-item">
-          <span class="privacy-item-title">{p.title}</span>
+        <div class="privacidade-item">
+          <span class="privacidade-item-title">{p.title}</span>
           <span class="text-muted">{p.body}</span>
         </div>
       {/each}
     </div>
 
-    <p class="privacy-note text-muted">
+    <p class="privacidade-note text-muted">
       Dúvidas ou pedido de remoção: fale com quem organiza o evento. O Arandu roda na
       infraestrutura de quem hospeda a plataforma; não enviamos seus dados para serviços de
       terceiros.
     </p>
   </main>
 
-  <footer class="how-footer">
+  <footer class="como-footer">
     <a href="/" on:click={go('/')}>‹ Voltar ao início</a>
     <a href="/como-funciona" on:click={go('/como-funciona')}>Como funciona o Arandu</a>
   </footer>
@@ -97,7 +97,7 @@
     margin-top: 8px;
   }
 
-  .privacy-items {
+  .privacidade-items {
     width: 100%;
     max-width: 640px;
     margin-top: 32px;
@@ -106,7 +106,7 @@
     gap: 20px;
   }
 
-  .privacy-item {
+  .privacidade-item {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -116,15 +116,15 @@
     line-height: 1.5;
   }
 
-  .privacy-item:last-child {
+  .privacidade-item:last-child {
     border-bottom: none;
   }
 
-  .privacy-item-title {
+  .privacidade-item-title {
     font-weight: 800;
   }
 
-  .privacy-note {
+  .privacidade-note {
     width: 100%;
     max-width: 640px;
     margin-top: 24px;
@@ -132,7 +132,7 @@
     line-height: 1.5;
   }
 
-  .how-footer {
+  .como-footer {
     flex-shrink: 0;
     display: flex;
     justify-content: center;
@@ -142,13 +142,13 @@
     background: var(--bg-elev);
   }
 
-  .how-footer a {
+  .como-footer a {
     font-size: 0.8125rem;
     font-weight: 700;
     color: var(--text-muted);
   }
 
-  .how-footer a:hover {
+  .como-footer a:hover {
     color: var(--accent);
   }
 </style>

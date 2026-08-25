@@ -16,13 +16,13 @@
     { value: 'done', label: 'Finalizados' }
   ];
 
-  let events = [];
+  let eventos = [];
   let loading = true;
   let error = '';
   let searchValue = '';
   let filter = 'all';
 
-  $: filteredEvents = events.filter((ev) => {
+  $: eventosFiltrados = eventos.filter((ev) => {
     const matchesFilter =
       filter === 'all' ||
       (filter === 'live' && ev.status === 'PRESENTING') ||
@@ -33,12 +33,12 @@
     return matchesFilter && matchesSearch;
   });
 
-  $: liveCount = filteredEvents.filter((ev) => ev.status === 'PRESENTING').length;
+  $: liveCount = eventosFiltrados.filter((ev) => ev.status === 'PRESENTING').length;
 
   async function loadEvents() {
     try {
       const data = await api.events.list();
-      events = data.events || [];
+      eventos = data.events || [];
     } catch (e) {
       error = e.message;
     } finally {
@@ -47,12 +47,12 @@
   }
   loadEvents();
 
-  function goCreate() {
-    navigate('/events/new');
+  function abrirNovoEvento() {
+    navigate('/eventos/novo');
   }
 
-  function openEvent(id) {
-    navigate(`/events/${id}`);
+  function abrirEvento(id) {
+    navigate(`/eventos/${id}`);
   }
 </script>
 
@@ -65,7 +65,7 @@
         <span class="search-icon" aria-hidden="true">⌕</span>
         <input bind:value={searchValue} placeholder="Buscar por título ou PIN" aria-label="Buscar por título ou PIN" />
       </span>
-      <Button size="sm" on:click={goCreate}>Novo evento</Button>
+      <Button size="sm" on:click={abrirNovoEvento}>Novo evento</Button>
     </svelte:fragment>
   </CrumbBar>
 
@@ -74,20 +74,20 @@
       <p class="text-muted">Carregando…</p>
     {:else if error}
       <p class="form-error">{error}</p>
-    {:else if events.length === 0}
+    {:else if eventos.length === 0}
       <div class="empty-wrap">
         <Card>
           <h2>Nenhum evento ainda</h2>
           <p class="subtitle">Crie seu primeiro evento para começar uma dinâmica.</p>
-          <Button block on:click={goCreate}>Criar evento</Button>
+          <Button block on:click={abrirNovoEvento}>Criar evento</Button>
         </Card>
       </div>
     {:else}
-      <div class="events-head">
-        <div class="events-head-text">
+      <div class="eventos-head">
+        <div class="eventos-head-text">
           <h1 class="section-title">Eventos</h1>
           <span class="section-sub">
-            {filteredEvents.length} evento{filteredEvents.length === 1 ? '' : 's'} · {liveCount} ao vivo
+            {eventosFiltrados.length} evento{eventosFiltrados.length === 1 ? '' : 's'} · {liveCount} ao vivo
           </span>
         </div>
         <div class="filters">
@@ -105,7 +105,7 @@
         </div>
       </div>
 
-      <div class="events-table-head">
+      <div class="eventos-table-head">
         <span class="col-title">Evento</span>
         <span class="col-status">Situação</span>
         <span class="col-pin">PIN</span>
@@ -114,22 +114,22 @@
         <span class="col-chevron"></span>
       </div>
 
-      {#if filteredEvents.length === 0}
-        <p class="text-muted events-empty-search">Nenhum evento encontrado.</p>
+      {#if eventosFiltrados.length === 0}
+        <p class="text-muted eventos-empty-search">Nenhum evento encontrado.</p>
       {:else}
-        <div class="events-table-body">
-          {#each filteredEvents as ev (ev.id)}
+        <div class="eventos-table-body">
+          {#each eventosFiltrados as ev (ev.id)}
             <div
-              class="event-row"
+              class="evento-row"
               style="--row-accent:{statusInfo(ev.status).color}"
               role="button"
               tabindex="0"
-              on:click={() => openEvent(ev.id)}
-              on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && openEvent(ev.id)}
+              on:click={() => abrirEvento(ev.id)}
+              on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && abrirEvento(ev.id)}
             >
-              <div class="col-title event-title-cell">
-                <span class="event-title-text">{ev.title}</span>
-                <span class="text-muted event-question-count">
+              <div class="col-title evento-title-cell">
+                <span class="evento-title-text">{ev.title}</span>
+                <span class="text-muted evento-question-count">
                   {ev.questionCount} pergunta{ev.questionCount === 1 ? '' : 's'}
                 </span>
               </div>
@@ -144,9 +144,9 @@
               <span class="col-pin">
                 <PinChip pin={ev.pinCode} />
               </span>
-              <span class="col-responses event-people">{ev.participantCount}</span>
+              <span class="col-responses evento-people">{ev.participantCount}</span>
               <span class="col-created text-muted">{formatDate(ev.createdAt)}</span>
-              <span class="col-chevron event-chevron">›</span>
+              <span class="col-chevron evento-chevron">›</span>
             </div>
           {/each}
         </div>
@@ -201,14 +201,14 @@
     padding-top: 24px;
   }
 
-  .events-head {
+  .eventos-head {
     display: flex;
     align-items: flex-end;
     gap: 16px;
     flex-wrap: wrap;
   }
 
-  .events-head-text {
+  .eventos-head-text {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -243,7 +243,7 @@
     color: var(--on-accent);
   }
 
-  .events-table-head {
+  .eventos-table-head {
     display: grid;
     grid-template-columns: minmax(160px, 1fr) 170px 140px 100px 110px 24px;
     gap: 16px;
@@ -255,7 +255,7 @@
     text-transform: uppercase;
   }
 
-  .events-table-body {
+  .eventos-table-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -264,13 +264,13 @@
     overflow-y: auto;
   }
 
-  .events-empty-search {
+  .eventos-empty-search {
     margin: 0;
   }
 
   /* A cor da situação vira a borda esquerda da linha — o mesmo sinal do chip,
      legível de relance na lista inteira. */
-  .event-row {
+  .evento-row {
     display: grid;
     grid-template-columns: minmax(160px, 1fr) 170px 140px 100px 110px 24px;
     gap: 16px;
@@ -285,26 +285,26 @@
     transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   }
 
-  .event-row:hover,
-  .event-row:focus-visible {
+  .evento-row:hover,
+  .evento-row:focus-visible {
     border-color: var(--accent);
     border-left-color: var(--row-accent);
     box-shadow: var(--shadow-hover);
     outline: none;
   }
 
-  .event-row:active {
+  .evento-row:active {
     transform: scale(0.997);
   }
 
-  .event-title-cell {
+  .evento-title-cell {
     display: flex;
     flex-direction: column;
     gap: 3px;
     min-width: 0;
   }
 
-  .event-title-text {
+  .evento-title-text {
     font-size: 0.9375rem;
     font-weight: 700;
     overflow: hidden;
@@ -312,11 +312,11 @@
     white-space: nowrap;
   }
 
-  .event-question-count {
+  .evento-question-count {
     font-size: 0.75rem;
   }
 
-  .event-people {
+  .evento-people {
     font-size: 0.9375rem;
     font-weight: 700;
   }
@@ -325,7 +325,7 @@
     font-size: 0.875rem;
   }
 
-  .event-chevron {
+  .evento-chevron {
     color: var(--text-subtle);
     font-size: 1.125rem;
     text-align: right;
@@ -336,8 +336,8 @@
       display: none;
     }
 
-    .events-table-head,
-    .event-row {
+    .eventos-table-head,
+    .evento-row {
       grid-template-columns: minmax(120px, 1fr) 150px 24px;
     }
 

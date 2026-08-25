@@ -36,8 +36,8 @@
   // '' = automático, 'smart', ou '1'..'4' — ver PresentationStage.svelte
   // (forceCols/smart). Estado do servidor, igual blanked/answersHidden: os
   // botões de modo no rodapé mudam isso ao vivo pra quem já tiver a janela
-  // de apresentação (ou a tela pública /audience) aberta.
-  let presentDensityMode = '';
+  // de apresentação (ou a tela pública /plateia) aberta.
+  let modoDensidadeApresentacao = '';
 
   // Dicas ao passar o mouse no placar (painel do organizador): tooltip com
   // atraso de 0,6s sobre um rosto (mostra a resposta da pessoa) ou sobre o
@@ -96,11 +96,11 @@
   // PresentationStage.svelte) — o mesmo menu que antes era só a
   // engrenagem ⚙ dentro da janela de apresentação, agora como botões no
   // rodapé daqui. Cada clique manda o modo pro servidor (como
-  // blanked/answersHidden) — quem já estiver com /present ou /audience
+  // blanked/answersHidden) — quem já estiver com /apresentar ou /plateia
   // abertos vê a densidade trocar ao vivo, sem precisar recarregar nem
   // alternar pra tela do projetor. `mode` é o valor exato que o servidor
   // espera (ver validPresentDensityModes no backend).
-  const PRESENT_MODES = [
+  const MODOS_APRESENTACAO = [
     { mode: '', label: 'Automático', icon: 'A' },
     { mode: 'smart', label: 'Smart', icon: '★' },
     { mode: '1', label: '1 coluna', icon: '1' },
@@ -110,7 +110,7 @@
   ];
 
   function selectPresentMode(mode) {
-    presentDensityMode = mode;
+    modoDensidadeApresentacao = mode;
     api.events.live.setDensityMode(id, mode).catch(() => {});
     openPresentationWindow();
   }
@@ -121,12 +121,12 @@
   // organizador). Guardar a referência deixa reaproveitar a MESMA janela em
   // vez de abrir uma nova a cada clique em "Modo apresentação" ou num botão
   // de modo — a densidade em si não depende mais da URL (ver
-  // presentDensityMode acima), então aqui só importa abrir/focar.
-  let presentWindow = null;
+  // modoDensidadeApresentacao acima), então aqui só importa abrir/focar.
+  let janelaApresentacao = null;
 
   function openPresentationWindow() {
-    if (presentWindow && !presentWindow.closed) {
-      presentWindow.focus();
+    if (janelaApresentacao && !janelaApresentacao.closed) {
+      janelaApresentacao.focus();
       return;
     }
     // Passar "features" (largura/altura) faz o navegador abrir uma janela
@@ -135,7 +135,7 @@
     // o conteúdo em si é feito pra caber nesse piso sem rolagem (ver
     // StagePresentation.svelte); isso só evita abrir menor que isso por
     // padrão. Pra projetar de verdade, dá F11 na janela.
-    presentWindow = window.open(`/stage/${id}/present`, `arandu-present-${id}`, 'width=1366,height=768');
+    janelaApresentacao = window.open(`/palco/${id}/apresentar`, `arandu-present-${id}`, 'width=1366,height=768');
   }
 
   function handleKeydown(e) {
@@ -188,7 +188,7 @@
       message = adminSnap.message;
       messageDraft = adminSnap.message;
       qaInbox = adminSnap.qaInbox;
-      presentDensityMode = adminSnap.presentDensityMode || '';
+      modoDensidadeApresentacao = adminSnap.presentDensityMode || '';
 
       if (qs.length > 0) {
         const resumeIndex = qs.findIndex((q) => q.id === adminSnap.currentQuestionId);
@@ -208,7 +208,7 @@
 
   // Espelha o estado ao vivo pro servidor (best-effort — não bloqueia nem
   // quebra a UI local se a rede falhar), pra quem está assistindo em
-  // /audience/:id ver a mesma coisa em tempo real.
+  // /plateia/:id ver a mesma coisa em tempo real.
   function syncQuestion(questionId) {
     api.events.live.setQuestion(id, questionId).catch(() => {});
   }
@@ -227,7 +227,7 @@
       message = snap.message;
       messageDraft = snap.message;
       qaInbox = snap.qaInbox;
-      presentDensityMode = snap.presentDensityMode || '';
+      modoDensidadeApresentacao = snap.presentDensityMode || '';
     };
     adminEventSource.addEventListener('reaction', (e) => {
       fireReaction(JSON.parse(e.data).emoji);
@@ -250,8 +250,8 @@
   }
 
   // Estado do servidor (como os outros switches) — afeta a legenda de nome
-  // sob cada rosto na janela de apresentação (/stage/:id/present) e na tela
-  // da plateia (/audience/:id); esta tela (/stage) sempre mostra os nomes,
+  // sob cada rosto na janela de apresentação (/palco/:id/apresentar) e na tela
+  // da plateia (/plateia/:id); esta tela (/palco) sempre mostra os nomes,
   // independente disso.
   function toggleNamesHidden() {
     namesHidden = !namesHidden;
@@ -275,9 +275,11 @@
   }
 
   function openAudienceScreen() {
-    // view=telao: essa janela é a projeção, não o celular de quem assiste.
+    // A tela da plateia é única agora (sem modo telão/celular separado) —
+    // basta o PIN pra entrar; quem abrir na janela de projeção vê a mesma
+    // tela, maior.
     window.open(
-      `/audience/${id}?pin=${encodeURIComponent(event.pinCode.toUpperCase())}&view=telao`,
+      `/plateia/${id}?pin=${encodeURIComponent(event.pinCode.toUpperCase())}`,
       '_blank'
     );
   }
@@ -288,7 +290,7 @@
   // Título longo: encolhe a fonte até caber em ~TITLE_MAX_LINES (com folga),
   // pra pergunta gigante não empurrar o placar pra fora da tela nem criar
   // scroll. A fonte é multiplicada por --title-scale (ver
-  // .stage-question-title no CSS); pergunta curta mantém escala 1. Reavalia
+  // .palco-question-title no CSS); pergunta curta mantém escala 1. Reavalia
   // ao trocar de pergunta e ao redimensionar a janela.
   let titleEl = null;
   let titleScale = 1;
@@ -498,16 +500,16 @@
 
 <main class="shell">
   {#if loading}
-    <div class="stage-center"><p class="text-muted">Carregando…</p></div>
+    <div class="palco-center"><p class="text-muted">Carregando…</p></div>
   {:else if error}
-    <div class="stage-center"><p class="form-error">{error}</p></div>
+    <div class="palco-center"><p class="form-error">{error}</p></div>
   {:else}
     <TopBar area="Organizador" />
 
     <CrumbBar
       crumbs={[
-        { label: 'Eventos', href: '/dashboard' },
-        { label: event.title, href: `/events/${id}` },
+        { label: 'Eventos', href: '/painel' },
+        { label: event.title, href: `/eventos/${id}` },
         { label: 'Ao vivo' }
       ]}
     >
@@ -539,15 +541,15 @@
     </CrumbBar>
 
     {#if questions.length === 0}
-      <div class="stage-center">
+      <div class="palco-center">
         <p class="text-muted">Este evento ainda não tem perguntas.</p>
       </div>
     {:else}
-      <div class="stage-layout">
-        <div class="stage-main">
-          <div class="stage-main-body">
+      <div class="palco-layout">
+        <div class="palco-main">
+          <div class="palco-main-body">
             <h2
-              class="stage-question-title"
+              class="palco-question-title"
               bind:this={titleEl}
               style="--title-scale:{titleScale}"
             >{currentQuestion.title}</h2>
@@ -584,7 +586,7 @@
 
           <!-- Ações de revelação à esquerda, navegação de pergunta ao centro,
                modos da janela de apresentação à direita. -->
-          <div class="stage-dock">
+          <div class="palco-dock">
             <div class="dock-left">
               <Button size="sm" on:click={revealAll} disabled={pending.length === 0}>
                 Revelar tudo
@@ -613,15 +615,15 @@
             </div>
 
             <div class="dock-right">
-              <div class="present-modes">
-                {#each PRESENT_MODES as mode (mode.mode)}
+              <div class="modos-apresentacao">
+                {#each MODOS_APRESENTACAO as mode (mode.mode)}
                   <button
                     type="button"
                     class="mode-btn"
-                    class:active={presentDensityMode === mode.mode}
+                    class:active={modoDensidadeApresentacao === mode.mode}
                     title={`Modo apresentação — ${mode.label}`}
                     aria-label={`Modo apresentação — ${mode.label}`}
-                    aria-pressed={presentDensityMode === mode.mode}
+                    aria-pressed={modoDensidadeApresentacao === mode.mode}
                     on:click={() => selectPresentMode(mode.mode)}
                   >{mode.icon}</button>
                 {/each}
@@ -630,7 +632,7 @@
           </div>
         </div>
 
-        <div class="stage-rail">
+        <div class="palco-rail">
           <Tabs
             compact
             bind:value={railTab}
@@ -734,7 +736,7 @@
     height: 100dvh;
   }
 
-  .stage-center {
+  .palco-center {
     flex: 1;
     display: flex;
     align-items: center;
@@ -742,13 +744,13 @@
     padding: 24px;
   }
 
-  .stage-layout {
+  .palco-layout {
     flex: 1;
     min-height: 0;
     display: flex;
   }
 
-  .stage-main {
+  .palco-main {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -762,7 +764,7 @@
     z-index: 0;
   }
 
-  .stage-main-body {
+  .palco-main-body {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -782,7 +784,7 @@
     isolation: isolate;
   }
 
-  .stage-question-title {
+  .palco-question-title {
     margin: 0;
     /* Escala com a tela (clamp) e, quando a pergunta é longa demais (mais de
        TITLE_MAX_LINES), encolhe mais via --title-scale (ver fitQuestionTitle
@@ -800,7 +802,7 @@
     justify-content: space-between;
   }
 
-  .stage-dock {
+  .palco-dock {
     flex-shrink: 0;
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -866,7 +868,7 @@
     letter-spacing: 0.04em;
   }
 
-  .present-modes {
+  .modos-apresentacao {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -942,7 +944,7 @@
 
   /* --- Trilho --- */
 
-  .stage-rail {
+  .palco-rail {
     width: 330px;
     flex-shrink: 0;
     display: flex;
@@ -950,7 +952,7 @@
     background: var(--surface-muted);
     border-left: 1px solid var(--border);
     overflow: hidden;
-    /* Trilho sempre por cima do palco (ver comentário em .stage-main): nada
+    /* Trilho sempre por cima do palco (ver comentário em .palco-main): nada
        animado no palco — rostos do pending-row, tooltips, zonas — consegue
        pintar sobre a lista de perguntas. */
     position: relative;
@@ -958,18 +960,18 @@
   }
 
   @media (max-width: 900px) {
-    .stage-layout {
+    .palco-layout {
       flex-direction: column;
     }
 
-    .stage-rail {
+    .palco-rail {
       width: 100%;
       max-height: 60vh;
       border-left: none;
       border-top: 1px solid var(--border);
     }
 
-    .stage-dock {
+    .palco-dock {
       grid-template-columns: 1fr;
       justify-items: center;
     }

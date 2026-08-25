@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import Home from './Home.svelte';
+import Inicio from './Inicio.svelte';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -32,37 +32,37 @@ describe('Tela inicial', () => {
   });
 
   it('navega para o login ao clicar em Entrar na conta', async () => {
-    render(Home);
+    render(Inicio);
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar na conta' }));
-    expect(navigate).toHaveBeenCalledWith('/login');
+    expect(navigate).toHaveBeenCalledWith('/entrar');
   });
 
   it('navega para o registro ao clicar em Criar conta', async () => {
-    render(Home);
+    render(Inicio);
     await fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }));
-    expect(navigate).toHaveBeenCalledWith('/register');
+    expect(navigate).toHaveBeenCalledWith('/criar-conta');
   });
 
   it('desabilita o botão Entrar enquanto o código estiver vazio', async () => {
-    render(Home);
+    render(Inicio);
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeDisabled();
     expect(api.public.events.resolvePin).not.toHaveBeenCalled();
   });
 
   it('navega pra live com o código já preenchido quando o código existe', async () => {
     api.public.events.resolvePin.mockResolvedValue({ id: '42' });
-    render(Home);
+    render(Inicio);
 
     await fireEvent.input(screen.getByPlaceholderText('DEV-TEAM'), { target: { value: 'dev-team' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(api.public.events.resolvePin).toHaveBeenCalledWith('dev-team');
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/audience/42?pin=dev-team'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/plateia/42?pin=dev-team'));
   });
 
   it('mostra erro quando o código não existe', async () => {
     api.public.events.resolvePin.mockRejectedValue(new ApiErrorLike(404, 'Código não encontrado.'));
-    render(Home);
+    render(Inicio);
 
     await fireEvent.input(screen.getByPlaceholderText('DEV-TEAM'), { target: { value: 'naoexiste' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));

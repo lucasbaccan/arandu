@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { within } from '@testing-library/dom';
-import StagePresentation from './StagePresentation.svelte';
+import PalcoApresentar from './PalcoApresentar.svelte';
 
 vi.mock('../lib/api.js', () => ({
   api: {
@@ -61,7 +61,7 @@ FakeEventSource.instances = [];
 function mount() {
   const target = document.createElement('div');
   document.body.appendChild(target);
-  new StagePresentation({ target, props: { id: '42' } });
+  new PalcoApresentar({ target, props: { id: '42' } });
   return within(target);
 }
 
@@ -95,7 +95,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
     // os rostos renderizam como <button> (mesmo componente da tela pública),
     // mas sem onFaceClick eles ficam sempre desabilitados — nada clicável.
     // Esta tela não tem mais controles próprios (o menu de modo virou os
-    // botões no rodapé de Stage.svelte), então todo <button> aqui é rosto.
+    // botões no rodapé de Palco.svelte), então todo <button> aqui é rosto.
     const faceButtons = view.getAllByRole('button');
     expect(faceButtons.length).toBeGreaterThan(0);
     for (const btn of faceButtons) {

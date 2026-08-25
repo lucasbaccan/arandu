@@ -18,7 +18,7 @@ setUnauthorizedHandler(() => {
   });
   if (!wasLogged) return;
   showToast('Sua sessão expirou. Entre de novo.', 'error');
-  navigate('/login');
+  navigate('/entrar');
 });
 
 export async function initAuth() {

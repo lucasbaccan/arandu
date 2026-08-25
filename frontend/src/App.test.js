@@ -56,25 +56,25 @@ describe('App (guardas de rota)', () => {
   });
 
   it('não mostra a tela inicial enquanto a autenticação não termina (regressão: F5)', () => {
-    route.set('/dashboard');
+    route.set('/painel');
     render(App);
 
     expect(screen.queryByRole('button', { name: 'Entrar' })).not.toBeInTheDocument();
     expect(screen.getByText('Carregando…')).toBeInTheDocument();
   });
 
-  it('redireciona para o dashboard quando já está logado', async () => {
+  it('redireciona para o painel quando já está logado', async () => {
     route.set('/');
     render(App);
 
     user.set({ id: '1', name: 'Ana' });
     authReady.set(true);
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/painel'));
   });
 
   it('redireciona para a home quando não está logado', async () => {
-    route.set('/dashboard');
+    route.set('/painel');
     render(App);
 
     authReady.set(true);
@@ -83,7 +83,7 @@ describe('App (guardas de rota)', () => {
   });
 
   it('mantém a tela de login quando não logado (regressão: botão Entrar)', async () => {
-    route.set('/login');
+    route.set('/entrar');
     render(App);
 
     authReady.set(true);
@@ -92,18 +92,18 @@ describe('App (guardas de rota)', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('redireciona para o dashboard ao abrir login/registro já logado', async () => {
-    route.set('/login');
+  it('redireciona para o painel ao abrir entrar/criar conta já logado', async () => {
+    route.set('/entrar');
     render(App);
 
     user.set({ id: '1', name: 'Ana' });
     authReady.set(true);
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/painel'));
   });
 
-  it('redireciona para a home em /events/new sem sessão', async () => {
-    route.set('/events/new');
+  it('redireciona para a home em /eventos/novo sem sessão', async () => {
+    route.set('/eventos/novo');
     render(App);
 
     authReady.set(true);
@@ -111,8 +111,8 @@ describe('App (guardas de rota)', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 
-  it('redireciona para a home em /events/123 sem sessão', async () => {
-    route.set('/events/123');
+  it('redireciona para a home em /eventos/123 sem sessão', async () => {
+    route.set('/eventos/123');
     render(App);
 
     authReady.set(true);
@@ -120,8 +120,8 @@ describe('App (guardas de rota)', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 
-  it('redireciona para a home em /stage/123/present sem sessão', async () => {
-    route.set('/stage/123/present');
+  it('redireciona para a home em /palco/123/apresentar sem sessão', async () => {
+    route.set('/palco/123/apresentar');
     render(App);
 
     authReady.set(true);
@@ -129,8 +129,8 @@ describe('App (guardas de rota)', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 
-  it('exibe o dashboard quando logado e autenticado', async () => {
-    route.set('/dashboard');
+  it('exibe o painel quando logado e autenticado', async () => {
+    route.set('/painel');
     render(App);
 
     user.set({ id: '1', name: 'Ana' });

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { get } from 'svelte/store';
-import EventCreate from './EventCreate.svelte';
+import EventoNovo from './EventoNovo.svelte';
 import { toast } from '../lib/toastStore.js';
 
 vi.mock('../lib/router.js', () => ({
@@ -25,7 +25,7 @@ describe('Novo evento', () => {
   });
 
   it('exige título', async () => {
-    render(EventCreate);
+    render(EventoNovo);
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     expect(await screen.findByText('Informe o título do evento.')).toBeInTheDocument();
@@ -34,7 +34,7 @@ describe('Novo evento', () => {
 
   it('cria com PIN automático quando não personalizado', async () => {
     api.events.create.mockResolvedValue({ event: {} });
-    render(EventCreate);
+    render(EventoNovo);
 
     await userEvent.type(screen.getByLabelText('Título do evento'), 'Conecta DevOps');
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
@@ -48,12 +48,12 @@ describe('Novo evento', () => {
     await waitFor(() =>
       expect(get(toast)?.message).toBe('Evento criado com sucesso!')
     );
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/painel'));
   });
 
   it('envia PIN personalizado quando marcado', async () => {
     api.events.create.mockResolvedValue({ event: {} });
-    render(EventCreate);
+    render(EventoNovo);
 
     await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');
     await fireEvent.click(screen.getByRole('button', { name: /Personalizado/ }));
@@ -69,7 +69,7 @@ describe('Novo evento', () => {
   });
 
   it('rejeita PIN personalizado inválido', async () => {
-    render(EventCreate);
+    render(EventoNovo);
 
     await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');
     await fireEvent.click(screen.getByRole('button', { name: /Personalizado/ }));
@@ -84,7 +84,7 @@ describe('Novo evento', () => {
 
   it('mostra erro do servidor', async () => {
     api.events.create.mockRejectedValue(new Error('Este PIN já está em uso. Escolha outro.'));
-    render(EventCreate);
+    render(EventoNovo);
 
     await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));

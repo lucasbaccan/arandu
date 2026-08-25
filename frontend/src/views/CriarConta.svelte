@@ -46,7 +46,7 @@
     submitting = true;
     try {
       await register(name.trim(), email.trim(), password);
-      navigate('/dashboard');
+      navigate('/painel');
     } catch (e) {
       error = e.message;
     } finally {
@@ -55,7 +55,7 @@
   }
 </script>
 
-<main class="register">
+<main class="criar-conta">
   <PublicShell backLabel="Início" backHref="/">
     <div class="card entry-card">
       <div class="card-head">
@@ -114,14 +114,14 @@
       </form>
       <p class="switch">
         Já tem conta?
-        <a href="/login" on:click|preventDefault={() => navigate('/login')}>Entrar</a>
+        <a href="/entrar" on:click|preventDefault={() => navigate('/entrar')}>Entrar</a>
       </p>
     </div>
   </PublicShell>
 </main>
 
 <style>
-  .register {
+  .criar-conta {
     flex: 1;
     display: flex;
     flex-direction: column;

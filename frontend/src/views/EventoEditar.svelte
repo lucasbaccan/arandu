@@ -32,10 +32,10 @@
   let activeTab = 'questions'; // questions | responses
   let railCollapsed = false;
 
-  $: answerLink = `${window.location.origin}/answer/${id}`;
-  $: audienceLink = pinCode
-    ? `${window.location.origin}/audience/${id}?pin=${encodeURIComponent(pinCode.toUpperCase())}`
-    : `${window.location.origin}/audience/${id}`;
+  $: linkResposta = `${window.location.origin}/responder/${id}`;
+  $: linkPlateia = pinCode
+    ? `${window.location.origin}/plateia/${id}?pin=${encodeURIComponent(pinCode.toUpperCase())}`
+    : `${window.location.origin}/plateia/${id}`;
 
   let title = '';
   let pinCode = '';
@@ -365,11 +365,11 @@
   }
 
   function back() {
-    navigate('/dashboard');
+    navigate('/painel');
   }
 
-  function openOrganizerPanel() {
-    navigate(`/stage/${id}`);
+  function abrirPalco() {
+    navigate(`/palco/${id}`);
   }
 
   // Recarrega as respostas sempre que a aba é aberta, para refletir
@@ -494,8 +494,8 @@
 
     <CrumbBar
       crumbs={[
-        { label: 'Eventos', href: '/dashboard' },
-        { label: title || 'Evento', href: `/events/${id}` },
+        { label: 'Eventos', href: '/painel' },
+        { label: title || 'Evento', href: `/eventos/${id}` },
         { label: 'Editar' }
       ]}
     >
@@ -508,7 +508,7 @@
       />
       <svelte:fragment slot="actions">
         <PinChip pin={pinCode} variant="boxed" />
-        <Button size="sm" on:click={openOrganizerPanel}>Abrir painel ao vivo</Button>
+        <Button size="sm" on:click={abrirPalco}>Abrir painel ao vivo</Button>
       </svelte:fragment>
     </CrumbBar>
 
@@ -628,7 +628,7 @@
                       </div>
                       <span class="detail-edit-link">
                         <CopyButton
-                          text={`${window.location.origin}/answer/${id}?edit=${selectedParticipant.editToken}`}
+                          text={`${window.location.origin}/responder/${id}?edit=${selectedParticipant.editToken}`}
                           label="Copiar link de edição"
                         />
                       </span>
@@ -922,16 +922,16 @@
             <div class="share-link">
               <div class="share-link-info">
                 <span class="share-link-label">Link de participação</span>
-                <span class="share-link-url">{answerLink}</span>
+                <span class="share-link-url">{linkResposta}</span>
               </div>
-              <CopyButton text={answerLink} label="Copiar link de participação" />
+              <CopyButton text={linkResposta} label="Copiar link de participação" />
             </div>
             <div class="share-link">
               <div class="share-link-info">
                 <span class="share-link-label">Apresentação pública</span>
-                <span class="share-link-url">{audienceLink}</span>
+                <span class="share-link-url">{linkPlateia}</span>
               </div>
-              <CopyButton text={audienceLink} label="Copiar link da apresentação pública" />
+              <CopyButton text={linkPlateia} label="Copiar link da apresentação pública" />
             </div>
           </div>
 

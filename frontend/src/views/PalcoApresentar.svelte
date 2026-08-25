@@ -7,7 +7,7 @@
   import ReactionBurstLayer from '../components/ReactionBurstLayer.svelte';
   import { fireReaction } from '../lib/reactionStore.js';
 
-  // Janela aberta pelo botão "Modo apresentação" no /stage/ — só o
+  // Janela aberta pelo botão "Modo apresentação" no /palco/ — só o
   // organizador autenticado (dono do evento) consegue abrir, sem PIN nem
   // token de visitante. Nada aqui é clicável (sem reveal, sem Q&A) — mas as
   // reações da plateia aparecem, já que são só exibição, não interação desta
@@ -52,7 +52,7 @@
 
   // Pergunta longa demais pro clamp de altura: em vez de cortar o texto,
   // rola verticalmente devagar (ninguém rola uma tela projetada na mão) até
-  // dar pra ler tudo, e volta pro início — ver .present-question-scrolling.
+  // dar pra ler tudo, e volta pro início — ver .apresentar-question-scrolling.
   let questionWrapEl;
   let questionInnerEl;
   let scrollDistance = 0;
@@ -68,7 +68,7 @@
 
   // Densidade do placar (colunas × escala das pílulas, ver fitDensity em
   // PresentationStage.svelte) — vem do snapshot ao vivo, não da URL: os
-  // botões de modo no rodapé de Stage.svelte mudam isso no servidor, e essa
+  // botões de modo no rodapé de Palco.svelte mudam isso no servidor, e essa
   // janela só reflete o que chega por SSE, em tempo real, sem navegar.
   // '' = automático, 'smart', ou '1'..'4' colunas forçadas.
   $: densityMode = (snapshot && snapshot.presentDensityMode) || '';
@@ -76,33 +76,33 @@
   $: forceCols = isSmart ? 0 : Number(densityMode) || 0;
 </script>
 
-<main class="present-page" class:present-center={loading || error || !snapshot}>
+<main class="apresentar-page" class:apresentar-center={loading || error || !snapshot}>
   {#if loading}
     <p class="text-muted">Carregando…</p>
   {:else if error}
     <p class="form-error">{error}</p>
   {:else}
-    <div class="present-head">
-      <img class="present-logo" src="/img/arandu-logo.png" alt="Arandu" />
-      <span class="present-event">{snapshot.eventTitle || ''}</span>
+    <div class="apresentar-head">
+      <img class="apresentar-logo" src="/img/arandu-logo.png" alt="Arandu" />
+      <span class="apresentar-event">{snapshot.eventTitle || ''}</span>
     </div>
 
     {#if snapshot.message}
-      <div class="present-overlay"><p>{snapshot.message}</p></div>
+      <div class="apresentar-overlay"><p>{snapshot.message}</p></div>
     {:else if snapshot.blanked}
-      <div class="present-overlay"><p class="text-muted">Aguarde, já voltamos…</p></div>
+      <div class="apresentar-overlay"><p class="text-muted">Aguarde, já voltamos…</p></div>
     {:else if snapshot.questions.length === 0}
-      <div class="present-overlay"><p class="text-muted">Este evento ainda não tem perguntas.</p></div>
+      <div class="apresentar-overlay"><p class="text-muted">Este evento ainda não tem perguntas.</p></div>
     {:else if currentQuestion}
-      <h1 class="present-question" bind:this={questionWrapEl}>
+      <h1 class="apresentar-question" bind:this={questionWrapEl}>
         <span
-          class="present-question-inner"
-          class:present-question-scrolling={scrollDistance > 0}
+          class="apresentar-question-inner"
+          class:apresentar-question-scrolling={scrollDistance > 0}
           style={scrollDistance > 0 ? `--scroll-distance: -${scrollDistance}px` : ''}
           bind:this={questionInnerEl}
         >{currentQuestion.title}</span>
       </h1>
-      <div class="present-zones">
+      <div class="apresentar-zones">
         <PresentationStage
           layout="screen"
           {forceCols}
@@ -128,7 +128,7 @@
    * zonas usam clamp()/vh pra caber nesse piso; PresentationStage mede o
    * espaço restante e adapta a densidade do placar (ver fitDensity lá).
    */
-  .present-page {
+  .apresentar-page {
     width: 100%;
     height: 100vh;
     height: 100dvh;
@@ -139,30 +139,30 @@
     box-sizing: border-box;
   }
 
-  .present-center {
+  .apresentar-center {
     align-items: center;
     justify-content: center;
   }
 
-  .present-head {
+  .apresentar-head {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 14px;
   }
 
-  .present-logo {
+  .apresentar-logo {
     height: 28px;
     width: auto;
   }
 
-  .present-event {
+  .apresentar-event {
     font-size: 1.125rem;
     font-weight: 700;
     color: var(--text-muted);
   }
 
-  .present-question {
+  .apresentar-question {
     margin: 1.25vh 0 0;
     flex-shrink: 0;
     /* Escala com a altura da tela em vez de um px fixo — menor que antes pra
@@ -176,21 +176,21 @@
        do título. */
     width: 100%;
     /* Título absurdamente longo (raro): em vez de cortar, trava a altura e
-       deixa o .present-question-scrolling rolar o texto até dar pra ler tudo. */
+       deixa o .apresentar-question-scrolling rolar o texto até dar pra ler tudo. */
     max-height: 22vh;
     overflow: hidden;
     position: relative;
   }
 
-  .present-question-inner {
+  .apresentar-question-inner {
     display: block;
   }
 
-  .present-question-scrolling {
-    animation: present-question-scroll 14s ease-in-out infinite;
+  .apresentar-question-scrolling {
+    animation: apresentar-question-scroll 14s ease-in-out infinite;
   }
 
-  @keyframes present-question-scroll {
+  @keyframes apresentar-question-scroll {
     0%,
     10% {
       transform: translateY(0);
@@ -204,7 +204,7 @@
     }
   }
 
-  .present-zones {
+  .apresentar-zones {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -213,7 +213,7 @@
     margin-top: 1.5vh;
   }
 
-  .present-overlay {
+  .apresentar-overlay {
     flex: 1;
     display: flex;
     align-items: center;
@@ -226,7 +226,7 @@
     text-align: center;
   }
 
-  .present-overlay p {
+  .apresentar-overlay p {
     margin: 0;
     font-size: 2rem;
     font-weight: 700;

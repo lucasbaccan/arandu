@@ -50,7 +50,7 @@
   let questions = [];
   let answers = {};
 
-  let step = 'identify'; // identify | privacy | question | review | done | closed
+  let step = 'identify'; // identify | privacidade | question | review | done | closed
 
   let name = '';
   let email = '';
@@ -71,8 +71,8 @@
   const requestedEditToken = new URLSearchParams(window.location.search).get('edit') || '';
   let isEditMode = false;
   let editToken = '';
-  let editLink = '';
-  let editLinkNotice = '';
+  let linkEdicao = '';
+  let avisoLinkEdicao = '';
   let closedMessage = 'As respostas não estão abertas para este evento no momento.';
 
   load();
@@ -129,7 +129,7 @@
       step = 'question';
       currentIndex = 0;
     } catch (e) {
-      editLinkNotice = 'Link de edição inválido ou expirado. Você pode responder normalmente abaixo.';
+      avisoLinkEdicao = 'Link de edição inválido ou expirado. Você pode responder normalmente abaixo.';
     }
   }
 
@@ -239,7 +239,7 @@
       });
       editToken = returnedToken || editToken;
       if (editToken) {
-        editLink = `${window.location.origin}/answer/${id}?edit=${editToken}`;
+        linkEdicao = `${window.location.origin}/responder/${id}?edit=${editToken}`;
       }
       step = 'done';
     } catch (e) {
@@ -260,29 +260,29 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<main class="answer-root">
+<main class="responder-root">
   {#if loading}
-    <div class="answer-center"><p class="text-muted">Carregando…</p></div>
+    <div class="responder-center"><p class="text-muted">Carregando…</p></div>
   {:else if notFound}
-    <div class="answer-center">
+    <div class="responder-center">
       <Card title="Evento não encontrado">
         <p class="subtitle">Verifique o link e tente novamente.</p>
       </Card>
     </div>
   {:else if error}
-    <div class="answer-center">
+    <div class="responder-center">
       <Card title="Algo deu errado">
         <p class="form-error">{error}</p>
       </Card>
     </div>
   {:else if step === 'closed'}
-    <div class="answer-center">
+    <div class="responder-center">
       <Card title={event.title}>
         <p class="subtitle">{closedMessage}</p>
       </Card>
     </div>
   {:else if questions.length === 0}
-    <div class="answer-center">
+    <div class="responder-center">
       <Card title={event.title}>
         <p class="subtitle">Este evento ainda não tem perguntas.</p>
       </Card>
@@ -300,8 +300,8 @@
       </div>
 
       <form class="card identify-card" novalidate on:submit|preventDefault={startFlow}>
-        {#if editLinkNotice}
-          <p class="form-warning">{editLinkNotice}</p>
+        {#if avisoLinkEdicao}
+          <p class="form-warning">{avisoLinkEdicao}</p>
         {/if}
         <AvatarCropper compact on:change={onPhotoChange} />
         <Input
@@ -334,43 +334,43 @@
         <span class="meta-dot" aria-hidden="true"></span>
         <span>Dá para editar depois</span>
         <span class="meta-dot" aria-hidden="true"></span>
-        <button type="button" class="link-btn" on:click={() => (step = 'privacy')}>
+        <button type="button" class="link-btn" on:click={() => (step = 'privacidade')}>
           Privacidade e uso dos dados
         </button>
       </div>
     </PublicShell>
-  {:else if step === 'privacy'}
+  {:else if step === 'privacidade'}
     <div class="shell">
       <TopBar area={event.title} showAccount={false} />
       <div class="crumb-simple">
         <button type="button" class="link-btn" on:click={() => (step = 'identify')}>‹ Voltar</button>
         <span class="crumb-simple-title">Privacidade e uso dos dados</span>
       </div>
-      <div class="privacy-body">
-        <div class="privacy-col">
-          <div class="privacy-intro">
+      <div class="privacidade-body">
+        <div class="privacidade-col">
+          <div class="privacidade-intro">
             <h1 class="section-title">Seus dados servem para uma coisa só: a dinâmica</h1>
             <p class="section-sub">
               O Arandu existe para o grupo se conhecer. Nada do que você envia aqui vira anúncio,
               ranking ou lista de contatos.
             </p>
           </div>
-          <div class="privacy-items">
+          <div class="privacidade-items">
             {#each PRIVACY_ITEMS as p (p.title)}
-              <div class="privacy-item">
-                <span class="privacy-item-title">{p.title}</span>
+              <div class="privacidade-item">
+                <span class="privacidade-item-title">{p.title}</span>
                 <span class="text-muted">{p.body}</span>
               </div>
             {/each}
-            <div class="privacy-item">
-              <span class="privacy-item-title">Quanto tempo fica guardado</span>
+            <div class="privacidade-item">
+              <span class="privacidade-item-title">Quanto tempo fica guardado</span>
               <span class="text-muted">
                 Os dados ficam no evento enquanto ele existir. Quando o organizador apaga o evento,
                 as respostas e fotos vão junto.
               </span>
             </div>
           </div>
-          <p class="privacy-note text-muted">
+          <p class="privacidade-note text-muted">
             Dúvidas ou pedido de remoção: fale com quem organiza o evento. O Arandu roda na
             infraestrutura de quem hospeda a plataforma; não enviamos seus dados para serviços de
             terceiros.
@@ -556,14 +556,14 @@
         <p class="text-muted done-sub">
           Suas respostas ficam escondidas até o organizador revelar você no telão, no dia do evento.
         </p>
-        {#if editLink}
+        {#if linkEdicao}
           <div class="edit-link-box">
             <p class="edit-link-label">
               Guarde este link para editar ou atualizar suas respostas depois:
             </p>
             <div class="edit-link-row">
-              <input class="edit-link-input" type="text" readonly value={editLink} />
-              <CopyButton text={editLink} label="Copiar link de edição" />
+              <input class="edit-link-input" type="text" readonly value={linkEdicao} />
+              <CopyButton text={linkEdicao} label="Copiar link de edição" />
             </div>
             <p class="text-muted edit-link-hint">
               Perdeu o link? Você pode solicitá-lo ao responsável pelo evento.
@@ -577,14 +577,14 @@
 </main>
 
 <style>
-  .answer-root {
+  .responder-root {
     flex: 1;
     display: flex;
     flex-direction: column;
     width: 100%;
   }
 
-  .answer-center {
+  .responder-center {
     flex: 1;
     display: flex;
     align-items: center;
@@ -1031,7 +1031,7 @@
     font-weight: 700;
   }
 
-  .privacy-body {
+  .privacidade-body {
     flex: 1;
     display: flex;
     justify-content: center;
@@ -1039,7 +1039,7 @@
     overflow-y: auto;
   }
 
-  .privacy-col {
+  .privacidade-col {
     width: 720px;
     max-width: 100%;
     display: flex;
@@ -1048,19 +1048,19 @@
     gap: 20px;
   }
 
-  .privacy-intro {
+  .privacidade-intro {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
 
-  .privacy-items {
+  .privacidade-items {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
 
-  .privacy-item {
+  .privacidade-item {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1072,12 +1072,12 @@
     line-height: 1.5;
   }
 
-  .privacy-item-title {
+  .privacidade-item-title {
     font-size: 0.9375rem;
     font-weight: 700;
   }
 
-  .privacy-note {
+  .privacidade-note {
     margin: 0;
     padding: 14px 16px;
     border-radius: var(--radius-row);
@@ -1087,7 +1087,7 @@
     line-height: 1.5;
   }
 
-  .privacy-col :global(.btn) {
+  .privacidade-col :global(.btn) {
     align-self: flex-start;
   }
 

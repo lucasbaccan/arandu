@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import Login from './Login.svelte';
+import Entrar from './Entrar.svelte';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -22,16 +22,16 @@ describe('Tela de Login', () => {
   });
 
   it('exibe erro de validação ao enviar vazio', async () => {
-    render(Login);
+    render(Entrar);
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
     expect(await screen.findByText('Informe seu e-mail.')).toBeInTheDocument();
   });
 
-  it('faz login com sucesso e navega para o dashboard', async () => {
+  it('faz login com sucesso e navega para o painel', async () => {
     api.login.mockResolvedValue({
       user: { id: '1', email: 'ana@x.com', name: 'Ana' }
     });
-    render(Login);
+    render(Entrar);
 
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@x.com');
     await userEvent.type(screen.getByLabelText('Senha'), 'segredo');
@@ -43,12 +43,12 @@ describe('Tela de Login', () => {
         password: 'segredo'
       })
     );
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/painel'));
   });
 
   it('exibe mensagem de erro do servidor', async () => {
     api.login.mockRejectedValue(new Error('E-mail ou senha inválidos.'));
-    render(Login);
+    render(Entrar);
 
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@x.com');
     await userEvent.type(screen.getByLabelText('Senha'), 'errada');

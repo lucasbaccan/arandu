@@ -37,7 +37,7 @@
         pinCode: pinMode === 'custom' ? pinCode.trim() : ''
       });
       showToast('Evento criado com sucesso!');
-      navigate('/dashboard');
+      navigate('/painel');
     } catch (e) {
       error = e.message;
     } finally {
@@ -48,7 +48,7 @@
 
 <main class="shell">
   <TopBar area="Organizador" />
-  <CrumbBar crumbs={[{ label: 'Eventos', href: '/dashboard' }, { label: 'Novo evento' }]} />
+  <CrumbBar crumbs={[{ label: 'Eventos', href: '/painel' }, { label: 'Novo evento' }]} />
 
   <div class="shell-body shell-body-center">
     <form class="form-col" novalidate on:submit|preventDefault={handleSubmit}>
@@ -115,7 +115,7 @@
         <Button
           type="button"
           variant="secondary"
-          on:click={() => navigate('/dashboard')}
+          on:click={() => navigate('/painel')}
           disabled={submitting}
         >
           Cancelar

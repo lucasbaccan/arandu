@@ -110,7 +110,7 @@ topbar where there is none. Anything shared between them lives in `app.css` toke
 plus weight 700 while hints stay neutral text. `components/Chip.svelte` is *the* chip (status, question
 kind, option), colored from `lib/eventStatus.js` — screens never pick those colors themselves.
 `lib/themeStore.js` drives light/dark via `<html data-theme>`; it's the only thing the app puts in
-localStorage. `/tela` (`StyleGuide.svelte`) is the living reference for all of it.
+localStorage. `/tela` (`Tela.svelte`) is the living reference for all of it.
 
 **`frontend/src/lib/api.js`** is a single hand-written client mirroring every backend route 1:1 (grouped
 `events`/`public.events` namespaces) — there's no codegen from the Go handlers, so adding a backend route
@@ -127,15 +127,18 @@ parsed from the URL.
 
 | Route | View | Description |
 | --- | --- | --- |
-| `/` | `Home.svelte` | Public landing page. Participants type an event PIN to join (resolves PIN -> event id, then `navigate` to `/audience/{id}`); organizers get "Entrar"/"Criar conta" links to `/login`/`/register`. |
-| `/login` | `Login.svelte` | Organizer email/password login. |
-| `/register` | `Register.svelte` | Organizer account creation. |
-| `/dashboard` | `Dashboard.svelte` | Authenticated organizer home: lists their events (status, PIN), links to create/edit. |
-| `/events/new` | `EventCreate.svelte` | Form to create a new event (title, PIN). |
-| `/events/{id}` | `EventEdit.svelte` | Main organizer event-management screen: edit title/PIN/ranking toggle, manage questions (`QuestionForm`), view participant responses (`ResponsesPanel`). |
-| `/answer/{id}` | `Answer.svelte` | Public pre-event form: participant identifies with name/email, answers the event's questions, optionally uploads/crops a photo (`AvatarCropper`). No login — a private edit link lets them come back and change answers/photo later. |
-| `/stage/{id}` | `Stage.svelte` | Organizer's live-presentation control panel — drives the big-screen show: pick current question, reveal/unreveal/reveal-all participants, blank the screen, hide answers, push a message, toggle audience interactions, watch Q&A submissions. |
-| `/audience/{id}` | `Audience.svelte` | Public live view, in **two roles from the same view**: *telão* (projection scale, PIN always visible, no interactions) and *celular* (compact zone rows plus a fixed dock with emoji reactions and Q&A). The role defaults to viewport width (≥1024px → telão) and can be forced with `?view=telao\|celular` — `Stage.svelte`'s "Abrir tela da plateia" appends `&view=telao`. Mirrors `Stage.svelte`'s state over SSE (`PresentationStage`, prop `layout="screen"\|"compact"`). Session lives only in the URL (`?pin=`) — no login, no localStorage. |
-| `/como-funciona` | `HowItWorks.svelte` | Public tutorial page — expands on `HelpButton`'s popover ("Como funciona o Arandu") with a participant walkthrough and an organizer walkthrough. Linked from `HelpButton`'s "Saiba mais" and footed with a link to `/privacidade`. |
-| `/privacidade` | `PrivacyPolicy.svelte` | Public privacy policy page — the product-level version of the per-event privacy explainer inline in `Answer.svelte`'s "privacy" step. Linked from `HowItWorks.svelte`'s footer. |
-| `/tela` | `StyleGuide.svelte` | Internal component/design-system showcase (buttons, inputs, selects, switches, cards, toasts, etc.) — not part of the product flow. |
+| `/` | `Inicio.svelte` | Public landing page. Participants type an event PIN to join (resolves PIN -> event id, then `navigate` to `/plateia/{id}`); organizers get "Entrar"/"Criar conta" links to `/entrar`/`/criar-conta`. |
+| `/entrar` | `Entrar.svelte` | Organizer email/password login. |
+| `/criar-conta` | `CriarConta.svelte` | Organizer account creation. |
+| `/painel` | `Painel.svelte` | Authenticated organizer home: lists their events (status, PIN), links to create/edit. |
+| `/eventos/novo` | `EventoNovo.svelte` | Form to create a new event (title, PIN). |
+| `/eventos/{id}` | `EventoEditar.svelte` | Main organizer event-management screen: edit title/PIN/ranking toggle, manage questions (`QuestionForm`), view participant responses (`ResponsesPanel`). |
+| `/responder/{id}` | `Responder.svelte` | Public pre-event form: participant identifies with name/email, answers the event's questions, optionally uploads/crops a photo (`AvatarCropper`). No login — a private edit link lets them come back and change answers/photo later. |
+| `/palco/{id}` | `Palco.svelte` | Organizer's live-presentation control panel — drives the big-screen show: pick current question, reveal/unreveal/reveal-all participants, blank the screen, hide answers, push a message, toggle audience interactions, watch Q&A submissions. |
+| `/palco/{id}/apresentar` | `PalcoApresentar.svelte` | Projection window opened by Palco's "Modo apresentação" — the big-screen show, mirrored over SSE. |
+| `/plateia/{id}` | `Plateia.svelte` | Public live view — one unified screen for everyone: top menu (logo, event title, PIN, theme toggle), emoji reactions animating in the background (`ReactionBurstLayer background`) and a single-line bottom dock with compact emoji reactions + a question box for the presenter (💬). It shows **no board content** (no pending queue, questions or answers — the presenter drives those on `/palco` and `/apresentar`); it only reflects the organizer's live state over SSE (`snapshot.message`, `blanked`, `interactionsEnabled`). Session lives only in the URL (`?pin=`) — no login, no localStorage. |
+| `/como-funciona` | `ComoFunciona.svelte` | Public tutorial page — expands on `HelpButton`'s popover ("Como funciona o Arandu") with a participant walkthrough and an organizer walkthrough. Linked from `HelpButton`'s "Saiba mais" and footed with a link to `/privacidade`. |
+| `/privacidade` | `Privacidade.svelte` | Public privacy policy page — the product-level version of the per-event privacy explainer inline in `Responder.svelte`'s "privacy" step. Linked from `ComoFunciona.svelte`'s footer. |
+| `/tela` | `Tela.svelte` | Internal component/design-system showcase (buttons, inputs, selects, switches, cards, toasts, etc.) — not part of the product flow. |
+| `/mapa-do-site` | `MapaDoSite.svelte` | Internal site map — every URL of the app grouped by flow; static routes are clickable links, dynamic ones (`{id}`) shown as patterns. Linked from `HelpButton`'s "Mapa do site" and from `/debug`. |
+| `/debug` | `Debug.svelte` | Internal developer screen — quick links to `/mapa-do-site` (site map) and `/tela` (design reference), plus current app state (route, theme, user, window). |

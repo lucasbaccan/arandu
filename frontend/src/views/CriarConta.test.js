@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import Register from './Register.svelte';
+import CriarConta from './CriarConta.svelte';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -32,13 +32,13 @@ describe('Tela de Criar conta', () => {
   });
 
   it('exibe erro de validação ao enviar vazio', async () => {
-    render(Register);
+    render(CriarConta);
     await fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }));
     expect(await screen.findByText('Informe seu nome.')).toBeInTheDocument();
   });
 
   it('rejeita senha abaixo do mínimo configurado', async () => {
-    render(Register);
+    render(CriarConta);
     await fillAndSubmit({
       name: 'Ana',
       email: 'ana@x.com',
@@ -52,7 +52,7 @@ describe('Tela de Criar conta', () => {
   });
 
   it('rejeita senhas diferentes na confirmação', async () => {
-    render(Register);
+    render(CriarConta);
     await fillAndSubmit({
       name: 'Ana',
       email: 'ana@x.com',
@@ -62,11 +62,11 @@ describe('Tela de Criar conta', () => {
     expect(await screen.findByText('As senhas não conferem.')).toBeInTheDocument();
   });
 
-  it('cria conta com sucesso e navega para o dashboard', async () => {
+  it('cria conta com sucesso e navega para o painel', async () => {
     api.register.mockResolvedValue({
       user: { id: '1', email: 'ana@x.com', name: 'Ana' }
     });
-    render(Register);
+    render(CriarConta);
 
     await fillAndSubmit({
       name: 'Ana',
@@ -82,12 +82,12 @@ describe('Tela de Criar conta', () => {
         password: 'segredo'
       })
     );
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/painel'));
   });
 
   it('exibe mensagem de erro do servidor', async () => {
     api.register.mockRejectedValue(new Error('Este e-mail já está cadastrado.'));
-    render(Register);
+    render(CriarConta);
 
     await fillAndSubmit({
       name: 'Ana',

@@ -127,7 +127,7 @@
   }
 </script>
 
-<main class="page page-wide styleguide">
+<main class="page page-wide tela">
   <div class="sg-head">
     <h1>Guia de componentes — Arandu</h1>
     <p class="text-muted">
@@ -421,7 +421,7 @@
 </main>
 
 <style>
-  .styleguide {
+  .tela {
     align-items: stretch;
     gap: 32px;
     padding-bottom: 64px;

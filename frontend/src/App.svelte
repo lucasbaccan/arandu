@@ -6,45 +6,48 @@
   import './lib/themeStore.js';
   import Particles from './components/Particles.svelte';
   import Toast from './components/Toast.svelte';
-  import Home from './views/Home.svelte';
-  import Login from './views/Login.svelte';
-  import Register from './views/Register.svelte';
-  import Dashboard from './views/Dashboard.svelte';
-  import EventCreate from './views/EventCreate.svelte';
-  import EventEdit from './views/EventEdit.svelte';
-  import Answer from './views/Answer.svelte';
-  import Stage from './views/Stage.svelte';
-  import StagePresentation from './views/StagePresentation.svelte';
-  import Audience from './views/Audience.svelte';
-  import HowItWorks from './views/HowItWorks.svelte';
-  import PrivacyPolicy from './views/PrivacyPolicy.svelte';
-  import StyleGuide from './views/StyleGuide.svelte';
+  import Inicio from './views/Inicio.svelte';
+  import Entrar from './views/Entrar.svelte';
+  import CriarConta from './views/CriarConta.svelte';
+  import Painel from './views/Painel.svelte';
+  import EventoNovo from './views/EventoNovo.svelte';
+  import EventoEditar from './views/EventoEditar.svelte';
+  import Responder from './views/Responder.svelte';
+  import Palco from './views/Palco.svelte';
+  import PalcoApresentar from './views/PalcoApresentar.svelte';
+  import Plateia from './views/Plateia.svelte';
+  import ComoFunciona from './views/ComoFunciona.svelte';
+  import Privacidade from './views/Privacidade.svelte';
+  import Tela from './views/Tela.svelte';
+  import MapaDoSite from './views/MapaDoSite.svelte';
+  import Debug from './views/Debug.svelte';
 
   onMount(initAuth);
 
-  $: eventMatch = /^\/events\/(\d+)$/.exec($route);
-  $: answerMatch = /^\/answer\/(\d+)$/.exec($route);
-  $: stageMatch = /^\/stage\/(\d+)$/.exec($route);
+  $: eventoMatch = /^\/eventos\/(\d+)$/.exec($route);
+  $: responderMatch = /^\/responder\/(\d+)$/.exec($route);
+  $: palcoMatch = /^\/palco\/(\d+)$/.exec($route);
   // A densidade do placar (auto/smart/1–4 colunas) não é mais parte da
-  // rota — é estado ao vivo (presentDensityMode), escolhido pelos botões de
-  // modo no rodapé de Stage.svelte e refletido em tempo real via SSE. Ver
-  // PresentationStage.svelte (props forceCols/smart) e StagePresentation.svelte.
-  $: stagePresentMatch = /^\/stage\/(\d+)\/present$/.exec($route);
-  $: audienceMatch = /^\/audience\/(\d+)$/.exec($route);
+  // rota — é estado ao vivo (modoDensidadeApresentacao), escolhido pelos
+  // botões de modo no rodapé de Palco.svelte e refletido em tempo real via
+  // SSE. Ver PresentationStage.svelte (props forceCols/smart) e
+  // PalcoApresentar.svelte.
+  $: palcoApresentarMatch = /^\/palco\/(\d+)\/apresentar$/.exec($route);
+  $: plateiaMatch = /^\/plateia\/(\d+)$/.exec($route);
 
   $: if ($authReady) {
-    if ($route === '/' && $user) navigate('/dashboard');
+    if ($route === '/' && $user) navigate('/painel');
     if (
-      ($route === '/dashboard' ||
-        $route === '/events/new' ||
-        eventMatch ||
-        stageMatch ||
-        stagePresentMatch) &&
+      ($route === '/painel' ||
+        $route === '/eventos/novo' ||
+        eventoMatch ||
+        palcoMatch ||
+        palcoApresentarMatch) &&
       !$user
     ) {
       navigate('/');
     }
-    if (($route === '/login' || $route === '/register') && $user) navigate('/dashboard');
+    if (($route === '/entrar' || $route === '/criar-conta') && $user) navigate('/painel');
   }
 </script>
 
@@ -57,31 +60,35 @@
       <p class="home-tagline">Carregando…</p>
     </main>
   {:else if $route === '/'}
-    <Home />
-  {:else if $route === '/login'}
-    <Login />
-  {:else if $route === '/register'}
-    <Register />
-  {:else if $route === '/dashboard'}
-    <Dashboard />
+    <Inicio />
+  {:else if $route === '/entrar'}
+    <Entrar />
+  {:else if $route === '/criar-conta'}
+    <CriarConta />
+  {:else if $route === '/painel'}
+    <Painel />
   {:else if $route === '/tela'}
-    <StyleGuide />
+    <Tela />
+  {:else if $route === '/mapa-do-site'}
+    <MapaDoSite />
+  {:else if $route === '/debug'}
+    <Debug />
   {:else if $route === '/como-funciona'}
-    <HowItWorks />
+    <ComoFunciona />
   {:else if $route === '/privacidade'}
-    <PrivacyPolicy />
-  {:else if $route === '/events/new'}
-    <EventCreate />
-  {:else if eventMatch}
-    <EventEdit id={eventMatch[1]} />
-  {:else if answerMatch}
-    <Answer id={answerMatch[1]} />
-  {:else if stagePresentMatch}
-    <StagePresentation id={stagePresentMatch[1]} />
-  {:else if stageMatch}
-    <Stage id={stageMatch[1]} />
-  {:else if audienceMatch}
-    <Audience id={audienceMatch[1]} />
+    <Privacidade />
+  {:else if $route === '/eventos/novo'}
+    <EventoNovo />
+  {:else if eventoMatch}
+    <EventoEditar id={eventoMatch[1]} />
+  {:else if responderMatch}
+    <Responder id={responderMatch[1]} />
+  {:else if palcoApresentarMatch}
+    <PalcoApresentar id={palcoApresentarMatch[1]} />
+  {:else if palcoMatch}
+    <Palco id={palcoMatch[1]} />
+  {:else if plateiaMatch}
+    <Plateia id={plateiaMatch[1]} />
   {:else}
     <main class="page">
       <p>Página não encontrada.</p>

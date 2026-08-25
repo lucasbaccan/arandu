@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import PrivacyPolicy from './PrivacyPolicy.svelte';
+import Privacidade from './Privacidade.svelte';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -14,7 +14,7 @@ describe('Política de privacidade', () => {
   });
 
   it('mostra os itens de privacidade', () => {
-    render(PrivacyPolicy);
+    render(Privacidade);
     expect(
       screen.getByRole('heading', { name: 'Seus dados servem para uma coisa só: a dinâmica' })
     ).toBeInTheDocument();
@@ -23,13 +23,13 @@ describe('Política de privacidade', () => {
   });
 
   it('navega de volta para "Como funciona" pelo rodapé', async () => {
-    render(PrivacyPolicy);
+    render(Privacidade);
     await fireEvent.click(screen.getByRole('link', { name: 'Como funciona o Arandu' }));
     expect(navigate).toHaveBeenCalledWith('/como-funciona');
   });
 
   it('navega para o início pelo rodapé', async () => {
-    render(PrivacyPolicy);
+    render(Privacidade);
     await fireEvent.click(screen.getByRole('link', { name: '‹ Voltar ao início' }));
     expect(navigate).toHaveBeenCalledWith('/');
   });

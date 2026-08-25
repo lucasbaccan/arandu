@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import Answer from './Answer.svelte';
+import Responder from './Responder.svelte';
 
 vi.mock('../lib/api.js', () => ({
   api: {
@@ -59,7 +59,7 @@ describe('Tela de respostas do participante', () => {
 
   it('mostra a tela de identificação com o título do evento', async () => {
     mockLoad();
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
 
     expect(await screen.findByText('Dinâmica de Testes')).toBeInTheDocument();
     expect(screen.getByLabelText('Como quer aparecer')).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe('Tela de respostas do participante', () => {
 
   it('exige nome e e-mail válidos antes de iniciar', async () => {
     mockLoad();
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
@@ -88,7 +88,7 @@ describe('Tela de respostas do participante', () => {
     // e-mail passava aqui e só falhava ao clicar em Finalizar, depois de
     // responder tudo.
     mockLoad();
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await userEvent.type(screen.getByLabelText('Como quer aparecer'), 'Ana');
@@ -101,7 +101,7 @@ describe('Tela de respostas do participante', () => {
 
   it('mostra e fecha a tela de privacidade a partir da identificação', async () => {
     mockLoad();
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Privacidade e uso dos dados' }));
@@ -115,7 +115,7 @@ describe('Tela de respostas do participante', () => {
 
   it('mostra tela de respostas fechadas quando o evento não está aberto', async () => {
     mockLoad({ answersOpen: false });
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
 
     expect(
       await screen.findByText('As respostas não estão abertas para este evento no momento.')
@@ -127,7 +127,7 @@ describe('Tela de respostas do participante', () => {
     const err = new Error('Evento não encontrado.');
     err.status = 404;
     api.public.events.get.mockRejectedValue(err);
-    render(Answer, { props: { id: '999' } });
+    render(Responder, { props: { id: '999' } });
 
     expect(await screen.findByText('Evento não encontrado')).toBeInTheDocument();
   });
@@ -135,7 +135,7 @@ describe('Tela de respostas do participante', () => {
   it('permite avançar sem responder, mas só libera o envio com tudo respondido', async () => {
     mockLoad();
     api.public.events.submit.mockResolvedValue({ ok: true });
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await identifyAndContinue('Ana', 'Participante@Exemplo.com');
@@ -200,7 +200,7 @@ describe('Tela de respostas do participante', () => {
 
   it('mantém a resposta ao voltar para a pergunta anterior', async () => {
     mockLoad();
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await identifyAndContinue();
@@ -218,7 +218,7 @@ describe('Tela de respostas do participante', () => {
 
   it('permite editar uma resposta a partir da tela de revisão', async () => {
     mockLoad();
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await identifyAndContinue();
@@ -242,7 +242,7 @@ describe('Tela de respostas do participante', () => {
 
   it('permite responder de novo (mesmo dispositivo), pois a unicidade é por e-mail no servidor', async () => {
     mockLoad();
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
 
     expect(await screen.findByText('Dinâmica de Testes')).toBeInTheDocument();
     expect(api.public.events.get).toHaveBeenCalledTimes(1);
@@ -253,7 +253,7 @@ describe('Tela de respostas do participante', () => {
     const err = new Error('Informe um e-mail válido.');
     err.status = 400;
     api.public.events.submit.mockRejectedValue(err);
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await identifyAndContinue();
@@ -270,7 +270,7 @@ describe('Tela de respostas do participante', () => {
   it('mostra o link de edição na tela de agradecimento', async () => {
     mockLoad();
     api.public.events.submit.mockResolvedValue({ ok: true, editToken: 'tok123' });
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
     await identifyAndContinue();
@@ -282,12 +282,12 @@ describe('Tela de respostas do participante', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
 
     expect(await screen.findByText('Prontinho, Ana!')).toBeInTheDocument();
-    const linkInput = screen.getByDisplayValue(/\/answer\/42\?edit=tok123$/);
+    const linkInput = screen.getByDisplayValue(/\/responder\/42\?edit=tok123$/);
     expect(linkInput).toBeInTheDocument();
   });
 
   it('pré-preenche as respostas ao acessar com um link de edição válido', async () => {
-    window.history.pushState({}, '', '/answer/42?edit=tok123');
+    window.history.pushState({}, '', '/responder/42?edit=tok123');
     mockLoad();
     api.public.events.getParticipant.mockResolvedValue({
       participant: {
@@ -300,7 +300,7 @@ describe('Tela de respostas do participante', () => {
         ]
       }
     });
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
 
     expect(
       await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' })
@@ -309,33 +309,33 @@ describe('Tela de respostas do participante', () => {
     expect(screen.getByText('Editando suas respostas anteriores')).toBeInTheDocument();
     expect(screen.getByLabelText('Go').checked).toBe(true);
 
-    window.history.pushState({}, '', '/answer/42');
+    window.history.pushState({}, '', '/responder/42');
   });
 
   it('avisa que a edição está desabilitada sem carregar o formulário', async () => {
-    window.history.pushState({}, '', '/answer/42?edit=algum-token');
+    window.history.pushState({}, '', '/responder/42?edit=algum-token');
     mockLoad({ allowEdit: false });
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
 
     expect(
       await screen.findByText(/edição de respostas está desabilitada/i)
     ).toBeInTheDocument();
     expect(api.public.events.getParticipant).not.toHaveBeenCalled();
 
-    window.history.pushState({}, '', '/answer/42');
+    window.history.pushState({}, '', '/responder/42');
   });
 
   it('mostra aviso e segue o fluxo normal quando o link de edição é inválido', async () => {
-    window.history.pushState({}, '', '/answer/42?edit=invalido');
+    window.history.pushState({}, '', '/responder/42?edit=invalido');
     mockLoad();
     api.public.events.getParticipant.mockRejectedValue(new Error('Link de edição inválido ou expirado.'));
-    render(Answer, { props: { id: '42' } });
+    render(Responder, { props: { id: '42' } });
 
     expect(
       await screen.findByText(/Link de edição inválido ou expirado/)
     ).toBeInTheDocument();
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
 
-    window.history.pushState({}, '', '/answer/42');
+    window.history.pushState({}, '', '/responder/42');
   });
 });

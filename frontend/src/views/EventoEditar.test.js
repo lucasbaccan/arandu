@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, within, waitFor } from '@testing-library/dom';
 import userEvent from '@testing-library/user-event';
 import { get } from 'svelte/store';
-import EventEdit from './EventEdit.svelte';
+import EventoEditar from './EventoEditar.svelte';
 import { toast } from '../lib/toastStore.js';
 
 vi.mock('../lib/router.js', () => ({
@@ -61,7 +61,7 @@ function mount(questions = [], participantCount = 0) {
   document.body.appendChild(target);
   api.events.questions.list.mockResolvedValue({ questions });
   api.events.responses.list.mockResolvedValue({ participantCount, participants: [] });
-  new EventEdit({ target, props: { id: '42' } });
+  new EventoEditar({ target, props: { id: '42' } });
   return within(target);
 }
 

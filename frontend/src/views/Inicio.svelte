@@ -20,7 +20,7 @@
     checking = true;
     try {
       const { id } = await api.public.events.resolvePin(trimmed);
-      navigate(`/audience/${id}?pin=${encodeURIComponent(trimmed)}`);
+      navigate(`/plateia/${id}?pin=${encodeURIComponent(trimmed)}`);
     } catch (e) {
       codeError = e.status === 404 ? 'Código não encontrado.' : e.message;
     } finally {
@@ -29,7 +29,7 @@
   }
 </script>
 
-<main class="home">
+<main class="inicio">
   <PublicShell>
     <h1 class="entry-title">Qual é o código do evento?</h1>
     <p class="entry-sub">Sem conta, sem instalação. O organizador mostra o código na tela.</p>
@@ -58,10 +58,10 @@
     <div class="divider"><span>organizador</span></div>
 
     <div class="organizer-actions">
-      <button type="button" class="btn btn-secondary" on:click={() => navigate('/login')}>
+      <button type="button" class="btn btn-secondary" on:click={() => navigate('/entrar')}>
         Entrar na conta
       </button>
-      <button type="button" class="btn btn-ghost" on:click={() => navigate('/register')}>
+      <button type="button" class="btn btn-ghost" on:click={() => navigate('/criar-conta')}>
         Criar conta
       </button>
     </div>
@@ -69,7 +69,7 @@
 </main>
 
 <style>
-  .home {
+  .inicio {
     flex: 1;
     display: flex;
     flex-direction: column;

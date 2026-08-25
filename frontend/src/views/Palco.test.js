@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, within, waitFor } from '@testing-library/dom';
-import Stage from './Stage.svelte';
+import Palco from './Palco.svelte';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -128,7 +128,7 @@ const participants = [
 function mount() {
   const target = document.createElement('div');
   document.body.appendChild(target);
-  new Stage({ target, props: { id: '42' } });
+  new Palco({ target, props: { id: '42' } });
   return within(target);
 }
 
@@ -311,7 +311,7 @@ describe('Preview da apresentação', () => {
     // O caminho de volta agora é o breadcrumb do shell do organizador.
     await fireEvent.click(view.getByRole('link', { name: 'Conecta DevOps' }));
 
-    expect(navigate).toHaveBeenCalledWith('/events/42');
+    expect(navigate).toHaveBeenCalledWith('/eventos/42');
   });
 
   it('mostra estado vazio quando o evento não tem perguntas', async () => {
@@ -328,7 +328,7 @@ describe('Preview da apresentação', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Modo apresentação' }));
 
-    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', 'arandu-present-42', 'width=1366,height=768');
+    expect(openSpy).toHaveBeenCalledWith('/palco/42/apresentar', 'arandu-present-42', 'width=1366,height=768');
     // não é toggle de estado local — os controles de admin continuam aqui
     expect(view.getByLabelText('Próxima pergunta')).toBeInTheDocument();
     openSpy.mockRestore();
@@ -343,10 +343,10 @@ describe('Preview da apresentação', () => {
     const smartBtn = view.getByRole('button', { name: 'Modo apresentação — Smart' });
     await fireEvent.click(smartBtn);
 
-    // muda o estado no servidor — quem já tiver /present ou /audience
+    // muda o estado no servidor — quem já tiver /apresentar ou /plateia
     // abertos vê ao vivo, sem precisar recarregar nem trocar de URL.
     expect(api.events.live.setDensityMode).toHaveBeenCalledWith('42', 'smart');
-    expect(openSpy).toHaveBeenCalledWith('/stage/42/present', 'arandu-present-42', 'width=1366,height=768');
+    expect(openSpy).toHaveBeenCalledWith('/palco/42/apresentar', 'arandu-present-42', 'width=1366,height=768');
     expect(openSpy).toHaveBeenCalledTimes(1);
     expect(smartBtn).toHaveAttribute('aria-pressed', 'true');
 
@@ -396,7 +396,7 @@ describe('Preview da apresentação', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Abrir tela da plateia' }));
 
-    expect(openSpy).toHaveBeenCalledWith('/audience/42?pin=123456&view=telao', '_blank');
+    expect(openSpy).toHaveBeenCalledWith('/plateia/42?pin=123456', '_blank');
     openSpy.mockRestore();
   });
 
@@ -429,7 +429,7 @@ describe('Preview da apresentação', () => {
     expect(api.events.live.setAnswersHidden).toHaveBeenCalledWith('42', true);
   });
 
-  it('alterna ocultar nomes e chama a API, mas mantém a legenda de nome visível em /stage', async () => {
+  it('alterna ocultar nomes e chama a API, mas mantém a legenda de nome visível em /palco', async () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
@@ -439,7 +439,7 @@ describe('Preview da apresentação', () => {
     const switches = view.getAllByRole('switch');
     await fireEvent.click(switches[2]);
 
-    // é estado do servidor agora (pra sincronizar com /present), mas /stage
+    // é estado do servidor agora (pra sincronizar com /apresentar), mas /palco
     // sempre mostra os nomes — o toggle não afeta a própria tela do admin
     expect(api.events.live.setNamesHidden).toHaveBeenCalledWith('42', true);
     expect(within(pendingWrap).getByText('ana@exemplo.com')).toBeInTheDocument();
