@@ -789,6 +789,13 @@
     /* Nunca comprime a fila pra ceder espaço ao placar: quem encolhe é a
        área de zonas (flex:1 / min-height:0), não os pendentes. */
     flex-shrink: 0;
+    /* Contém os avatares na própria fila: os rostos ganham camadas compostas
+       (transform) durante o flip/fade e, em alguns navegadores, a camada
+       escapa do recorte do overflow (especialmente com border-radius) —
+       dá um flash deles sobre outros elementos da tela. will-change: transform
+       composita a fila inteira, então o recorte é aplicado na própria camada
+       do navegador (e não quebra o scroll horizontal). */
+    will-change: transform;
   }
 
   /* Modo "scroll" (painel do organizador, /stage): uma linha só com scroll
@@ -926,6 +933,10 @@
     position: relative;
     flex: 1;
     min-height: 0;
+    /* Mesma proteção da fila de pendentes: as pílulas de pessoa (fly/flip)
+       ganham camadas compostas na transição e podem vazar do recorte —
+       compositar o placar mantém tudo recortado na própria camada. */
+    will-change: transform;
   }
 
   /* Os tamanhos vêm das custom properties setadas por fitDensity() — os

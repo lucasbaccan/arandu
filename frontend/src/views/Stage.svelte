@@ -753,6 +753,13 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    /* Isola o palco num contexto de empilhamento próprio (z-0): os avatares
+       do pending-row e as transições flip/fly das zonas ganham camadas
+       compostas (transform) durante a animação e, sem isso, pintam POR CIMA
+       de elementos estáticos — dava pra ver rostos "vazando" sobre o trilho
+       por um flash quando a fila recalculava o tamanho. */
+    position: relative;
+    z-index: 0;
   }
 
   .stage-main-body {
@@ -767,6 +774,12 @@
        overflow fica só como rede de segurança pra casos extremos (ex: título
        absurdamente longo), onde rolar é melhor que cortar. */
     overflow-y: auto;
+    /* Isola todo o conteúdo animado do corpo (rostos da fila, pílulas das
+       zonas) num único contexto de empilhamento — se qualquer camada ainda
+       escapar do recorte, ela fica presa aqui dentro e não pinta sobre o
+       dock, o trilho ou o resto da tela. (Não afeta o tooltip de hover, que
+       é position:fixed — isolation não cria containing block pra ele.) */
+    isolation: isolate;
   }
 
   .stage-question-title {
@@ -937,6 +950,11 @@
     background: var(--surface-muted);
     border-left: 1px solid var(--border);
     overflow: hidden;
+    /* Trilho sempre por cima do palco (ver comentário em .stage-main): nada
+       animado no palco — rostos do pending-row, tooltips, zonas — consegue
+       pintar sobre a lista de perguntas. */
+    position: relative;
+    z-index: 1;
   }
 
   @media (max-width: 900px) {
