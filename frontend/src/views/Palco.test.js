@@ -311,7 +311,7 @@ describe('Preview da apresentação', () => {
     // O caminho de volta agora é o breadcrumb do shell do organizador.
     await fireEvent.click(view.getByRole('link', { name: 'Conecta DevOps' }));
 
-    expect(navigate).toHaveBeenCalledWith('/eventos/42');
+    expect(navigate).toHaveBeenCalledWith('/evento/42');
   });
 
   it('mostra estado vazio quando o evento não tem perguntas', async () => {

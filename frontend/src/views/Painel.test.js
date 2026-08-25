@@ -47,7 +47,7 @@ describe('Dashboard (meus eventos)', () => {
 
     expect(await view.findByText('Nenhum evento ainda')).toBeInTheDocument();
     await fireEvent.click(view.getByRole('button', { name: 'Criar evento' }));
-    expect(navigate).toHaveBeenCalledWith('/eventos/novo');
+    expect(navigate).toHaveBeenCalledWith('/evento/novo');
   });
 
   it('lista os eventos com PIN, status e data em formato brasileiro', async () => {
@@ -115,7 +115,7 @@ describe('Dashboard (meus eventos)', () => {
 
     await fireEvent.click(view.getByText('Conecta DevOps'));
 
-    expect(navigate).toHaveBeenCalledWith('/eventos/1');
+    expect(navigate).toHaveBeenCalledWith('/evento/1');
   });
 
   it('filtra eventos pela busca de título ou PIN', async () => {

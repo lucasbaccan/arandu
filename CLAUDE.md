@@ -131,8 +131,8 @@ parsed from the URL.
 | `/entrar` | `Entrar.svelte` | Organizer email/password login. |
 | `/criar-conta` | `CriarConta.svelte` | Organizer account creation. |
 | `/painel` | `Painel.svelte` | Authenticated organizer home: lists their events (status, PIN), links to create/edit. |
-| `/eventos/novo` | `EventoNovo.svelte` | Form to create a new event (title, PIN). |
-| `/eventos/{id}` | `EventoEditar.svelte` | Main organizer event-management screen: edit title/PIN/ranking toggle, manage questions (`QuestionForm`), view participant responses (`ResponsesPanel`). |
+| `/evento/novo` | `EventoNovo.svelte` | Form to create a new event (title, PIN). |
+| `/evento/{id}` | `EventoEditar.svelte` | Main organizer event-management screen: edit title/PIN/ranking toggle, manage questions (`QuestionForm`), view participant responses (`ResponsesPanel`). |
 | `/responder/{id}` | `Responder.svelte` | Public pre-event form: participant identifies with name/email, answers the event's questions, optionally uploads/crops a photo (`AvatarCropper`). No login — a private edit link lets them come back and change answers/photo later. |
 | `/palco/{id}` | `Palco.svelte` | Organizer's live-presentation control panel — drives the big-screen show: pick current question, reveal/unreveal/reveal-all participants, blank the screen, hide answers, push a message, toggle audience interactions, watch Q&A submissions. |
 | `/palco/{id}/apresentar` | `PalcoApresentar.svelte` | Projection window opened by Palco's "Modo apresentação" — the big-screen show, mirrored over SSE. |

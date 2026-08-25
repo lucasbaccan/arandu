@@ -24,7 +24,7 @@
 
   onMount(initAuth);
 
-  $: eventoMatch = /^\/eventos\/(\d+)$/.exec($route);
+  $: eventoMatch = /^\/evento\/(\d+)$/.exec($route);
   $: responderMatch = /^\/responder\/(\d+)$/.exec($route);
   $: palcoMatch = /^\/palco\/(\d+)$/.exec($route);
   // A densidade do placar (auto/smart/1–4 colunas) não é mais parte da
@@ -39,7 +39,7 @@
     if ($route === '/' && $user) navigate('/painel');
     if (
       ($route === '/painel' ||
-        $route === '/eventos/novo' ||
+        $route === '/evento/novo' ||
         eventoMatch ||
         palcoMatch ||
         palcoApresentarMatch) &&
@@ -77,7 +77,7 @@
     <ComoFunciona />
   {:else if $route === '/privacidade'}
     <Privacidade />
-  {:else if $route === '/eventos/novo'}
+  {:else if $route === '/evento/novo'}
     <EventoNovo />
   {:else if eventoMatch}
     <EventoEditar id={eventoMatch[1]} />

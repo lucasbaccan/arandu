@@ -48,11 +48,11 @@
   loadEvents();
 
   function abrirNovoEvento() {
-    navigate('/eventos/novo');
+    navigate('/evento/novo');
   }
 
   function abrirEvento(id) {
-    navigate(`/eventos/${id}`);
+    navigate(`/evento/${id}`);
   }
 </script>
 

@@ -495,7 +495,7 @@
     <CrumbBar
       crumbs={[
         { label: 'Eventos', href: '/painel' },
-        { label: title || 'Evento', href: `/eventos/${id}` },
+        { label: title || 'Evento', href: `/evento/${id}` },
         { label: 'Editar' }
       ]}
     >

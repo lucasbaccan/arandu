@@ -102,8 +102,8 @@ describe('App (guardas de rota)', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/painel'));
   });
 
-  it('redireciona para a home em /eventos/novo sem sessão', async () => {
-    route.set('/eventos/novo');
+  it('redireciona para a home em /evento/novo sem sessão', async () => {
+    route.set('/evento/novo');
     render(App);
 
     authReady.set(true);
@@ -111,8 +111,8 @@ describe('App (guardas de rota)', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 
-  it('redireciona para a home em /eventos/123 sem sessão', async () => {
-    route.set('/eventos/123');
+  it('redireciona para a home em /evento/123 sem sessão', async () => {
+    route.set('/evento/123');
     render(App);
 
     authReady.set(true);

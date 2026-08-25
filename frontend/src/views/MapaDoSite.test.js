@@ -29,7 +29,7 @@ describe('Mapa do site', () => {
   it('lista as rotas dinâmicas como padrão (não clicáveis)', () => {
     render(MapaDoSite);
     expect(screen.getByText('/responder/{id}')).toBeInTheDocument();
-    expect(screen.getByText('/eventos/{id}')).toBeInTheDocument();
+    expect(screen.getByText('/evento/{id}')).toBeInTheDocument();
     expect(screen.getByText('/palco/{id}')).toBeInTheDocument();
     expect(screen.getByText('/palco/{id}/apresentar')).toBeInTheDocument();
     expect(screen.getByText('/plateia/{id}')).toBeInTheDocument();
@@ -37,7 +37,7 @@ describe('Mapa do site', () => {
 
   it('transforma as rotas estáticas em links', () => {
     render(MapaDoSite);
-    for (const path of ['/', '/entrar', '/criar-conta', '/painel', '/eventos/novo', '/como-funciona', '/privacidade', '/tela', '/mapa-do-site', '/debug']) {
+    for (const path of ['/', '/entrar', '/criar-conta', '/painel', '/evento/novo', '/como-funciona', '/privacidade', '/tela', '/mapa-do-site', '/debug']) {
       expect(screen.getByRole('link', { name: path })).toBeInTheDocument();
     }
   });

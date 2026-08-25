@@ -60,9 +60,9 @@
           view: 'Painel.svelte',
           desc: 'Home de quem organiza: lista de eventos com situação e PIN.'
         },
-        { route: '/eventos/novo', view: 'EventoNovo.svelte', desc: 'Criação de evento (título e PIN).' },
+        { route: '/evento/novo', view: 'EventoNovo.svelte', desc: 'Criação de evento (título e PIN).' },
         {
-          route: '/eventos/{id}',
+          route: '/evento/{id}',
           view: 'EventoEditar.svelte',
           desc: 'Gestão do evento: dados, perguntas e respostas.'
         },
@@ -120,7 +120,7 @@
     <h1>Mapa do site — Arandu</h1>
     <p class="text-muted">
       Todas as URLs da aplicação, agrupadas por fluxo. Rotas com <code>{'{id}'}</code> são dinâmicas e
-      precisam de um identificador real (ex.: <code>/eventos/42</code>); as demais são links
+      precisam de um identificador real (ex.: <code>/evento/42</code>); as demais são links
       clicáveis. Página interna de desenvolvimento — não faz parte do fluxo do produto.
     </p>
   </div>
