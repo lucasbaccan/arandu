@@ -30,8 +30,8 @@
   export let layout = 'screen';
   /*
    * forceCols: força o nº de colunas do placar (1–4) — usado pelo menu ⚙ da
-   * tela de apresentação (/present1..4) pra comparar. 0 = automático
-   * (/present): fitDensity escolhe o menor nº de colunas que cabe sem
+   * tela de apresentação (/apresentar1..4) pra comparar. 0 = automático
+   * (/apresentar): fitDensity escolhe o menor nº de colunas que cabe sem
    * cortar ninguém. Em ambos os casos a escala das pílulas cresce ou
    * encolhe pra usar o máximo de espaço possível nesse nº de colunas (ver
    * comentário mais abaixo) — não é um tamanho fixo. O celular (.compact)
@@ -39,7 +39,7 @@
    */
   export let forceCols = 0;
   /*
-   * smart: modo "Smart" do menu ⚙ (/presentsmart). Em vez de ficar com o
+   * smart: modo "Smart" do menu ⚙ (/apresentarsmart). Em vez de ficar com o
    * menor nº de colunas que já cabe (comportamento padrão de forceCols=0),
    * testa cada nº de colunas (1–4) e fica com o que render a MAIOR escala
    * — às vezes isso pede mais colunas que o Auto escolheria, mas resulta em
@@ -789,6 +789,12 @@
     /* Nunca comprime a fila pra ceder espaço ao placar: quem encolhe é a
        área de zonas (flex:1 / min-height:0), não os pendentes. */
     flex-shrink: 0;
+    /* No telão os rostos (com nomes) ocupam TODA a largura da fileira em vez
+       de se amontoar à esquerda — space-evenly distribui o espaço sobrando
+       igualmente entre eles (e nas pontas). O modo scroll do organizador
+       (.pending-row.scroll) volta pra flex-start: lá a fila é ferramenta de
+       trabalho e rola na horizontal. */
+    justify-content: space-evenly;
     /* Contém os avatares na própria fila: os rostos ganham camadas compostas
        (transform) durante o flip/fade e, em alguns navegadores, a camada
        escapa do recorte do overflow (especialmente com border-radius) —
@@ -806,6 +812,9 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
+    /* Fila do organizador (/stage): ferramenta que rola na horizontal — fica
+       agrupada à esquerda, sem o space-evenly do telão. */
+    justify-content: flex-start;
   }
 
   /* Fila de pendentes: rosto de 64px, nome a 15px — a fila é a "vitrine" de

@@ -1,9 +1,14 @@
 <script>
   import { fly, fade } from 'svelte/transition';
   import { reactions } from '../lib/reactionStore.js';
+
+  // 'overlay' (padrão): os emojis sobem por cima de tudo (telas do
+  // organizador). 'background': a camada fica ATRÁS do conteúdo (tela
+  // unificada da plateia) — os emojis animam no fundo, sem cobrir o placar.
+  export let background = false;
 </script>
 
-<div class="reaction-layer" aria-hidden="true">
+<div class="reaction-layer" class:background aria-hidden="true">
   {#each $reactions as r (r.id)}
     <span
       class="reaction-emoji"
@@ -23,6 +28,11 @@
     pointer-events: none;
     overflow: hidden;
     z-index: 90;
+  }
+
+  /* Fundo: z-0, atrás do conteúdo da plateia (que sobe pra z-1). */
+  .reaction-layer.background {
+    z-index: 0;
   }
 
   .reaction-emoji {

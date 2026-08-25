@@ -118,7 +118,7 @@
   }
 
   function editLink(p) {
-    return `${window.location.origin}/answer/${eventId}?edit=${p.editToken}`;
+    return `${window.location.origin}/responder/${eventId}?edit=${p.editToken}`;
   }
 </script>
 

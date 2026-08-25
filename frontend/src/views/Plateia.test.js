@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, within, waitFor } from '@testing-library/dom';
-import Audience from './Audience.svelte';
+import Plateia from './Plateia.svelte';
 
 vi.mock('../lib/api.js', () => ({
   api: {
@@ -11,7 +11,8 @@ vi.mock('../lib/api.js', () => ({
           state: vi.fn(),
           streamUrl: vi.fn((id, token) => `/api/public/events/${id}/live/stream?token=${token}`),
           react: vi.fn().mockResolvedValue({ ok: true }),
-          submitQuestion: vi.fn().mockResolvedValue({ ok: true })
+          submitQuestion: vi.fn().mockResolvedValue({ ok: true, messageId: 'm1' }),
+          deleteQuestion: vi.fn().mockResolvedValue({ ok: true })
         }
       }
     }
@@ -68,10 +69,10 @@ class FakeEventSource {
 FakeEventSource.instances = [];
 
 function mount(search = '') {
-  window.history.pushState({}, '', `/audience/42${search}`);
+  window.history.pushState({}, '', `/plateia/42${search}`);
   const target = document.createElement('div');
   document.body.appendChild(target);
-  new Audience({ target, props: { id: '42' } });
+  new Plateia({ target, props: { id: '42' } });
   return within(target);
 }
 
@@ -117,7 +118,7 @@ describe('Tela pública da apresentação (Audience)', () => {
     expect(api.public.events.live.join).not.toHaveBeenCalled();
   });
 
-  it('entra com sucesso via e-mail e mostra a pergunta atual sem nenhum controle de admin', async () => {
+  it('entra com sucesso via e-mail e mostra a tela da plateia sem nenhum controle de admin', async () => {
     api.public.events.live.join.mockResolvedValue({ token: 'tok-123', role: 'participante' });
     api.public.events.live.state.mockResolvedValue(snapshot);
     const view = mount('?pin=dev-team');
@@ -125,10 +126,9 @@ describe('Tela pública da apresentação (Audience)', () => {
     await fireEvent.input(view.getByLabelText('E-mail'), { target: { value: 'ana@exemplo.com' } });
     await fireEvent.click(view.getByRole('button', { name: 'Entrar' }));
 
-    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-    expect(view.getByText('Evento Live')).toBeInTheDocument();
-    expect(view.getByLabelText('ana@exemplo.com')).toBeInTheDocument();
-    expect(view.getByLabelText('ana@exemplo.com')).toBeDisabled();
+    expect(await view.findByText('Evento Live')).toBeInTheDocument();
+    expect(view.getByText('DEV-TEAM')).toBeInTheDocument();
+    expect(view.getByLabelText('Alternar tema')).toBeInTheDocument();
 
     expect(api.public.events.live.join).toHaveBeenCalledWith('42', {
       pinCode: 'dev-team',
@@ -148,36 +148,27 @@ describe('Tela pública da apresentação (Audience)', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Entrar como convidado' }));
 
-    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
+    expect(await view.findByText('Evento Live')).toBeInTheDocument();
     expect(api.public.events.live.join).toHaveBeenCalledWith('42', {
       pinCode: 'dev-team',
       email: ''
     });
   });
 
-  it('atualiza a tela sozinha quando chega uma mensagem do SSE', async () => {
+  it('atualiza a tela sozinha quando chega um snapshot do SSE', async () => {
     api.public.events.live.join.mockResolvedValue({ token: 'tok-123', role: 'participante' });
     api.public.events.live.state.mockResolvedValue(snapshot);
     const view = mount('?pin=dev-team');
 
     await fireEvent.input(view.getByLabelText('E-mail'), { target: { value: 'ana@exemplo.com' } });
     await fireEvent.click(view.getByRole('button', { name: 'Entrar' }));
-    await view.findByText('Qual sua linguagem favorita?');
+    await view.findByText('Evento Live');
 
-    const updated = {
-      ...snapshot,
-      pending: [],
-      groups: [
-        { label: 'Go', participants: [{ id: 'p1', email: 'ana@exemplo.com', photo: '' }] },
-        { label: 'JS', participants: [] }
-      ]
-    };
-    FakeEventSource.instances[0].onmessage({ data: JSON.stringify(updated) });
-
-    await waitFor(() => {
-      const goZone = view.getByText('Go').closest('.zone');
-      expect(within(goZone).getByTitle('ana@exemplo.com')).toBeInTheDocument();
+    FakeEventSource.instances[0].onmessage({
+      data: JSON.stringify({ ...snapshot, message: 'Voltamos em 5 min' })
     });
+
+    await waitFor(() => expect(view.getByText('Voltamos em 5 min')).toBeInTheDocument());
   });
 
   it('mostra erro quando o PIN está errado, sem sair da tela de identificação', async () => {
@@ -200,12 +191,11 @@ describe('Tela pública da apresentação (Audience)', () => {
     await view.findByText('Evento Live');
   }
 
-  it('mostra a mensagem transmitida em vez da pergunta quando o organizador definiu uma', async () => {
+  it('mostra a mensagem transmitida quando o organizador definiu uma', async () => {
     const view = mount('?pin=dev-team');
     await joinAndWatch(view, { message: 'Voltamos em 5 min' });
 
     expect(await view.findByText('Voltamos em 5 min')).toBeInTheDocument();
-    expect(view.queryByText('Qual sua linguagem favorita?')).not.toBeInTheDocument();
   });
 
   it('mostra tela em branco quando não há mensagem', async () => {
@@ -213,53 +203,21 @@ describe('Tela pública da apresentação (Audience)', () => {
     await joinAndWatch(view, { blanked: true });
 
     expect(await view.findByText('Aguarde, já voltamos…')).toBeInTheDocument();
-    expect(view.queryByText('Qual sua linguagem favorita?')).not.toBeInTheDocument();
   });
 
-  it('esconde as opções quando o organizador ativa esconder respostas, mas mantém a pergunta e os pendentes', async () => {
-    const view = mount('?pin=dev-team');
-    await joinAndWatch(view, { answersHidden: true });
-
-    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-    expect(view.getByText('O organizador escondeu as respostas por enquanto.')).toBeInTheDocument();
-    expect(view.queryByText('Go')).not.toBeInTheDocument();
-    expect(view.queryByText('JS')).not.toBeInTheDocument();
-  });
-
-  it('mostra a pergunta normalmente quando não está em branco nem tem mensagem', async () => {
+  it('mostra a dica e o rodapé de interação quando não está em branco nem tem mensagem', async () => {
     const view = mount('?pin=dev-team');
     await joinAndWatch(view);
 
-    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-  });
-
-  it('mostra o nome sob cada rosto por padrão (pendente e revelado), e esconde quando o organizador ativa "Ocultar nomes"', async () => {
-    const withNames = {
-      pending: [{ id: 'p1', name: 'Ana Ribeiro', email: 'ana@exemplo.com', photo: '' }],
-      groups: [
-        { label: 'Go', participants: [{ id: 'p2', name: 'Bob Souza', email: 'bob@exemplo.com', photo: '' }] },
-        { label: 'JS', participants: [] }
-      ]
-    };
-    const view = mount('?pin=dev-team');
-    await joinAndWatch(view, withNames);
-
-    expect(await view.findByText('Ana R.')).toBeInTheDocument();
-    expect(view.getByText('Bob S.')).toBeInTheDocument();
-
-    FakeEventSource.instances[0].onmessage({
-      data: JSON.stringify({ ...snapshot, ...withNames, namesHidden: true })
-    });
-
-    expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
-    expect(view.queryByText('Ana R.')).not.toBeInTheDocument();
-    expect(view.queryByText('Bob S.')).not.toBeInTheDocument();
+    expect(
+      await view.findByText('Reaja à apresentação ou mande uma pergunta pro apresentador.')
+    ).toBeInTheDocument();
+    expect(view.getByRole('button', { name: 'Reagir com 👍' })).toBeInTheDocument();
   });
 
   it('mostra a barra de reações e envia ao clicar num emoji', async () => {
-    // view=celular: reações e Q&A vivem só no layout de celular — o telão
-    // mostra a dinâmica e nada mais.
-    const view = mount('?pin=dev-team&view=celular');
+    // Tela unificada: reações e Q&A ficam no rodapé da MESMA tela.
+    const view = mount('?pin=dev-team');
     await joinAndWatch(view);
 
     await fireEvent.click(view.getByRole('button', { name: 'Reagir com 👍' }));
@@ -267,20 +225,35 @@ describe('Tela pública da apresentação (Audience)', () => {
     expect(api.public.events.live.react).toHaveBeenCalledWith('42', 'tok-123', '👍');
   });
 
-  it('esconde reações e Q&A quando interactionsEnabled é falso', async () => {
-    const view = mount('?pin=dev-team&view=celular');
-    await joinAndWatch(view, { interactionsEnabled: false });
-
-    await view.findByText('Qual sua linguagem favorita?');
-    expect(view.queryByRole('button', { name: 'Reagir com 👍' })).not.toBeInTheDocument();
-    expect(view.queryByLabelText('Pergunta ou recado pro organizador')).not.toBeInTheDocument();
-  });
-
-  it('envia uma pergunta e mostra confirmação', async () => {
-    const view = mount('?pin=dev-team&view=celular');
+  it('tela unificada: mesmo sem ?view, mostra o menu no topo (PIN + tema), as interações e nenhum botão de modo', async () => {
+    const view = mount('?pin=dev-team');
     await joinAndWatch(view);
 
-    await fireEvent.input(view.getByLabelText('Pergunta ou recado pro organizador'), {
+    expect(await view.findByText('Evento Live')).toBeInTheDocument();
+    // menu do topo: PIN e alternador de tema sempre visíveis
+    expect(view.getByText('DEV-TEAM')).toBeInTheDocument();
+    expect(view.getByLabelText('Alternar tema')).toBeInTheDocument();
+    // interações disponíveis na mesma tela (sem depender de ?view=celular)
+    expect(view.getByRole('button', { name: 'Reagir com 👍' })).toBeInTheDocument();
+    // sem botões de alternância entre telão/celular
+    expect(view.queryByRole('button', { name: 'Interagir' })).not.toBeInTheDocument();
+    expect(view.queryByRole('button', { name: 'Modo telão' })).not.toBeInTheDocument();
+  });
+
+  it('esconde reações e Q&A quando interactionsEnabled é falso', async () => {
+    const view = mount('?pin=dev-team');
+    await joinAndWatch(view, { interactionsEnabled: false });
+
+    await view.findByText('Evento Live');
+    expect(view.queryByRole('button', { name: 'Reagir com 👍' })).not.toBeInTheDocument();
+    expect(view.queryByLabelText('Pergunta pro apresentador')).not.toBeInTheDocument();
+  });
+
+  it('envia uma pergunta, mostra confirmação e lista a pergunta como "minha"', async () => {
+    const view = mount('?pin=dev-team');
+    await joinAndWatch(view);
+
+    await fireEvent.input(view.getByLabelText('Pergunta pro apresentador'), {
       target: { value: 'Posso ir embora mais cedo?' }
     });
     await fireEvent.click(view.getByRole('button', { name: 'Enviar' }));
@@ -288,9 +261,35 @@ describe('Tela pública da apresentação (Audience)', () => {
     expect(api.public.events.live.submitQuestion).toHaveBeenCalledWith(
       '42',
       'tok-123',
-      'Posso ir embora mais cedo?'
+      'Posso ir embora mais cedo?',
+      expect.any(String) // identificador do navegador
     );
     expect(await view.findByText('Enviado!')).toBeInTheDocument();
+    // a pergunta aparece na lista "Minhas perguntas" com botão de remover
+    expect(await view.findByText('Posso ir embora mais cedo?')).toBeInTheDocument();
+    expect(view.getByLabelText('Remover minha pergunta')).toBeInTheDocument();
+  });
+
+  it('remove a própria pergunta pela lista "Minhas perguntas"', async () => {
+    api.public.events.live.submitQuestion.mockResolvedValue({ ok: true, messageId: 'm42' });
+    const view = mount('?pin=dev-team');
+    await joinAndWatch(view);
+
+    await fireEvent.input(view.getByLabelText('Pergunta pro apresentador'), {
+      target: { value: 'Quero remover esta' }
+    });
+    await fireEvent.click(view.getByRole('button', { name: 'Enviar' }));
+    await view.findByText('Quero remover esta');
+
+    await fireEvent.click(view.getByLabelText('Remover minha pergunta'));
+
+    expect(api.public.events.live.deleteQuestion).toHaveBeenCalledWith(
+      '42',
+      'tok-123',
+      'm42',
+      expect.any(String)
+    );
+    await waitFor(() => expect(view.queryByText('Quero remover esta')).not.toBeInTheDocument());
   });
 
   it('mostra reação recebida via evento SSE nomeado', async () => {
