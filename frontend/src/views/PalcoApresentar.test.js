@@ -4,10 +4,10 @@ import PalcoApresentar from './PalcoApresentar.svelte';
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    events: {
-      live: {
-        presentationState: vi.fn(),
-        presentationStreamUrl: vi.fn((id) => `/api/events/${id}/live/presentation/stream`)
+    eventos: {
+      aoVivo: {
+        estadoApresentacao: vi.fn(),
+        urlFluxoApresentacao: vi.fn((id) => `/api/eventos/${id}/ao-vivo/apresentacao/fluxo`)
       }
     }
   }
@@ -74,7 +74,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('busca o snapshot autenticado (sem PIN) e mostra a pergunta, as opções e os participantes', async () => {
-    api.events.live.presentationState.mockResolvedValue(snapshot);
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue(snapshot);
     const view = mount();
 
     expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
@@ -82,13 +82,13 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
     expect(view.getByText('JS')).toBeInTheDocument();
     expect(view.getByTitle('Bob Souza')).toBeInTheDocument();
 
-    expect(api.events.live.presentationState).toHaveBeenCalledWith('42');
+    expect(api.eventos.aoVivo.estadoApresentacao).toHaveBeenCalledWith('42');
     expect(FakeEventSource.instances).toHaveLength(1);
-    expect(FakeEventSource.instances[0].url).toBe('/api/events/42/live/presentation/stream');
+    expect(FakeEventSource.instances[0].url).toBe('/api/eventos/42/ao-vivo/apresentacao/fluxo');
   });
 
   it('não tem nenhum elemento clicável — é puramente leitura', async () => {
-    api.events.live.presentationState.mockResolvedValue(snapshot);
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue(snapshot);
     const view = mount();
     await view.findByText('Qual sua linguagem favorita?');
 
@@ -105,7 +105,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('atualiza sozinha quando chega um snapshot novo via SSE', async () => {
-    api.events.live.presentationState.mockResolvedValue(snapshot);
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue(snapshot);
     const view = mount();
     await view.findByText('Qual sua linguagem favorita?');
 
@@ -124,7 +124,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('mostra a mensagem transmitida em vez da pergunta quando o organizador definiu uma', async () => {
-    api.events.live.presentationState.mockResolvedValue({ ...snapshot, message: 'Voltamos em 5 min' });
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue({ ...snapshot, message: 'Voltamos em 5 min' });
     const view = mount();
 
     expect(await view.findByText('Voltamos em 5 min')).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('mostra tela em branco quando o organizador ativa', async () => {
-    api.events.live.presentationState.mockResolvedValue({ ...snapshot, blanked: true });
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue({ ...snapshot, blanked: true });
     const view = mount();
 
     expect(await view.findByText('Aguarde, já voltamos…')).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('esconde as opções quando "Ocultar respostas" está ativado, mas mantém a pergunta e os pendentes', async () => {
-    api.events.live.presentationState.mockResolvedValue({ ...snapshot, answersHidden: true });
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue({ ...snapshot, answersHidden: true });
     const view = mount();
 
     expect(await view.findByText('Qual sua linguagem favorita?')).toBeInTheDocument();
@@ -150,7 +150,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('mostra o nome sob cada rosto por padrão (pendente e revelado), e esconde quando "Ocultar nomes" está ativado', async () => {
-    api.events.live.presentationState.mockResolvedValue(snapshot);
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue(snapshot);
     const view = mount();
     await view.findByText('Qual sua linguagem favorita?');
 
@@ -165,7 +165,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('mostra uma reação recebida via evento SSE nomeado', async () => {
-    api.events.live.presentationState.mockResolvedValue(snapshot);
+    api.eventos.aoVivo.estadoApresentacao.mockResolvedValue(snapshot);
     mount();
     await new Promise((r) => setTimeout(r, 0));
 
@@ -175,7 +175,7 @@ describe('Janela de apresentação somente leitura (StagePresentation)', () => {
   });
 
   it('mostra erro quando o snapshot falha ao carregar', async () => {
-    api.events.live.presentationState.mockRejectedValue(new Error('Evento não encontrado.'));
+    api.eventos.aoVivo.estadoApresentacao.mockRejectedValue(new Error('Evento não encontrado.'));
     const view = mount();
 
     expect(await view.findByText('Evento não encontrado.')).toBeInTheDocument();

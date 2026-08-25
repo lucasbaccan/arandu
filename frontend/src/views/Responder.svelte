@@ -56,7 +56,7 @@
   let email = '';
   let photo = '';
   // Em modo de edição, o servidor devolve a foto como URL de arquivo
-  // (/api/photos/{id}), não como base64. photoChanged distingue "mantive a
+  // (/api/fotos/{id}), não como base64. photoChanged distingue "mantive a
   // foto" (envia vazio pra conservar a do banco) de "troquei" (envia o novo
   // data URL do AvatarCropper).
   let photoChanged = false;
@@ -79,7 +79,7 @@
 
   async function load() {
     try {
-      const { event: ev, questions: qs } = await api.public.events.get(id);
+      const { event: ev, questions: qs } = await api.publico.eventos.buscar(id);
       event = ev;
       questions = qs;
       const initialAnswers = {};
@@ -114,7 +114,7 @@
 
   async function loadForEdit(token) {
     try {
-      const { participant } = await api.public.events.getParticipant(id, token);
+      const { participant } = await api.publico.eventos.buscarParticipante(id, token);
       email = participant.email;
       name = participant.name || '';
       photo = participant.photo;
@@ -226,7 +226,7 @@
     submitting = true;
     submitError = '';
     try {
-      const { editToken: returnedToken } = await api.public.events.submit(id, {
+      const { editToken: returnedToken } = await api.publico.eventos.enviar(id, {
         email: email.trim(),
         name: name.trim(),
         photo: photoChanged ? photo : '',

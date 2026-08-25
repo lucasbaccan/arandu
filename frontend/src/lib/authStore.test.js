@@ -5,11 +5,11 @@ import { api } from './api.js';
 
 vi.mock('./api.js', () => ({
   api: {
-    me: vi.fn(),
-    config: vi.fn(),
-    login: vi.fn(),
-    register: vi.fn(),
-    logout: vi.fn()
+    eu: vi.fn(),
+    configuracao: vi.fn(),
+    entrar: vi.fn(),
+    criarConta: vi.fn(),
+    sair: vi.fn()
   }
 }));
 
@@ -22,8 +22,8 @@ describe('authStore', () => {
   });
 
   it('initAuth carrega usuário logado e config', async () => {
-    api.me.mockResolvedValue({ user: { id: '1', name: 'Ana' } });
-    api.config.mockResolvedValue({ minPasswordLength: 8 });
+    api.eu.mockResolvedValue({ user: { id: '1', name: 'Ana' } });
+    api.configuracao.mockResolvedValue({ minPasswordLength: 8 });
 
     await initAuth();
 
@@ -33,8 +33,8 @@ describe('authStore', () => {
   });
 
   it('initAuth extrai o user do wrapper (regressão: F5 não pode mostrar undefined)', async () => {
-    api.me.mockResolvedValue({ user: { id: '2', name: 'Bia' } });
-    api.config.mockResolvedValue({ minPasswordLength: 3 });
+    api.eu.mockResolvedValue({ user: { id: '2', name: 'Bia' } });
+    api.configuracao.mockResolvedValue({ minPasswordLength: 3 });
 
     await initAuth();
 
@@ -42,8 +42,8 @@ describe('authStore', () => {
   });
 
   it('initAuth zera usuário quando sessão expirada', async () => {
-    api.me.mockRejectedValue(new Error('401'));
-    api.config.mockRejectedValue(new Error('offline'));
+    api.eu.mockRejectedValue(new Error('401'));
+    api.configuracao.mockRejectedValue(new Error('offline'));
 
     await initAuth();
 
@@ -53,7 +53,7 @@ describe('authStore', () => {
   });
 
   it('login define o usuário no store', async () => {
-    api.login.mockResolvedValue({ user: { id: '2', name: 'Bia' } });
+    api.entrar.mockResolvedValue({ user: { id: '2', name: 'Bia' } });
 
     const u = await login('bia@x.com', '123');
     expect(u.name).toBe('Bia');
@@ -61,7 +61,7 @@ describe('authStore', () => {
   });
 
   it('register define o usuário no store', async () => {
-    api.register.mockResolvedValue({ user: { id: '3', name: 'Cadu' } });
+    api.criarConta.mockResolvedValue({ user: { id: '3', name: 'Cadu' } });
 
     await register('Cadu', 'cadu@x.com', '123');
     expect(get(user).name).toBe('Cadu');
@@ -69,7 +69,7 @@ describe('authStore', () => {
 
   it('logout limpa o usuário mesmo com falha no servidor', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.logout.mockRejectedValue(new Error('offline'));
+    api.sair.mockRejectedValue(new Error('offline'));
 
     await logout();
 

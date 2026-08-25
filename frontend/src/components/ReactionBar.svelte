@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
 
-  // Mesmo conjunto do backend (allowedReactionEmojis em internal/api/live.go)
+  // Mesmo conjunto do backend (allowedReactionEmojis em internal/api/ao_vivo.go)
   // — mudar um lado exige mudar o outro.
   export let emojis = ['👍', '❤️', '😂', '🎉', '👏'];
   export let disabled = false;

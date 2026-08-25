@@ -9,7 +9,7 @@ vi.mock('../lib/router.js', () => ({
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    register: vi.fn()
+    criarConta: vi.fn()
   }
 }));
 
@@ -48,7 +48,7 @@ describe('Tela de Criar conta', () => {
     expect(
       await screen.findByText('A senha deve ter pelo menos 3 caracteres.')
     ).toBeInTheDocument();
-    expect(api.register).not.toHaveBeenCalled();
+    expect(api.criarConta).not.toHaveBeenCalled();
   });
 
   it('rejeita senhas diferentes na confirmação', async () => {
@@ -63,7 +63,7 @@ describe('Tela de Criar conta', () => {
   });
 
   it('cria conta com sucesso e navega para o painel', async () => {
-    api.register.mockResolvedValue({
+    api.criarConta.mockResolvedValue({
       user: { id: '1', email: 'ana@x.com', name: 'Ana' }
     });
     render(CriarConta);
@@ -76,7 +76,7 @@ describe('Tela de Criar conta', () => {
     });
 
     await waitFor(() =>
-      expect(api.register).toHaveBeenCalledWith({
+      expect(api.criarConta).toHaveBeenCalledWith({
         name: 'Ana',
         email: 'ana@x.com',
         password: 'segredo'
@@ -86,7 +86,7 @@ describe('Tela de Criar conta', () => {
   });
 
   it('exibe mensagem de erro do servidor', async () => {
-    api.register.mockRejectedValue(new Error('Este e-mail já está cadastrado.'));
+    api.criarConta.mockRejectedValue(new Error('Este e-mail já está cadastrado.'));
     render(CriarConta);
 
     await fillAndSubmit({

@@ -5,11 +5,11 @@ import Responder from './Responder.svelte';
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    public: {
-      events: {
-        get: vi.fn(),
-        submit: vi.fn(),
-        getParticipant: vi.fn()
+    publico: {
+      eventos: {
+        buscar: vi.fn(),
+        enviar: vi.fn(),
+        buscarParticipante: vi.fn()
       }
     }
   }
@@ -39,7 +39,7 @@ function mockLoad({
   allowEdit = true,
   questions = [groupQuestion, openQuestion]
 } = {}) {
-  api.public.events.get.mockResolvedValue({
+  api.publico.eventos.buscar.mockResolvedValue({
     event: { id: '42', title: 'Dinâmica de Testes', answersOpen, allowEdit },
     questions
   });
@@ -126,7 +126,7 @@ describe('Tela de respostas do participante', () => {
   it('mostra evento não encontrado', async () => {
     const err = new Error('Evento não encontrado.');
     err.status = 404;
-    api.public.events.get.mockRejectedValue(err);
+    api.publico.eventos.buscar.mockRejectedValue(err);
     render(Responder, { props: { id: '999' } });
 
     expect(await screen.findByText('Evento não encontrado')).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe('Tela de respostas do participante', () => {
 
   it('permite avançar sem responder, mas só libera o envio com tudo respondido', async () => {
     mockLoad();
-    api.public.events.submit.mockResolvedValue({ ok: true });
+    api.publico.eventos.enviar.mockResolvedValue({ ok: true });
     render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
@@ -155,7 +155,7 @@ describe('Tela de respostas do participante', () => {
 
     // sem todas as respostas, o envio fica bloqueado
     expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeDisabled();
-    expect(api.public.events.submit).not.toHaveBeenCalled();
+    expect(api.publico.eventos.enviar).not.toHaveBeenCalled();
 
     // volta pela lista de revisão e responde o que faltou
     await fireEvent.click(screen.getByText('Qual sua linguagem favorita?'));
@@ -183,7 +183,7 @@ describe('Tela de respostas do participante', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
 
     await waitFor(() =>
-      expect(api.public.events.submit).toHaveBeenCalledWith('42', {
+      expect(api.publico.eventos.enviar).toHaveBeenCalledWith('42', {
         email: 'Participante@Exemplo.com',
         name: 'Ana',
         photo: '',
@@ -245,14 +245,14 @@ describe('Tela de respostas do participante', () => {
     render(Responder, { props: { id: '42' } });
 
     expect(await screen.findByText('Dinâmica de Testes')).toBeInTheDocument();
-    expect(api.public.events.get).toHaveBeenCalledTimes(1);
+    expect(api.publico.eventos.buscar).toHaveBeenCalledTimes(1);
   });
 
   it('volta para a identificação se o servidor ainda assim rejeitar o e-mail ao finalizar', async () => {
     mockLoad({ questions: [groupQuestion] });
     const err = new Error('Informe um e-mail válido.');
     err.status = 400;
-    api.public.events.submit.mockRejectedValue(err);
+    api.publico.eventos.enviar.mockRejectedValue(err);
     render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
@@ -269,7 +269,7 @@ describe('Tela de respostas do participante', () => {
 
   it('mostra o link de edição na tela de agradecimento', async () => {
     mockLoad();
-    api.public.events.submit.mockResolvedValue({ ok: true, editToken: 'tok123' });
+    api.publico.eventos.enviar.mockResolvedValue({ ok: true, editToken: 'tok123' });
     render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
@@ -289,7 +289,7 @@ describe('Tela de respostas do participante', () => {
   it('pré-preenche as respostas ao acessar com um link de edição válido', async () => {
     window.history.pushState({}, '', '/responder/42?edit=tok123');
     mockLoad();
-    api.public.events.getParticipant.mockResolvedValue({
+    api.publico.eventos.buscarParticipante.mockResolvedValue({
       participant: {
         email: 'ana@exemplo.com',
         name: 'Ana',
@@ -305,7 +305,7 @@ describe('Tela de respostas do participante', () => {
     expect(
       await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' })
     ).toBeInTheDocument();
-    expect(api.public.events.getParticipant).toHaveBeenCalledWith('42', 'tok123');
+    expect(api.publico.eventos.buscarParticipante).toHaveBeenCalledWith('42', 'tok123');
     expect(screen.getByText('Editando suas respostas anteriores')).toBeInTheDocument();
     expect(screen.getByLabelText('Go').checked).toBe(true);
 
@@ -320,7 +320,7 @@ describe('Tela de respostas do participante', () => {
     expect(
       await screen.findByText(/edição de respostas está desabilitada/i)
     ).toBeInTheDocument();
-    expect(api.public.events.getParticipant).not.toHaveBeenCalled();
+    expect(api.publico.eventos.buscarParticipante).not.toHaveBeenCalled();
 
     window.history.pushState({}, '', '/responder/42');
   });
@@ -328,7 +328,7 @@ describe('Tela de respostas do participante', () => {
   it('mostra aviso e segue o fluxo normal quando o link de edição é inválido', async () => {
     window.history.pushState({}, '', '/responder/42?edit=invalido');
     mockLoad();
-    api.public.events.getParticipant.mockRejectedValue(new Error('Link de edição inválido ou expirado.'));
+    api.publico.eventos.buscarParticipante.mockRejectedValue(new Error('Link de edição inválido ou expirado.'));
     render(Responder, { props: { id: '42' } });
 
     expect(

@@ -18,11 +18,11 @@ const apiUrl = (path) => `${API_BASE}${path}`;
  * dentro da tela ("Sessão inválida.") e a pessoa fica olhando um dashboard vazio
  * sem saber que precisa entrar de novo. Quem reage é o authStore, via
  * sessionExpired.js.
- * Não vale para /api/auth/* (o 401 ali é a resposta esperada de quem não está
- * logado) nem para /api/public/* (token de plateia, que não é a sessão do dono).
+ * Não vale para /api/conta/* (o 401 ali é a resposta esperada de quem não está
+ * logado) nem para /api/publico/* (token de plateia, que não é a sessão do dono).
  */
 function isSessionRoute(path) {
-  return path.startsWith('/api/') && !path.startsWith('/api/auth/') && !path.startsWith('/api/public/');
+  return path.startsWith('/api/') && !path.startsWith('/api/conta/') && !path.startsWith('/api/publico/');
 }
 
 async function request(path, options = {}) {
@@ -57,96 +57,96 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  config: () => request('/api/auth/config'),
-  me: () => request('/api/auth/me'),
-  register: (body) => request('/api/auth/register', { method: 'POST', body }),
-  login: (body) => request('/api/auth/login', { method: 'POST', body }),
-  logout: () => request('/api/auth/logout', { method: 'POST' }),
-  events: {
-    create: (body) => request('/api/events', { method: 'POST', body }),
-    list: () => request('/api/events'),
-    get: (id) => request(`/api/events/${id}`),
-    update: (id, body) => request(`/api/events/${id}`, { method: 'PATCH', body }),
-    questions: {
-      list: (id) => request(`/api/events/${id}/questions`),
-      create: (id, body) => request(`/api/events/${id}/questions`, { method: 'POST', body }),
-      update: (id, questionId, body) =>
-        request(`/api/events/${id}/questions/${questionId}`, { method: 'PATCH', body }),
-      reorder: (id, questionIds) =>
-        request(`/api/events/${id}/questions/order`, {
+  configuracao: () => request('/api/conta/configuracao'),
+  eu: () => request('/api/conta/eu'),
+  criarConta: (body) => request('/api/conta/criar-conta', { method: 'POST', body }),
+  entrar: (body) => request('/api/conta/entrar', { method: 'POST', body }),
+  sair: () => request('/api/conta/sair', { method: 'POST' }),
+  eventos: {
+    criar: (body) => request('/api/eventos', { method: 'POST', body }),
+    listar: () => request('/api/eventos'),
+    buscar: (id) => request(`/api/eventos/${id}`),
+    atualizar: (id, body) => request(`/api/eventos/${id}`, { method: 'PATCH', body }),
+    perguntas: {
+      listar: (id) => request(`/api/eventos/${id}/perguntas`),
+      criar: (id, body) => request(`/api/eventos/${id}/perguntas`, { method: 'POST', body }),
+      atualizar: (id, questionId, body) =>
+        request(`/api/eventos/${id}/perguntas/${questionId}`, { method: 'PATCH', body }),
+      reordenar: (id, questionIds) =>
+        request(`/api/eventos/${id}/perguntas/ordem`, {
           method: 'PUT',
           body: { questionIds }
         }),
-      remove: (id, questionId) =>
-        request(`/api/events/${id}/questions/${questionId}`, { method: 'DELETE' })
+      remover: (id, questionId) =>
+        request(`/api/eventos/${id}/perguntas/${questionId}`, { method: 'DELETE' })
     },
-    responses: {
-      list: (id) => request(`/api/events/${id}/responses`),
-      updateAnswer: (id, participantId, questionId, body) =>
-        request(`/api/events/${id}/responses/${participantId}/answers/${questionId}`, {
+    respostas: {
+      listar: (id) => request(`/api/eventos/${id}/respostas`),
+      atualizarResposta: (id, participantId, questionId, body) =>
+        request(`/api/eventos/${id}/respostas/${participantId}/resposta/${questionId}`, {
           method: 'PATCH',
           body
         }),
-      updatePhoto: (id, participantId, body) =>
-        request(`/api/events/${id}/responses/${participantId}/photo`, { method: 'PATCH', body })
+      atualizarFoto: (id, participantId, body) =>
+        request(`/api/eventos/${id}/respostas/${participantId}/foto`, { method: 'PATCH', body })
     },
-    live: {
-      setQuestion: (id, questionId) =>
-        request(`/api/events/${id}/live/question`, { method: 'POST', body: { questionId } }),
-      reveal: (id, questionId, participantId) =>
-        request(`/api/events/${id}/live/reveal`, { method: 'POST', body: { questionId, participantId } }),
-      unreveal: (id, questionId, participantId) =>
-        request(`/api/events/${id}/live/unreveal`, { method: 'POST', body: { questionId, participantId } }),
-      revealAll: (id, questionId) =>
-        request(`/api/events/${id}/live/reveal-all`, { method: 'POST', body: { questionId } }),
-      reset: (id, questionId) =>
-        request(`/api/events/${id}/live/reset`, { method: 'POST', body: { questionId } }),
-      resetAll: (id) => request(`/api/events/${id}/live/reset-all`, { method: 'POST' }),
-      setBlanked: (id, blanked) =>
-        request(`/api/events/${id}/live/blank`, { method: 'POST', body: { blanked } }),
-      setAnswersHidden: (id, hidden) =>
-        request(`/api/events/${id}/live/hide-answers`, { method: 'POST', body: { hidden } }),
-      setNamesHidden: (id, hidden) =>
-        request(`/api/events/${id}/live/hide-names`, { method: 'POST', body: { hidden } }),
-      setDensityMode: (id, mode) =>
-        request(`/api/events/${id}/live/density-mode`, { method: 'POST', body: { mode } }),
-      setMessage: (id, message) =>
-        request(`/api/events/${id}/live/message`, { method: 'POST', body: { message } }),
-      setInteractionsEnabled: (id, enabled) =>
-        request(`/api/events/${id}/live/interactions`, { method: 'POST', body: { enabled } }),
-      adminState: (id) => request(`/api/events/${id}/live/state`),
-      adminStreamUrl: (id) => apiUrl(`/api/events/${id}/live/stream`),
-      dismissQA: (id, messageId) =>
-        request(`/api/events/${id}/live/qa/${messageId}/dismiss`, { method: 'POST' }),
-      presentationState: (id) => request(`/api/events/${id}/live/presentation/state`),
-      presentationStreamUrl: (id) => apiUrl(`/api/events/${id}/live/presentation/stream`)
+    aoVivo: {
+      definirPergunta: (id, questionId) =>
+        request(`/api/eventos/${id}/ao-vivo/pergunta`, { method: 'POST', body: { questionId } }),
+      revelar: (id, questionId, participantId) =>
+        request(`/api/eventos/${id}/ao-vivo/revelar`, { method: 'POST', body: { questionId, participantId } }),
+      ocultar: (id, questionId, participantId) =>
+        request(`/api/eventos/${id}/ao-vivo/ocultar`, { method: 'POST', body: { questionId, participantId } }),
+      revelarTodos: (id, questionId) =>
+        request(`/api/eventos/${id}/ao-vivo/revelar-todos`, { method: 'POST', body: { questionId } }),
+      reiniciar: (id, questionId) =>
+        request(`/api/eventos/${id}/ao-vivo/reiniciar`, { method: 'POST', body: { questionId } }),
+      reiniciarTudo: (id) => request(`/api/eventos/${id}/ao-vivo/reiniciar-tudo`, { method: 'POST' }),
+      definirEmBranco: (id, blanked) =>
+        request(`/api/eventos/${id}/ao-vivo/em-branco`, { method: 'POST', body: { blanked } }),
+      ocultarRespostas: (id, hidden) =>
+        request(`/api/eventos/${id}/ao-vivo/ocultar-respostas`, { method: 'POST', body: { hidden } }),
+      ocultarNomes: (id, hidden) =>
+        request(`/api/eventos/${id}/ao-vivo/ocultar-nomes`, { method: 'POST', body: { hidden } }),
+      definirModoDensidade: (id, mode) =>
+        request(`/api/eventos/${id}/ao-vivo/modo-densidade`, { method: 'POST', body: { mode } }),
+      definirMensagem: (id, message) =>
+        request(`/api/eventos/${id}/ao-vivo/mensagem`, { method: 'POST', body: { message } }),
+      definirInteracoes: (id, enabled) =>
+        request(`/api/eventos/${id}/ao-vivo/interacoes`, { method: 'POST', body: { enabled } }),
+      estadoAdmin: (id) => request(`/api/eventos/${id}/ao-vivo/estado`),
+      urlFluxoAdmin: (id) => apiUrl(`/api/eventos/${id}/ao-vivo/fluxo`),
+      dispensarPergunta: (id, messageId) =>
+        request(`/api/eventos/${id}/ao-vivo/perguntas/${messageId}/dispensar`, { method: 'POST' }),
+      estadoApresentacao: (id) => request(`/api/eventos/${id}/ao-vivo/apresentacao/estado`),
+      urlFluxoApresentacao: (id) => apiUrl(`/api/eventos/${id}/ao-vivo/apresentacao/fluxo`)
     }
   },
-  public: {
-    events: {
-      resolvePin: (pin) => request(`/api/public/events/by-pin?pin=${encodeURIComponent(pin)}`),
-      get: (id) => request(`/api/public/events/${id}`),
-      getParticipant: (id, token) =>
-        request(`/api/public/events/${id}/participant?token=${encodeURIComponent(token)}`),
-      submit: (id, body) => request(`/api/public/events/${id}/submit`, { method: 'POST', body }),
-      live: {
-        join: (id, body) => request(`/api/public/events/${id}/live/join`, { method: 'POST', body }),
-        state: (id, token) =>
-          request(`/api/public/events/${id}/live/state?token=${encodeURIComponent(token)}`),
-        streamUrl: (id, token) =>
-          apiUrl(`/api/public/events/${id}/live/stream?token=${encodeURIComponent(token)}`),
-        react: (id, token, emoji) =>
-          request(`/api/public/events/${id}/live/react?token=${encodeURIComponent(token)}`, {
+  publico: {
+    eventos: {
+      resolverPin: (pin) => request(`/api/publico/eventos/por-pin?pin=${encodeURIComponent(pin)}`),
+      buscar: (id) => request(`/api/publico/eventos/${id}`),
+      buscarParticipante: (id, token) =>
+        request(`/api/publico/eventos/${id}/participante?token=${encodeURIComponent(token)}`),
+      enviar: (id, body) => request(`/api/publico/eventos/${id}/enviar`, { method: 'POST', body }),
+      aoVivo: {
+        entrar: (id, body) => request(`/api/publico/eventos/${id}/ao-vivo/entrar`, { method: 'POST', body }),
+        estado: (id, token) =>
+          request(`/api/publico/eventos/${id}/ao-vivo/estado?token=${encodeURIComponent(token)}`),
+        urlFluxo: (id, token) =>
+          apiUrl(`/api/publico/eventos/${id}/ao-vivo/fluxo?token=${encodeURIComponent(token)}`),
+        reagir: (id, token, emoji) =>
+          request(`/api/publico/eventos/${id}/ao-vivo/reagir?token=${encodeURIComponent(token)}`, {
             method: 'POST',
             body: { emoji }
           }),
-        submitQuestion: (id, token, text, clientId) =>
-          request(`/api/public/events/${id}/live/qa?token=${encodeURIComponent(token)}`, {
+        enviarPergunta: (id, token, text, clientId) =>
+          request(`/api/publico/eventos/${id}/ao-vivo/perguntas?token=${encodeURIComponent(token)}`, {
             method: 'POST',
             body: { text, clientId }
           }),
-        deleteQuestion: (id, token, messageId, clientId) =>
-          request(`/api/public/events/${id}/live/qa/${messageId}?token=${encodeURIComponent(token)}`, {
+        removerPergunta: (id, token, messageId, clientId) =>
+          request(`/api/publico/eventos/${id}/ao-vivo/perguntas/${messageId}?token=${encodeURIComponent(token)}`, {
             method: 'DELETE',
             body: { clientId }
           })

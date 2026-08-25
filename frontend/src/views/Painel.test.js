@@ -9,8 +9,8 @@ vi.mock('../lib/router.js', () => ({
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    events: { list: vi.fn(), create: vi.fn() },
-    logout: vi.fn()
+    eventos: { listar: vi.fn(), criar: vi.fn() },
+    sair: vi.fn()
   }
 }));
 
@@ -33,7 +33,7 @@ describe('Dashboard (meus eventos)', () => {
 
   it('mostra o avatar com a inicial do usuário logado', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockResolvedValue({ events: [] });
+    api.eventos.listar.mockResolvedValue({ events: [] });
     const view = mountDashboard();
 
     const avatar = await view.findByTitle('Ana');
@@ -42,7 +42,7 @@ describe('Dashboard (meus eventos)', () => {
 
   it('mostra estado vazio com atalho para criar evento', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockResolvedValue({ events: [] });
+    api.eventos.listar.mockResolvedValue({ events: [] });
     const view = mountDashboard();
 
     expect(await view.findByText('Nenhum evento ainda')).toBeInTheDocument();
@@ -52,7 +52,7 @@ describe('Dashboard (meus eventos)', () => {
 
   it('lista os eventos com PIN, status e data em formato brasileiro', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockResolvedValue({
+    api.eventos.listar.mockResolvedValue({
       events: [
         {
           id: '1',
@@ -87,7 +87,7 @@ describe('Dashboard (meus eventos)', () => {
 
   it('mostra erro da API', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockRejectedValue(new Error('Erro inesperado. Tente novamente.'));
+    api.eventos.listar.mockRejectedValue(new Error('Erro inesperado. Tente novamente.'));
     const view = mountDashboard();
 
     expect(
@@ -97,7 +97,7 @@ describe('Dashboard (meus eventos)', () => {
 
   it('abre o evento ao clicar na linha', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockResolvedValue({
+    api.eventos.listar.mockResolvedValue({
       events: [
         {
           id: '1',
@@ -120,7 +120,7 @@ describe('Dashboard (meus eventos)', () => {
 
   it('filtra eventos pela busca de título ou PIN', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockResolvedValue({
+    api.eventos.listar.mockResolvedValue({
       events: [
         {
           id: '1',
@@ -155,14 +155,14 @@ describe('Dashboard (meus eventos)', () => {
 
   it('sai da conta e volta para a home', async () => {
     user.set({ id: '1', name: 'Ana' });
-    api.events.list.mockResolvedValue({ events: [] });
+    api.eventos.listar.mockResolvedValue({ events: [] });
     const view = mountDashboard();
     await view.findByTitle('Ana');
 
     await fireEvent.click(view.getByTitle('Ana'));
     await fireEvent.click(view.getByRole('menuitem', { name: 'Sair' }));
 
-    await waitFor(() => expect(api.logout).toHaveBeenCalled());
+    await waitFor(() => expect(api.sair).toHaveBeenCalled());
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 });

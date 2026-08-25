@@ -37,7 +37,7 @@
 
   async function loadEvents() {
     try {
-      const data = await api.events.list();
+      const data = await api.eventos.listar();
       eventos = data.events || [];
     } catch (e) {
       error = e.message;

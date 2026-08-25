@@ -8,26 +8,26 @@ vi.mock('../lib/router.js', () => ({
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    events: {
-      get: vi.fn(),
-      questions: { list: vi.fn() },
-      responses: { list: vi.fn() },
-      live: {
-        setQuestion: vi.fn().mockResolvedValue({ ok: true }),
-        reveal: vi.fn().mockResolvedValue({ ok: true }),
-        unreveal: vi.fn().mockResolvedValue({ ok: true }),
-        revealAll: vi.fn().mockResolvedValue({ ok: true }),
-        reset: vi.fn().mockResolvedValue({ ok: true }),
-        resetAll: vi.fn().mockResolvedValue({ ok: true }),
-        setBlanked: vi.fn().mockResolvedValue({ ok: true }),
-        setAnswersHidden: vi.fn().mockResolvedValue({ ok: true }),
-        setNamesHidden: vi.fn().mockResolvedValue({ ok: true }),
-        setDensityMode: vi.fn().mockResolvedValue({ ok: true }),
-        setMessage: vi.fn().mockResolvedValue({ ok: true }),
-        setInteractionsEnabled: vi.fn().mockResolvedValue({ ok: true }),
-        adminState: vi.fn(),
-        adminStreamUrl: vi.fn((id) => `/api/events/${id}/live/stream`),
-        dismissQA: vi.fn().mockResolvedValue({ ok: true })
+    eventos: {
+      buscar: vi.fn(),
+      perguntas: { listar: vi.fn() },
+      respostas: { listar: vi.fn() },
+      aoVivo: {
+        definirPergunta: vi.fn().mockResolvedValue({ ok: true }),
+        revelar: vi.fn().mockResolvedValue({ ok: true }),
+        ocultar: vi.fn().mockResolvedValue({ ok: true }),
+        revelarTodos: vi.fn().mockResolvedValue({ ok: true }),
+        reiniciar: vi.fn().mockResolvedValue({ ok: true }),
+        reiniciarTudo: vi.fn().mockResolvedValue({ ok: true }),
+        definirEmBranco: vi.fn().mockResolvedValue({ ok: true }),
+        ocultarRespostas: vi.fn().mockResolvedValue({ ok: true }),
+        ocultarNomes: vi.fn().mockResolvedValue({ ok: true }),
+        definirModoDensidade: vi.fn().mockResolvedValue({ ok: true }),
+        definirMensagem: vi.fn().mockResolvedValue({ ok: true }),
+        definirInteracoes: vi.fn().mockResolvedValue({ ok: true }),
+        estadoAdmin: vi.fn(),
+        urlFluxoAdmin: vi.fn((id) => `/api/eventos/${id}/ao-vivo/fluxo`),
+        dispensarPergunta: vi.fn().mockResolvedValue({ ok: true })
       }
     }
   }
@@ -138,10 +138,10 @@ describe('Preview da apresentação', () => {
     vi.clearAllMocks();
     FakeEventSource.instances = [];
     global.EventSource = FakeEventSource;
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.list.mockResolvedValue({ questions });
-    api.events.responses.list.mockResolvedValue({ participantCount: participants.length, participants });
-    api.events.live.adminState.mockResolvedValue(adminSnapshot);
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.listar.mockResolvedValue({ questions });
+    api.eventos.respostas.listar.mockResolvedValue({ participantCount: participants.length, participants });
+    api.eventos.aoVivo.estadoAdmin.mockResolvedValue(adminSnapshot);
   });
 
   it('carrega a primeira pergunta com todos os participantes pendentes de revelar', async () => {
@@ -156,7 +156,7 @@ describe('Preview da apresentação', () => {
   });
 
   it('retoma na pergunta e na revelação salvas no servidor, sem forçar a pergunta 1', async () => {
-    api.events.live.adminState.mockResolvedValue({
+    api.eventos.aoVivo.estadoAdmin.mockResolvedValue({
       ...adminSnapshot,
       currentQuestionId: 'q2',
       revealed: { q2: ['p1'] }
@@ -168,11 +168,11 @@ describe('Preview da apresentação', () => {
     // ana (p1) já revelada — não deveria mais estar como pendente
     expect(view.queryByLabelText('Revelar resposta de ana@exemplo.com')).not.toBeInTheDocument();
     // ao retomar de um estado já em andamento, não deve forçar de volta pra pergunta 1
-    expect(api.events.live.setQuestion).not.toHaveBeenCalled();
+    expect(api.eventos.aoVivo.definirPergunta).not.toHaveBeenCalled();
   });
 
   it('reinicia a revelação de todas as perguntas ao clicar em "Reiniciar tudo"', async () => {
-    api.events.live.adminState.mockResolvedValue({
+    api.eventos.aoVivo.estadoAdmin.mockResolvedValue({
       ...adminSnapshot,
       currentQuestionId: 'q1',
       revealed: { q1: ['p1'] }
@@ -184,7 +184,7 @@ describe('Preview da apresentação', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Reiniciar tudo' }));
 
-    expect(api.events.live.resetAll).toHaveBeenCalledWith('42');
+    expect(api.eventos.aoVivo.reiniciarTudo).toHaveBeenCalledWith('42');
     expect(await view.findByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
   });
 
@@ -202,7 +202,7 @@ describe('Preview da apresentação', () => {
     await fireEvent.click(view.getByText('Deixe um recado'));
 
     expect(await view.findByText('2 / 2')).toBeInTheDocument();
-    expect(api.events.live.setQuestion).toHaveBeenCalledWith('42', 'q2');
+    expect(api.eventos.aoVivo.definirPergunta).toHaveBeenCalledWith('42', 'q2');
   });
 
   // jsdom não roda requestAnimationFrame por padrão, então a transição out:fade
@@ -230,7 +230,7 @@ describe('Preview da apresentação', () => {
 
     await fireEvent.click(revealedFace);
 
-    expect(api.events.live.unreveal).toHaveBeenCalledWith(
+    expect(api.eventos.aoVivo.ocultar).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       expect.any(String)
@@ -315,7 +315,7 @@ describe('Preview da apresentação', () => {
   });
 
   it('mostra estado vazio quando o evento não tem perguntas', async () => {
-    api.events.questions.list.mockResolvedValue({ questions: [] });
+    api.eventos.perguntas.listar.mockResolvedValue({ questions: [] });
     const view = mount();
 
     expect(await view.findByText('Este evento ainda não tem perguntas.')).toBeInTheDocument();
@@ -345,7 +345,7 @@ describe('Preview da apresentação', () => {
 
     // muda o estado no servidor — quem já tiver /apresentar ou /plateia
     // abertos vê ao vivo, sem precisar recarregar nem trocar de URL.
-    expect(api.events.live.setDensityMode).toHaveBeenCalledWith('42', 'smart');
+    expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', 'smart');
     expect(openSpy).toHaveBeenCalledWith('/palco/42/apresentar', 'arandu-present-42', 'width=1366,height=768');
     expect(openSpy).toHaveBeenCalledTimes(1);
     expect(smartBtn).toHaveAttribute('aria-pressed', 'true');
@@ -353,7 +353,7 @@ describe('Preview da apresentação', () => {
     const cols2Btn = view.getByRole('button', { name: 'Modo apresentação — 2 colunas' });
     await fireEvent.click(cols2Btn);
 
-    expect(api.events.live.setDensityMode).toHaveBeenCalledWith('42', '2');
+    expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', '2');
     // janela já aberta: só foca, não abre de novo
     expect(openSpy).toHaveBeenCalledTimes(1);
     expect(fakeWindow.focus).toHaveBeenCalledTimes(1);
@@ -406,7 +406,7 @@ describe('Preview da apresentação', () => {
 
     await fireEvent.click(view.getAllByRole('switch')[0]);
 
-    expect(api.events.live.setBlanked).toHaveBeenCalledWith('42', true);
+    expect(api.eventos.aoVivo.definirEmBranco).toHaveBeenCalledWith('42', true);
   });
 
   it('alterna interações e chama a API', async () => {
@@ -416,7 +416,7 @@ describe('Preview da apresentação', () => {
     const switches = view.getAllByRole('switch');
     await fireEvent.click(switches[3]);
 
-    expect(api.events.live.setInteractionsEnabled).toHaveBeenCalledWith('42', false);
+    expect(api.eventos.aoVivo.definirInteracoes).toHaveBeenCalledWith('42', false);
   });
 
   it('alterna esconder respostas da plateia e chama a API', async () => {
@@ -426,7 +426,7 @@ describe('Preview da apresentação', () => {
     const switches = view.getAllByRole('switch');
     await fireEvent.click(switches[1]);
 
-    expect(api.events.live.setAnswersHidden).toHaveBeenCalledWith('42', true);
+    expect(api.eventos.aoVivo.ocultarRespostas).toHaveBeenCalledWith('42', true);
   });
 
   it('alterna ocultar nomes e chama a API, mas mantém a legenda de nome visível em /palco', async () => {
@@ -441,7 +441,7 @@ describe('Preview da apresentação', () => {
 
     // é estado do servidor agora (pra sincronizar com /apresentar), mas /palco
     // sempre mostra os nomes — o toggle não afeta a própria tela do admin
-    expect(api.events.live.setNamesHidden).toHaveBeenCalledWith('42', true);
+    expect(api.eventos.aoVivo.ocultarNomes).toHaveBeenCalledWith('42', true);
     expect(within(pendingWrap).getByText('ana@exemplo.com')).toBeInTheDocument();
   });
 
@@ -454,10 +454,10 @@ describe('Preview da apresentação', () => {
       target: { value: 'Voltamos em 5 min' }
     });
     await fireEvent.click(view.getByRole('button', { name: 'Enviar aviso' }));
-    expect(api.events.live.setMessage).toHaveBeenCalledWith('42', 'Voltamos em 5 min');
+    expect(api.eventos.aoVivo.definirMensagem).toHaveBeenCalledWith('42', 'Voltamos em 5 min');
 
     await fireEvent.click(view.getByRole('button', { name: 'Limpar' }));
-    expect(api.events.live.setMessage).toHaveBeenCalledWith('42', '');
+    expect(api.eventos.aoVivo.definirMensagem).toHaveBeenCalledWith('42', '');
   });
 
   it('espaço e R digitados no campo de aviso não disparam os atalhos globais', async () => {
@@ -493,7 +493,7 @@ describe('Preview da apresentação', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Dispensar' }));
 
-    expect(api.events.live.dismissQA).toHaveBeenCalledWith('42', 'm1');
+    expect(api.eventos.aoVivo.dispensarPergunta).toHaveBeenCalledWith('42', 'm1');
     expect(view.queryByText('oi')).not.toBeInTheDocument();
   });
 
@@ -601,7 +601,7 @@ describe('Preview da apresentação', () => {
       within(tip).getByRole('button', { name: 'Revelar resposta de ana@exemplo.com' })
     );
 
-    expect(api.events.live.reveal).toHaveBeenCalledWith('42', 'q1', 'p1');
+    expect(api.eventos.aoVivo.revelar).toHaveBeenCalledWith('42', 'q1', 'p1');
 
     // revelou: ana sai da fila e entra na zona; o popup continua aberto e o
     // botão dela agora vira "desrevelar", com o rodapé atualizado.

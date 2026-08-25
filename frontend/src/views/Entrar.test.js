@@ -9,7 +9,7 @@ vi.mock('../lib/router.js', () => ({
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    login: vi.fn()
+    entrar: vi.fn()
   }
 }));
 
@@ -28,7 +28,7 @@ describe('Tela de Login', () => {
   });
 
   it('faz login com sucesso e navega para o painel', async () => {
-    api.login.mockResolvedValue({
+    api.entrar.mockResolvedValue({
       user: { id: '1', email: 'ana@x.com', name: 'Ana' }
     });
     render(Entrar);
@@ -38,7 +38,7 @@ describe('Tela de Login', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     await waitFor(() =>
-      expect(api.login).toHaveBeenCalledWith({
+      expect(api.entrar).toHaveBeenCalledWith({
         email: 'ana@x.com',
         password: 'segredo'
       })
@@ -47,7 +47,7 @@ describe('Tela de Login', () => {
   });
 
   it('exibe mensagem de erro do servidor', async () => {
-    api.login.mockRejectedValue(new Error('E-mail ou senha inválidos.'));
+    api.entrar.mockRejectedValue(new Error('E-mail ou senha inválidos.'));
     render(Entrar);
 
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@x.com');

@@ -28,7 +28,7 @@
 
   async function load() {
     try {
-      snapshot = await api.events.live.presentationState(id);
+      snapshot = await api.eventos.aoVivo.estadoApresentacao(id);
       connectStream();
     } catch (e) {
       error = e.message;
@@ -38,7 +38,7 @@
   }
 
   function connectStream() {
-    eventSource = new EventSource(api.events.live.presentationStreamUrl(id));
+    eventSource = new EventSource(api.eventos.aoVivo.urlFluxoApresentacao(id));
     eventSource.onmessage = (e) => {
       snapshot = JSON.parse(e.data);
     };

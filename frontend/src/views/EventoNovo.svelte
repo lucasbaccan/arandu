@@ -32,7 +32,7 @@
     if (error) return;
     submitting = true;
     try {
-      await api.events.create({
+      await api.eventos.criar({
         title: title.trim(),
         pinCode: pinMode === 'custom' ? pinCode.trim() : ''
       });

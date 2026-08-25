@@ -111,7 +111,7 @@
 
   function selectPresentMode(mode) {
     modoDensidadeApresentacao = mode;
-    api.events.live.setDensityMode(id, mode).catch(() => {});
+    api.eventos.aoVivo.definirModoDensidade(id, mode).catch(() => {});
     openPresentationWindow();
   }
 
@@ -166,10 +166,10 @@
   async function load() {
     try {
       const [{ event: ev }, { questions: qs }, { participants: ps }, adminSnap] = await Promise.all([
-        api.events.get(id),
-        api.events.questions.list(id),
-        api.events.responses.list(id),
-        api.events.live.adminState(id)
+        api.eventos.buscar(id),
+        api.eventos.perguntas.listar(id),
+        api.eventos.respostas.listar(id),
+        api.eventos.aoVivo.estadoAdmin(id)
       ]);
       event = ev;
       questions = qs;
@@ -210,14 +210,14 @@
   // quebra a UI local se a rede falhar), pra quem está assistindo em
   // /plateia/:id ver a mesma coisa em tempo real.
   function syncQuestion(questionId) {
-    api.events.live.setQuestion(id, questionId).catch(() => {});
+    api.eventos.aoVivo.definirPergunta(id, questionId).catch(() => {});
   }
 
   // Conexão só de leitura: traz de volta blank/aviso/interações se a página
   // recarregar, e entrega as reações e mensagens de Q&A que chegam ao vivo.
   function connectAdminStream() {
     if (adminEventSource) adminEventSource.close();
-    adminEventSource = new EventSource(api.events.live.adminStreamUrl(id));
+    adminEventSource = new EventSource(api.eventos.aoVivo.urlFluxoAdmin(id));
     adminEventSource.onmessage = (e) => {
       const snap = JSON.parse(e.data);
       blanked = snap.blanked;
@@ -236,17 +236,17 @@
 
   function toggleBlanked() {
     blanked = !blanked;
-    api.events.live.setBlanked(id, blanked).catch(() => {});
+    api.eventos.aoVivo.definirEmBranco(id, blanked).catch(() => {});
   }
 
   function toggleAnswersHidden() {
     answersHidden = !answersHidden;
-    api.events.live.setAnswersHidden(id, answersHidden).catch(() => {});
+    api.eventos.aoVivo.ocultarRespostas(id, answersHidden).catch(() => {});
   }
 
   function toggleInteractions() {
     interactionsEnabled = !interactionsEnabled;
-    api.events.live.setInteractionsEnabled(id, interactionsEnabled).catch(() => {});
+    api.eventos.aoVivo.definirInteracoes(id, interactionsEnabled).catch(() => {});
   }
 
   // Estado do servidor (como os outros switches) — afeta a legenda de nome
@@ -255,23 +255,23 @@
   // independente disso.
   function toggleNamesHidden() {
     namesHidden = !namesHidden;
-    api.events.live.setNamesHidden(id, namesHidden).catch(() => {});
+    api.eventos.aoVivo.ocultarNomes(id, namesHidden).catch(() => {});
   }
 
   function sendMessage() {
     message = messageDraft.trim();
-    api.events.live.setMessage(id, message).catch(() => {});
+    api.eventos.aoVivo.definirMensagem(id, message).catch(() => {});
   }
 
   function clearMessage() {
     message = '';
     messageDraft = '';
-    api.events.live.setMessage(id, '').catch(() => {});
+    api.eventos.aoVivo.definirMensagem(id, '').catch(() => {});
   }
 
   function dismissQA(messageId) {
     qaInbox = qaInbox.filter((m) => m.id !== messageId);
-    api.events.live.dismissQA(id, messageId).catch(() => {});
+    api.eventos.aoVivo.dispensarPergunta(id, messageId).catch(() => {});
   }
 
   function openAudienceScreen() {
@@ -417,11 +417,11 @@
     if (set.has(p.id)) {
       set.delete(p.id);
       revealed = { ...revealed };
-      api.events.live.unreveal(id, questionId, p.id).catch(() => {});
+      api.eventos.aoVivo.ocultar(id, questionId, p.id).catch(() => {});
     } else {
       set.add(p.id);
       revealed = { ...revealed };
-      api.events.live.reveal(id, questionId, p.id).catch(() => {});
+      api.eventos.aoVivo.revelar(id, questionId, p.id).catch(() => {});
     }
   }
 
@@ -433,7 +433,7 @@
       setTimeout(() => {
         set.add(p.id);
         revealed = { ...revealed };
-        api.events.live.reveal(id, questionId, p.id).catch(() => {});
+        api.eventos.aoVivo.revelar(id, questionId, p.id).catch(() => {});
       }, i * 150);
     });
   }
@@ -452,7 +452,7 @@
         setTimeout(() => {
           set.add(p.id);
           revealed = { ...revealed };
-          api.events.live.reveal(id, questionId, p.id).catch(() => {});
+          api.eventos.aoVivo.revelar(id, questionId, p.id).catch(() => {});
         }, i * 150);
       });
   }
@@ -460,7 +460,7 @@
   function resetReveal() {
     if (!currentQuestion) return;
     revealed = { ...revealed, [currentQuestion.id]: new Set() };
-    api.events.live.reset(id, currentQuestion.id).catch(() => {});
+    api.eventos.aoVivo.reiniciar(id, currentQuestion.id).catch(() => {});
   }
 
   // Reseta a revelação de TODAS as perguntas de uma vez (diferente do
@@ -468,7 +468,7 @@
   // recomeçar a apresentação inteira do zero.
   function resetAllReveals() {
     revealed = Object.fromEntries(questions.map((q) => [q.id, new Set()]));
-    api.events.live.resetAll(id).catch(() => {});
+    api.eventos.aoVivo.reiniciarTudo(id).catch(() => {});
   }
 
   $: anyRevealed = Object.values(revealed).some((set) => set.size > 0);

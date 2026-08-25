@@ -74,7 +74,7 @@
     }
     joining = true;
     try {
-      const result = await api.public.events.live.join(id, {
+      const result = await api.publico.eventos.aoVivo.entrar(id, {
         pinCode,
         email: trimmedEmail
       });
@@ -91,7 +91,7 @@
   async function startWatching() {
     loadError = '';
     try {
-      snapshot = await api.public.events.live.state(id, token);
+      snapshot = await api.publico.eventos.aoVivo.estado(id, token);
     } catch (e) {
       loadError = e.message;
       return;
@@ -101,7 +101,7 @@
 
   function connectStream() {
     if (eventSource) eventSource.close();
-    eventSource = new EventSource(api.public.events.live.streamUrl(id, token));
+    eventSource = new EventSource(api.publico.eventos.aoVivo.urlFluxo(id, token));
     eventSource.onmessage = (e) => {
       connected = true;
       snapshot = JSON.parse(e.data);
@@ -118,7 +118,7 @@
   }
 
   function handleReact(e) {
-    api.public.events.live.react(id, token, e.detail).catch(() => {});
+    api.publico.eventos.aoVivo.reagir(id, token, e.detail).catch(() => {});
   }
 
   async function submitQuestion() {
@@ -126,7 +126,7 @@
     if (!text) return;
     qaError = '';
     try {
-      const res = await api.public.events.live.submitQuestion(id, token, text, browserId);
+      const res = await api.publico.eventos.aoVivo.enviarPergunta(id, token, text, browserId);
       qaDraft = '';
       qaSent = true;
       if (res && res.messageId) {
@@ -145,7 +145,7 @@
   // pelo organizador — nesse caso o servidor responde "não encontrada".
   async function removeQuestion(q) {
     try {
-      await api.public.events.live.deleteQuestion(id, token, q.id, browserId);
+      await api.publico.eventos.aoVivo.removerPergunta(id, token, q.id, browserId);
     } catch {
       // já removida no servidor ou sem rede — tira da lista local assim mesmo
     } finally {

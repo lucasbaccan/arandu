@@ -23,13 +23,13 @@ setUnauthorizedHandler(() => {
 
 export async function initAuth() {
   try {
-    const { user: me } = await api.me();
+    const { user: me } = await api.eu();
     user.set(me);
   } catch {
     user.set(null);
   }
   try {
-    authConfig.set(await api.config());
+    authConfig.set(await api.configuracao());
   } catch {
     // mantém defaults
   }
@@ -37,20 +37,20 @@ export async function initAuth() {
 }
 
 export async function login(email, password) {
-  const { user: u } = await api.login({ email, password });
+  const { user: u } = await api.entrar({ email, password });
   user.set(u);
   return u;
 }
 
 export async function register(name, email, password) {
-  const { user: u } = await api.register({ name, email, password });
+  const { user: u } = await api.criarConta({ name, email, password });
   user.set(u);
   return u;
 }
 
 export async function logout() {
   try {
-    await api.logout();
+    await api.sair();
   } catch {
     // segue mesmo sem confirmação do servidor
   }

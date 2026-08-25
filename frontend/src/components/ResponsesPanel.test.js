@@ -6,11 +6,11 @@ import { toast } from '../lib/toastStore.js';
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    events: {
-      responses: {
-        list: vi.fn(),
-        updateAnswer: vi.fn(),
-        updatePhoto: vi.fn()
+    eventos: {
+      respostas: {
+        listar: vi.fn(),
+        atualizarResposta: vi.fn(),
+        atualizarFoto: vi.fn()
       }
     }
   }
@@ -58,7 +58,7 @@ describe('ResponsesPanel', () => {
   });
 
   it('mostra contagem zero e mensagem de vazio', async () => {
-    api.events.responses.list.mockResolvedValue({ participantCount: 0, participants: [] });
+    api.eventos.respostas.listar.mockResolvedValue({ participantCount: 0, participants: [] });
     const view = mount();
 
     expect(await view.findByText('0 pessoas responderam')).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('ResponsesPanel', () => {
   });
 
   it('lista participantes e mostra respostas ao expandir', async () => {
-    api.events.responses.list.mockResolvedValue({ participantCount: 1, participants: [participant] });
+    api.eventos.respostas.listar.mockResolvedValue({ participantCount: 1, participants: [participant] });
     const view = mount();
 
     expect(await view.findByText('1 pessoa respondeu')).toBeInTheDocument();
@@ -80,8 +80,8 @@ describe('ResponsesPanel', () => {
   });
 
   it('permite editar uma resposta de texto aberto', async () => {
-    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [participant] });
-    api.events.responses.updateAnswer.mockResolvedValue({ ok: true });
+    api.eventos.respostas.listar.mockResolvedValueOnce({ participantCount: 1, participants: [participant] });
+    api.eventos.respostas.atualizarResposta.mockResolvedValue({ ok: true });
     const updated = {
       ...participant,
       answers: [
@@ -89,7 +89,7 @@ describe('ResponsesPanel', () => {
         { ...participant.answers[1], text: '[removido]' }
       ]
     };
-    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [updated] });
+    api.eventos.respostas.listar.mockResolvedValueOnce({ participantCount: 1, participants: [updated] });
 
     const view = mount();
     await view.findByText('ana@exemplo.com');
@@ -102,7 +102,7 @@ describe('ResponsesPanel', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() =>
-      expect(api.events.responses.updateAnswer).toHaveBeenCalledWith('42', 'p1', 'q2', {
+      expect(api.eventos.respostas.atualizarResposta).toHaveBeenCalledWith('42', 'p1', 'q2', {
         text: '[removido]'
       })
     );
@@ -111,8 +111,8 @@ describe('ResponsesPanel', () => {
   });
 
   it('permite editar uma resposta de múltipla escolha', async () => {
-    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [participant] });
-    api.events.responses.updateAnswer.mockResolvedValue({ ok: true });
+    api.eventos.respostas.listar.mockResolvedValueOnce({ participantCount: 1, participants: [participant] });
+    api.eventos.respostas.atualizarResposta.mockResolvedValue({ ok: true });
     const updated = {
       ...participant,
       answers: [
@@ -120,7 +120,7 @@ describe('ResponsesPanel', () => {
         participant.answers[1]
       ]
     };
-    api.events.responses.list.mockResolvedValueOnce({ participantCount: 1, participants: [updated] });
+    api.eventos.respostas.listar.mockResolvedValueOnce({ participantCount: 1, participants: [updated] });
 
     const view = mount();
     await view.findByText('ana@exemplo.com');
@@ -132,7 +132,7 @@ describe('ResponsesPanel', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() =>
-      expect(api.events.responses.updateAnswer).toHaveBeenCalledWith('42', 'p1', 'q1', {
+      expect(api.eventos.respostas.atualizarResposta).toHaveBeenCalledWith('42', 'p1', 'q1', {
         optionId: 'opt-js'
       })
     );
@@ -140,7 +140,7 @@ describe('ResponsesPanel', () => {
   });
 
   it('mostra o link de edição do participante ao expandir', async () => {
-    api.events.responses.list.mockResolvedValue({ participantCount: 1, participants: [participant] });
+    api.eventos.respostas.listar.mockResolvedValue({ participantCount: 1, participants: [participant] });
     const view = mount();
     await view.findByText('ana@exemplo.com');
 
@@ -154,7 +154,7 @@ describe('ResponsesPanel', () => {
     // A lista devolve a foto como URL de arquivo; o cropper só emite data URL
     // quando o usuário troca a foto. Salvar sem alterar não deve mandar a URL
     // de volta para a API (quebraria a validação de data:image).
-    api.events.responses.list.mockResolvedValue({ participantCount: 1, participants: [participant] });
+    api.eventos.respostas.listar.mockResolvedValue({ participantCount: 1, participants: [participant] });
 
     const view = mount();
     await view.findByText('ana@exemplo.com');
@@ -165,13 +165,13 @@ describe('ResponsesPanel', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Salvar foto' }));
 
-    await waitFor(() => expect(api.events.responses.updatePhoto).not.toHaveBeenCalled());
+    await waitFor(() => expect(api.eventos.respostas.atualizarFoto).not.toHaveBeenCalled());
     expect(view.queryByText('Salvar foto')).not.toBeInTheDocument();
   });
 
   it('mostra erro ao falhar atualização', async () => {
-    api.events.responses.list.mockResolvedValue({ participantCount: 1, participants: [participant] });
-    api.events.responses.updateAnswer.mockRejectedValue(new Error('Resposta muito longa.'));
+    api.eventos.respostas.listar.mockResolvedValue({ participantCount: 1, participants: [participant] });
+    api.eventos.respostas.atualizarResposta.mockRejectedValue(new Error('Resposta muito longa.'));
 
     const view = mount();
     await view.findByText('ana@exemplo.com');

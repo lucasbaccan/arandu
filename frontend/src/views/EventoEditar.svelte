@@ -108,12 +108,12 @@
   }
 
   async function loadQuestions() {
-    const { questions: qs } = await api.events.questions.list(id);
+    const { questions: qs } = await api.eventos.perguntas.listar(id);
     questions = qs;
   }
 
   async function loadResponses() {
-    const { participantCount: pc, participants: parts } = await api.events.responses.list(id);
+    const { participantCount: pc, participants: parts } = await api.eventos.respostas.listar(id);
     participantCount = pc;
     participants = parts;
     if (!selectedParticipantId || !parts.some((p) => p.id === selectedParticipantId)) {
@@ -124,8 +124,8 @@
   async function load() {
     try {
       const [{ event }, { questions: qs }] = await Promise.all([
-        api.events.get(id),
-        api.events.questions.list(id),
+        api.eventos.buscar(id),
+        api.eventos.perguntas.listar(id),
         loadResponses()
       ]);
       title = event.title;
@@ -160,7 +160,7 @@
     if (error) return;
     submitting = true;
     try {
-      await api.events.update(id, {
+      await api.eventos.atualizar(id, {
         title: title.trim(),
         pinCode: pinCode.trim(),
         configShowRanking: showRanking,
@@ -181,7 +181,7 @@
     const nextStatus = status === 'OPEN_FOR_ANSWERS' ? 'CLOSED_FOR_ANSWERS' : 'OPEN_FOR_ANSWERS';
     statusBusy = true;
     try {
-      const { event } = await api.events.update(id, {
+      const { event } = await api.eventos.atualizar(id, {
         title: title.trim(),
         pinCode: '',
         configShowRanking: showRanking,
@@ -237,7 +237,7 @@
         type: detail.type,
         options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean)
       };
-      const { question } = await api.events.questions.create(id, body);
+      const { question } = await api.eventos.perguntas.criar(id, body);
       const next = [...questions];
       next.splice(pos, 0, question);
       questions = next;
@@ -263,7 +263,7 @@
         title: detail.title.trim(),
         options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean)
       };
-      const { question } = await api.events.questions.update(id, questionId, body);
+      const { question } = await api.eventos.perguntas.atualizar(id, questionId, body);
       questions = questions.map((x) => (x.id === questionId ? question : x));
       showToast('Pergunta atualizada!');
       closeForms();
@@ -280,7 +280,7 @@
       return;
     }
     try {
-      await api.events.questions.remove(id, q.id);
+      await api.eventos.perguntas.remover(id, q.id);
       questions = questions.filter((x) => x.id !== q.id);
       showToast('Pergunta removida.');
     } catch (e) {
@@ -301,7 +301,7 @@
     if (reorderBusy || questions.length < 2) return;
     reorderBusy = true;
     try {
-      await api.events.questions.reorder(
+      await api.eventos.perguntas.reordenar(
         id,
         questions.map((q) => q.id)
       );
@@ -410,7 +410,7 @@
     const key = `${participantId}:${questionId}`;
     savingAnswerKey = key;
     try {
-      await api.events.responses.updateAnswer(id, participantId, questionId, { optionId });
+      await api.eventos.respostas.atualizarResposta(id, participantId, questionId, { optionId });
       await loadResponses();
     } catch (e) {
       showToast(e.message, 'error');
@@ -423,7 +423,7 @@
     const key = `${participantId}:${questionId}`;
     savingAnswerKey = key;
     try {
-      await api.events.responses.updateAnswer(id, participantId, questionId, { text });
+      await api.eventos.respostas.atualizarResposta(id, participantId, questionId, { text });
       await loadResponses();
       showToast('Resposta atualizada!');
     } catch (e) {
@@ -451,7 +451,7 @@
     if (!selectedParticipant) return;
     savingPhoto = true;
     try {
-      await api.events.responses.updatePhoto(id, selectedParticipant.id, { photo: photoDraft });
+      await api.eventos.respostas.atualizarFoto(id, selectedParticipant.id, { photo: photoDraft });
       showToast('Foto atualizada!');
       closePhotoDialog();
       await loadResponses();
@@ -466,7 +466,7 @@
     if (!selectedParticipant) return;
     savingPhoto = true;
     try {
-      await api.events.responses.updatePhoto(id, selectedParticipant.id, { photo: '' });
+      await api.eventos.respostas.atualizarFoto(id, selectedParticipant.id, { photo: '' });
       showToast('Foto removida.');
       closePhotoDialog();
       await loadResponses();

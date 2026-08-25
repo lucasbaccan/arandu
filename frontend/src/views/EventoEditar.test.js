@@ -11,19 +11,19 @@ vi.mock('../lib/router.js', () => ({
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    events: {
-      get: vi.fn(),
-      update: vi.fn(),
-      questions: {
-        list: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        reorder: vi.fn(),
-        remove: vi.fn()
+    eventos: {
+      buscar: vi.fn(),
+      atualizar: vi.fn(),
+      perguntas: {
+        listar: vi.fn(),
+        criar: vi.fn(),
+        atualizar: vi.fn(),
+        reordenar: vi.fn(),
+        remover: vi.fn()
       },
-      responses: {
-        list: vi.fn(),
-        updateAnswer: vi.fn()
+      respostas: {
+        listar: vi.fn(),
+        atualizarResposta: vi.fn()
       }
     }
   }
@@ -59,8 +59,8 @@ function question(id, title) {
 function mount(questions = [], participantCount = 0) {
   const target = document.createElement('div');
   document.body.appendChild(target);
-  api.events.questions.list.mockResolvedValue({ questions });
-  api.events.responses.list.mockResolvedValue({ participantCount, participants: [] });
+  api.eventos.perguntas.listar.mockResolvedValue({ questions });
+  api.eventos.respostas.listar.mockResolvedValue({ participantCount, participants: [] });
   new EventoEditar({ target, props: { id: '42' } });
   return within(target);
 }
@@ -73,7 +73,7 @@ describe('Editar evento', () => {
   });
 
   it('carrega o evento e preenche o formulário', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
 
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
@@ -86,7 +86,7 @@ describe('Editar evento', () => {
   });
 
   it('mostra a quantidade de pessoas que responderam', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount([], 3);
 
     await waitFor(() => {
@@ -97,7 +97,7 @@ describe('Editar evento', () => {
   });
 
   it('exige título ao salvar', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -105,12 +105,12 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
 
     expect(await view.findByText('Informe o título do evento.')).toBeInTheDocument();
-    expect(api.events.update).not.toHaveBeenCalled();
+    expect(api.eventos.atualizar).not.toHaveBeenCalled();
   });
 
   it('salva mantendo o PIN quando ele não é alterado', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.update.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.atualizar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -118,7 +118,7 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
 
     await waitFor(() =>
-      expect(api.events.update).toHaveBeenCalledWith('42', {
+      expect(api.eventos.atualizar).toHaveBeenCalledWith('42', {
         title: 'Título novo',
         pinCode: '123456',
         configShowRanking: true
@@ -128,8 +128,8 @@ describe('Editar evento', () => {
   });
 
   it('salva com novo PIN ao editar o campo diretamente', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.update.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.atualizar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -139,7 +139,7 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
 
     await waitFor(() =>
-      expect(api.events.update).toHaveBeenCalledWith('42', {
+      expect(api.eventos.atualizar).toHaveBeenCalledWith('42', {
         title: 'Conecta DevOps',
         pinCode: 'dev-team',
         configShowRanking: true
@@ -149,7 +149,7 @@ describe('Editar evento', () => {
   });
 
   it('rejeita PIN inválido', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -159,12 +159,12 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
 
     expect(await view.findByText(/O PIN deve ter 1 a 25 caracteres/)).toBeInTheDocument();
-    expect(api.events.update).not.toHaveBeenCalled();
+    expect(api.eventos.atualizar).not.toHaveBeenCalled();
   });
 
   it('mostra erro do servidor', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.update.mockRejectedValue(new Error('Este PIN já está em uso. Escolha outro.'));
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.atualizar.mockRejectedValue(new Error('Este PIN já está em uso. Escolha outro.'));
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -178,14 +178,14 @@ describe('Editar evento', () => {
   it('mostra tela de não encontrado quando o evento não existe', async () => {
     const err = new Error('Evento não encontrado.');
     err.status = 404;
-    api.events.get.mockRejectedValue(err);
+    api.eventos.buscar.mockRejectedValue(err);
     const view = mount();
 
     expect(await view.findByText('Evento não encontrado')).toBeInTheDocument();
   });
 
   it('carrega e exibe as perguntas do evento', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const questions = [
       {
         id: '1',
@@ -219,10 +219,10 @@ describe('Editar evento', () => {
   });
 
   it('alterna entre as abas Perguntas e Respostas', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
-    api.events.responses.list.mockResolvedValue({
+    api.eventos.respostas.listar.mockResolvedValue({
       participantCount: 1,
       participants: [
         {
@@ -254,7 +254,7 @@ describe('Editar evento', () => {
   });
 
   it('adiciona uma pergunta em grupo', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
 
     const created = {
@@ -269,7 +269,7 @@ describe('Editar evento', () => {
         { id: '2', text: 'Cappuccino' }
       ]
     };
-    api.events.questions.create.mockResolvedValue({ question: created });
+    api.eventos.perguntas.criar.mockResolvedValue({ question: created });
 
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
     await fireEvent.click(view.getByRole('button', { name: '+ Adicionar pergunta' }));
@@ -279,7 +279,7 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Adicionar' }));
 
     await waitFor(() =>
-      expect(api.events.questions.create).toHaveBeenCalledWith('42', {
+      expect(api.eventos.perguntas.criar).toHaveBeenCalledWith('42', {
         title: 'Qual é o seu café preferido?',
         type: 'GROUP',
         options: ['Espresso', 'Cappuccino']
@@ -290,7 +290,7 @@ describe('Editar evento', () => {
   });
 
   it('cria uma pergunta de resposta aberta sem exigir opções', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
 
     const created = {
@@ -302,7 +302,7 @@ describe('Editar evento', () => {
       orderIndex: 0,
       options: []
     };
-    api.events.questions.create.mockResolvedValue({ question: created });
+    api.eventos.perguntas.criar.mockResolvedValue({ question: created });
 
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
     await fireEvent.click(view.getByRole('button', { name: '+ Adicionar pergunta' }));
@@ -314,7 +314,7 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Adicionar' }));
 
     await waitFor(() =>
-      expect(api.events.questions.create).toHaveBeenCalledWith('42', {
+      expect(api.eventos.perguntas.criar).toHaveBeenCalledWith('42', {
         title: 'Qual sua comida favorita?',
         type: 'OPEN_TEXT',
         options: []
@@ -325,7 +325,7 @@ describe('Editar evento', () => {
   });
 
   it('insere uma pergunta entre duas existentes', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const questions = [question('1', 'Primeira'), question('2', 'Segunda')];
     const view = mount(questions);
     await view.findByText('Primeira');
@@ -342,8 +342,8 @@ describe('Editar evento', () => {
         { id: '91', text: 'Não' }
       ]
     };
-    api.events.questions.create.mockResolvedValue({ question: created });
-    api.events.questions.reorder.mockResolvedValue(null);
+    api.eventos.perguntas.criar.mockResolvedValue({ question: created });
+    api.eventos.perguntas.reordenar.mockResolvedValue(null);
 
     await fireEvent.click(view.getByLabelText('Adicionar pergunta após "Primeira"'));
     await userEvent.type(view.getByLabelText('Pergunta'), 'Nova pergunta');
@@ -352,14 +352,14 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Adicionar' }));
 
     await waitFor(() =>
-      expect(api.events.questions.create).toHaveBeenCalledWith('42', {
+      expect(api.eventos.perguntas.criar).toHaveBeenCalledWith('42', {
         title: 'Nova pergunta',
         type: 'GROUP',
         options: ['Sim', 'Não']
       })
     );
     await waitFor(() =>
-      expect(api.events.questions.reorder).toHaveBeenCalledWith('42', ['1', '9', '2'])
+      expect(api.eventos.perguntas.reordenar).toHaveBeenCalledWith('42', ['1', '9', '2'])
     );
     const titles = view
       .getAllByText(/Primeira|Segunda|Nova pergunta/)
@@ -368,7 +368,7 @@ describe('Editar evento', () => {
   });
 
   it('exige texto na pergunta', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -376,11 +376,11 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Adicionar' }));
 
     expect(await view.findByText('Informe o texto da pergunta.')).toBeInTheDocument();
-    expect(api.events.questions.create).not.toHaveBeenCalled();
+    expect(api.eventos.perguntas.criar).not.toHaveBeenCalled();
   });
 
   it('exige pelo menos 2 opções em perguntas de grupo', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -390,11 +390,11 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Adicionar' }));
 
     expect(await view.findByText('Informe pelo menos 2 opções.')).toBeInTheDocument();
-    expect(api.events.questions.create).not.toHaveBeenCalled();
+    expect(api.eventos.perguntas.criar).not.toHaveBeenCalled();
   });
 
   it('permite adicionar e remover campos de opção', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
@@ -407,8 +407,8 @@ describe('Editar evento', () => {
   });
 
   it('move pergunta para baixo com a seta e persiste a ordem', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.reorder.mockResolvedValue(null);
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.reordenar.mockResolvedValue(null);
     const questions = [
       question('1', 'Primeira'),
       question('2', 'Segunda'),
@@ -420,15 +420,15 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getAllByLabelText('Mover pergunta para baixo')[0]);
 
     await waitFor(() =>
-      expect(api.events.questions.reorder).toHaveBeenCalledWith('42', ['2', '1', '3'])
+      expect(api.eventos.perguntas.reordenar).toHaveBeenCalledWith('42', ['2', '1', '3'])
     );
     const titles = view.getAllByText(/Primeira|Segunda|Terceira/).map((el) => el.textContent);
     expect(titles).toEqual(['Segunda', 'Primeira', 'Terceira']);
   });
 
   it('move pergunta para cima com a seta', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.reorder.mockResolvedValue(null);
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.reordenar.mockResolvedValue(null);
     const questions = [question('1', 'Primeira'), question('2', 'Segunda')];
     const view = mount(questions);
     await view.findByText('Primeira');
@@ -436,12 +436,12 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getAllByLabelText('Mover pergunta para cima')[1]);
 
     await waitFor(() =>
-      expect(api.events.questions.reorder).toHaveBeenCalledWith('42', ['2', '1'])
+      expect(api.eventos.perguntas.reordenar).toHaveBeenCalledWith('42', ['2', '1'])
     );
   });
 
   it('desabilita setas nos extremos da lista', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const questions = [question('1', 'Primeira'), question('2', 'Segunda')];
     const view = mount(questions);
     await view.findByText('Primeira');
@@ -481,8 +481,8 @@ describe('Editar evento', () => {
   }
 
   it('troca a pergunta adjacente ao cruzar o meio dela ao arrastar para baixo', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.reorder.mockResolvedValue(null);
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.reordenar.mockResolvedValue(null);
     const questions = [question('1', 'Primeira'), question('2', 'Segunda'), question('3', 'Terceira')];
     const view = mount(questions);
     await view.findByText('Primeira');
@@ -499,14 +499,14 @@ describe('Editar evento', () => {
     await dispatchDragEventAt(list, 'drop', 95, dt);
 
     await waitFor(() =>
-      expect(api.events.questions.reorder).toHaveBeenCalledWith('42', ['2', '1', '3'])
+      expect(api.eventos.perguntas.reordenar).toHaveBeenCalledWith('42', ['2', '1', '3'])
     );
     expect(dt.setData).toHaveBeenCalled();
   });
 
   it('move o item além do vizinho imediato quando o arrasto cruza mais de um meio', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.reorder.mockResolvedValue(null);
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.reordenar.mockResolvedValue(null);
     const questions = [question('1', 'Primeira'), question('2', 'Segunda'), question('3', 'Terceira')];
     const view = mount(questions);
     await view.findByText('Primeira');
@@ -522,13 +522,13 @@ describe('Editar evento', () => {
     await dispatchDragEventAt(list, 'drop', 160, dt);
 
     await waitFor(() =>
-      expect(api.events.questions.reorder).toHaveBeenCalledWith('42', ['2', '3', '1'])
+      expect(api.eventos.perguntas.reordenar).toHaveBeenCalledWith('42', ['2', '3', '1'])
     );
   });
 
   it('troca a pergunta adjacente ao cruzar o meio dela ao arrastar para cima', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.reorder.mockResolvedValue(null);
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.reordenar.mockResolvedValue(null);
     const questions = [question('1', 'Primeira'), question('2', 'Segunda'), question('3', 'Terceira')];
     const view = mount(questions);
     await view.findByText('Primeira');
@@ -544,14 +544,14 @@ describe('Editar evento', () => {
     await dispatchDragEventAt(list, 'drop', 85, dt);
 
     await waitFor(() =>
-      expect(api.events.questions.reorder).toHaveBeenCalledWith('42', ['1', '3', '2'])
+      expect(api.eventos.perguntas.reordenar).toHaveBeenCalledWith('42', ['1', '3', '2'])
     );
   });
 
   it('recarrega as perguntas quando a reordenação falha', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.reorder.mockRejectedValueOnce(new Error('Falha ao reordenar.'));
-    api.events.questions.list.mockResolvedValue({
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.reordenar.mockRejectedValueOnce(new Error('Falha ao reordenar.'));
+    api.eventos.perguntas.listar.mockResolvedValue({
       questions: [question('1', 'Primeira'), question('2', 'Segunda')]
     });
     const questions = [question('2', 'Segunda'), question('1', 'Primeira')];
@@ -567,7 +567,7 @@ describe('Editar evento', () => {
   });
 
   it('remove uma pergunta existente', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const questions = [
       {
         id: '5',
@@ -579,7 +579,7 @@ describe('Editar evento', () => {
         options: [{ id: '1', text: 'A' }]
       }
     ];
-    api.events.questions.remove.mockResolvedValue(null);
+    api.eventos.perguntas.remover.mockResolvedValue(null);
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const view = mount(questions);
     await view.findByText('Pergunta a remover');
@@ -587,13 +587,13 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByLabelText('Remover pergunta Pergunta a remover'));
 
     expect(confirmSpy).toHaveBeenCalled();
-    await waitFor(() => expect(api.events.questions.remove).toHaveBeenCalledWith('42', '5'));
+    await waitFor(() => expect(api.eventos.perguntas.remover).toHaveBeenCalledWith('42', '5'));
     await waitFor(() => expect(view.queryByText('Pergunta a remover')).not.toBeInTheDocument());
     await waitFor(() => expect(get(toast)?.message).toBe('Pergunta removida.'));
   });
 
   it('nao remove a pergunta se a confirmacao for cancelada', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const questions = [question('5', 'Pergunta a manter')];
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     const view = mount(questions);
@@ -601,19 +601,19 @@ describe('Editar evento', () => {
 
     await fireEvent.click(view.getByLabelText('Remover pergunta Pergunta a manter'));
 
-    expect(api.events.questions.remove).not.toHaveBeenCalled();
+    expect(api.eventos.perguntas.remover).not.toHaveBeenCalled();
     expect(view.getByText('Pergunta a manter')).toBeInTheDocument();
   });
 
   it('edita uma pergunta existente', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const questions = [question('1', 'Primeira')];
     const updated = question('1', 'Primeira editada');
     updated.options = [
       { id: '50', text: 'X' },
       { id: '51', text: 'B' }
     ];
-    api.events.questions.update.mockResolvedValue({ question: updated });
+    api.eventos.perguntas.atualizar.mockResolvedValue({ question: updated });
     const view = mount(questions);
     await view.findByText('Primeira');
 
@@ -632,7 +632,7 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Salvar pergunta' }));
 
     await waitFor(() =>
-      expect(api.events.questions.update).toHaveBeenCalledWith('42', '1', {
+      expect(api.eventos.perguntas.atualizar).toHaveBeenCalledWith('42', '1', {
         title: 'Primeira editada',
         options: ['X', 'B']
       })
@@ -645,7 +645,7 @@ describe('Editar evento', () => {
   });
 
   it('cancela a edição de uma pergunta', async () => {
-    api.events.get.mockResolvedValue({ event });
+    api.eventos.buscar.mockResolvedValue({ event });
     const view = mount([question('1', 'Primeira')]);
     await view.findByText('Primeira');
 
@@ -654,12 +654,12 @@ describe('Editar evento', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Cancelar' }));
 
     expect(view.getByLabelText('Editar pergunta Primeira')).toBeInTheDocument();
-    expect(api.events.questions.update).not.toHaveBeenCalled();
+    expect(api.eventos.perguntas.atualizar).not.toHaveBeenCalled();
   });
 
   it('mostra erro do servidor ao adicionar pergunta', async () => {
-    api.events.get.mockResolvedValue({ event });
-    api.events.questions.create.mockRejectedValue(new Error('As opções devem ser diferentes entre si.'));
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.perguntas.criar.mockRejectedValue(new Error('As opções devem ser diferentes entre si.'));
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 

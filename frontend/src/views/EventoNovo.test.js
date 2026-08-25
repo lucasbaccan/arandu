@@ -11,7 +11,7 @@ vi.mock('../lib/router.js', () => ({
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    events: { create: vi.fn() }
+    eventos: { criar: vi.fn() }
   }
 }));
 
@@ -29,18 +29,18 @@ describe('Novo evento', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     expect(await screen.findByText('Informe o título do evento.')).toBeInTheDocument();
-    expect(api.events.create).not.toHaveBeenCalled();
+    expect(api.eventos.criar).not.toHaveBeenCalled();
   });
 
   it('cria com PIN automático quando não personalizado', async () => {
-    api.events.create.mockResolvedValue({ event: {} });
+    api.eventos.criar.mockResolvedValue({ event: {} });
     render(EventoNovo);
 
     await userEvent.type(screen.getByLabelText('Título do evento'), 'Conecta DevOps');
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     await waitFor(() =>
-      expect(api.events.create).toHaveBeenCalledWith({
+      expect(api.eventos.criar).toHaveBeenCalledWith({
         title: 'Conecta DevOps',
         pinCode: ''
       })
@@ -52,7 +52,7 @@ describe('Novo evento', () => {
   });
 
   it('envia PIN personalizado quando marcado', async () => {
-    api.events.create.mockResolvedValue({ event: {} });
+    api.eventos.criar.mockResolvedValue({ event: {} });
     render(EventoNovo);
 
     await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');
@@ -61,7 +61,7 @@ describe('Novo evento', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }));
 
     await waitFor(() =>
-      expect(api.events.create).toHaveBeenCalledWith({
+      expect(api.eventos.criar).toHaveBeenCalledWith({
         title: 'Retro',
         pinCode: 'meu-pin_1'
       })
@@ -79,11 +79,11 @@ describe('Novo evento', () => {
     expect(
       await screen.findByText(/O PIN deve ter 1 a 25 caracteres/)
     ).toBeInTheDocument();
-    expect(api.events.create).not.toHaveBeenCalled();
+    expect(api.eventos.criar).not.toHaveBeenCalled();
   });
 
   it('mostra erro do servidor', async () => {
-    api.events.create.mockRejectedValue(new Error('Este PIN já está em uso. Escolha outro.'));
+    api.eventos.criar.mockRejectedValue(new Error('Este PIN já está em uso. Escolha outro.'));
     render(EventoNovo);
 
     await userEvent.type(screen.getByLabelText('Título do evento'), 'Retro');

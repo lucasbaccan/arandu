@@ -25,10 +25,10 @@ vi.mock('./lib/router.js', async () => {
 
 vi.mock('./lib/api.js', () => ({
   api: {
-    events: {
-      create: vi.fn(),
-      list: vi.fn().mockResolvedValue({ events: [] }),
-      get: vi.fn().mockResolvedValue({
+    eventos: {
+      criar: vi.fn(),
+      listar: vi.fn().mockResolvedValue({ events: [] }),
+      buscar: vi.fn().mockResolvedValue({
         event: {
           id: '42',
           title: 'X',
@@ -38,9 +38,9 @@ vi.mock('./lib/api.js', () => ({
           createdAt: '2026-01-01T00:00:00Z'
         }
       }),
-      update: vi.fn()
+      atualizar: vi.fn()
     },
-    logout: vi.fn()
+    sair: vi.fn()
   }
 }));
 

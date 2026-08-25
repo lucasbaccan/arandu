@@ -4,15 +4,15 @@ import Plateia from './Plateia.svelte';
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    public: {
-      events: {
-        live: {
-          join: vi.fn(),
-          state: vi.fn(),
-          streamUrl: vi.fn((id, token) => `/api/public/events/${id}/live/stream?token=${token}`),
-          react: vi.fn().mockResolvedValue({ ok: true }),
-          submitQuestion: vi.fn().mockResolvedValue({ ok: true, messageId: 'm1' }),
-          deleteQuestion: vi.fn().mockResolvedValue({ ok: true })
+    publico: {
+      eventos: {
+        aoVivo: {
+          entrar: vi.fn(),
+          estado: vi.fn(),
+          urlFluxo: vi.fn((id, token) => `/api/publico/eventos/${id}/ao-vivo/fluxo?token=${token}`),
+          reagir: vi.fn().mockResolvedValue({ ok: true }),
+          enviarPergunta: vi.fn().mockResolvedValue({ ok: true, messageId: 'm1' }),
+          removerPergunta: vi.fn().mockResolvedValue({ ok: true })
         }
       }
     }
@@ -96,8 +96,8 @@ describe('Tela pública da apresentação (Audience)', () => {
     mount();
 
     expect(navigate).toHaveBeenCalledWith('/');
-    expect(api.public.events.live.join).not.toHaveBeenCalled();
-    expect(api.public.events.live.state).not.toHaveBeenCalled();
+    expect(api.publico.eventos.aoVivo.entrar).not.toHaveBeenCalled();
+    expect(api.publico.eventos.aoVivo.estado).not.toHaveBeenCalled();
   });
 
   it('com PIN na URL, mostra direto a tela de identificação (e-mail ou convidado)', () => {
@@ -115,12 +115,12 @@ describe('Tela pública da apresentação (Audience)', () => {
     await fireEvent.input(view.getByLabelText('E-mail'), { target: { value: 'nao-e-email' } });
     await fireEvent.click(view.getByRole('button', { name: 'Entrar' }));
     expect(await view.findByText('Informe um e-mail válido.')).toBeInTheDocument();
-    expect(api.public.events.live.join).not.toHaveBeenCalled();
+    expect(api.publico.eventos.aoVivo.entrar).not.toHaveBeenCalled();
   });
 
   it('entra com sucesso via e-mail e mostra a tela da plateia sem nenhum controle de admin', async () => {
-    api.public.events.live.join.mockResolvedValue({ token: 'tok-123', role: 'participante' });
-    api.public.events.live.state.mockResolvedValue(snapshot);
+    api.publico.eventos.aoVivo.entrar.mockResolvedValue({ token: 'tok-123', role: 'participante' });
+    api.publico.eventos.aoVivo.estado.mockResolvedValue(snapshot);
     const view = mount('?pin=dev-team');
 
     await fireEvent.input(view.getByLabelText('E-mail'), { target: { value: 'ana@exemplo.com' } });
@@ -130,7 +130,7 @@ describe('Tela pública da apresentação (Audience)', () => {
     expect(view.getByText('DEV-TEAM')).toBeInTheDocument();
     expect(view.getByLabelText('Alternar tema')).toBeInTheDocument();
 
-    expect(api.public.events.live.join).toHaveBeenCalledWith('42', {
+    expect(api.publico.eventos.aoVivo.entrar).toHaveBeenCalledWith('42', {
       pinCode: 'dev-team',
       email: 'ana@exemplo.com'
     });
@@ -142,22 +142,22 @@ describe('Tela pública da apresentação (Audience)', () => {
   });
 
   it('entra como convidado sem informar e-mail', async () => {
-    api.public.events.live.join.mockResolvedValue({ token: 'tok-guest', role: 'observador' });
-    api.public.events.live.state.mockResolvedValue(snapshot);
+    api.publico.eventos.aoVivo.entrar.mockResolvedValue({ token: 'tok-guest', role: 'observador' });
+    api.publico.eventos.aoVivo.estado.mockResolvedValue(snapshot);
     const view = mount('?pin=dev-team');
 
     await fireEvent.click(view.getByRole('button', { name: 'Entrar como convidado' }));
 
     expect(await view.findByText('Evento Live')).toBeInTheDocument();
-    expect(api.public.events.live.join).toHaveBeenCalledWith('42', {
+    expect(api.publico.eventos.aoVivo.entrar).toHaveBeenCalledWith('42', {
       pinCode: 'dev-team',
       email: ''
     });
   });
 
   it('atualiza a tela sozinha quando chega um snapshot do SSE', async () => {
-    api.public.events.live.join.mockResolvedValue({ token: 'tok-123', role: 'participante' });
-    api.public.events.live.state.mockResolvedValue(snapshot);
+    api.publico.eventos.aoVivo.entrar.mockResolvedValue({ token: 'tok-123', role: 'participante' });
+    api.publico.eventos.aoVivo.estado.mockResolvedValue(snapshot);
     const view = mount('?pin=dev-team');
 
     await fireEvent.input(view.getByLabelText('E-mail'), { target: { value: 'ana@exemplo.com' } });
@@ -172,7 +172,7 @@ describe('Tela pública da apresentação (Audience)', () => {
   });
 
   it('mostra erro quando o PIN está errado, sem sair da tela de identificação', async () => {
-    api.public.events.live.join.mockRejectedValue(new ApiErrorLike(401, 'PIN inválido.'));
+    api.publico.eventos.aoVivo.entrar.mockRejectedValue(new ApiErrorLike(401, 'PIN inválido.'));
     const view = mount('?pin=errado');
 
     await fireEvent.input(view.getByLabelText('E-mail'), { target: { value: 'ana@exemplo.com' } });
@@ -184,8 +184,8 @@ describe('Tela pública da apresentação (Audience)', () => {
   });
 
   async function joinAndWatch(view, extraSnapshot = {}) {
-    api.public.events.live.join.mockResolvedValue({ token: 'tok-123', role: 'participante' });
-    api.public.events.live.state.mockResolvedValue({ ...snapshot, ...extraSnapshot });
+    api.publico.eventos.aoVivo.entrar.mockResolvedValue({ token: 'tok-123', role: 'participante' });
+    api.publico.eventos.aoVivo.estado.mockResolvedValue({ ...snapshot, ...extraSnapshot });
     await fireEvent.input(view.getByLabelText('E-mail'), { target: { value: 'ana@exemplo.com' } });
     await fireEvent.click(view.getByRole('button', { name: 'Entrar' }));
     await view.findByText('Evento Live');
@@ -222,7 +222,7 @@ describe('Tela pública da apresentação (Audience)', () => {
 
     await fireEvent.click(view.getByRole('button', { name: 'Reagir com 👍' }));
 
-    expect(api.public.events.live.react).toHaveBeenCalledWith('42', 'tok-123', '👍');
+    expect(api.publico.eventos.aoVivo.reagir).toHaveBeenCalledWith('42', 'tok-123', '👍');
   });
 
   it('tela unificada: mesmo sem ?view, mostra o menu no topo (PIN + tema), as interações e nenhum botão de modo', async () => {
@@ -258,7 +258,7 @@ describe('Tela pública da apresentação (Audience)', () => {
     });
     await fireEvent.click(view.getByRole('button', { name: 'Enviar' }));
 
-    expect(api.public.events.live.submitQuestion).toHaveBeenCalledWith(
+    expect(api.publico.eventos.aoVivo.enviarPergunta).toHaveBeenCalledWith(
       '42',
       'tok-123',
       'Posso ir embora mais cedo?',
@@ -271,7 +271,7 @@ describe('Tela pública da apresentação (Audience)', () => {
   });
 
   it('remove a própria pergunta pela lista "Minhas perguntas"', async () => {
-    api.public.events.live.submitQuestion.mockResolvedValue({ ok: true, messageId: 'm42' });
+    api.publico.eventos.aoVivo.enviarPergunta.mockResolvedValue({ ok: true, messageId: 'm42' });
     const view = mount('?pin=dev-team');
     await joinAndWatch(view);
 
@@ -283,7 +283,7 @@ describe('Tela pública da apresentação (Audience)', () => {
 
     await fireEvent.click(view.getByLabelText('Remover minha pergunta'));
 
-    expect(api.public.events.live.deleteQuestion).toHaveBeenCalledWith(
+    expect(api.publico.eventos.aoVivo.removerPergunta).toHaveBeenCalledWith(
       '42',
       'tok-123',
       'm42',

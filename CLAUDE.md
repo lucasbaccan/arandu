@@ -47,7 +47,7 @@ so the Go server can proxy to or serve from an unbuilt frontend instead of the e
 
 **Participant photos are stored in the DB as base64 data URLs but never sent in JSON payloads.**
 `backend/internal/photos` materializes them as files under `PHOTOS_DIR` (`./data/photos`) and serves
-them via `GET /api/photos/{participantId}` — DTOs (`responses`, public participant, live snapshots)
+them via `GET /api/fotos/{participantId}` — DTOs (`responses`, public participant, live snapshots)
 carry only that URL (`a.photoURL(p)`). The first request for a photo decodes the DB value and writes
 the file (slower); later requests serve straight from disk with `Cache-Control`
 `public, max-age=3600, must-revalidate` (`photos.ImageMaxAge` = 1h, then revalidation via
@@ -70,18 +70,18 @@ produces one self-contained executable. Everything under `/api/` is a REST/SSE A
   (`backend/internal/auth/session.go`), checked by `requireAuth` middleware. This is who manages events,
   questions, and drives the live presentation.
 - Live viewers (participants/observers, no login): join a running event via PIN + email, get a
-  short-lived `LiveClaims` JWT (`backend/internal/auth/live.go`) that's passed as a query-string `token`
-  (not a cookie, since these are cross-device links/QR codes) to the `/api/public/events/{id}/live/*`
+  short-lived `LiveClaims` JWT (`backend/internal/auth/ao_vivo.go`) that's passed as a query-string `token`
+  (not a cookie, since these are cross-device links/QR codes) to the `/api/publico/eventos/{id}/ao-vivo/*`
   endpoints.
 
-**Live presentation state lives in memory, not SQLite** (`backend/internal/live/manager.go`). Which
+**Live presentation state lives in memory, not SQLite** (`backend/internal/live/gerenciador.go`). Which
 question is on screen, which participants have been "revealed", blanked/message overlay state, and
 answers-hidden state are all per-event, mutex-protected, in-process maps — deliberately not persisted,
 since it resets on restart and only one process runs at a time. State changes are pushed to viewers via
 Server-Sent Events: a coalescing `Subscribe` channel (buffer 1, "something changed, go re-fetch a
 snapshot") drives the main live state, while `SubscribeReactions` is a separate non-coalescing channel
 because individual emoji reactions must each render (dropping under backpressure is acceptable — it's
-cosmetic). `handleLiveAdminStream` / `handleLiveStream` in `backend/internal/api/live.go` are the SSE
+cosmetic). `handleAoVivoFluxoAdmin` / `handleAoVivoFluxo` in `backend/internal/api/ao_vivo.go` are the SSE
 endpoints for organizer and public views respectively.
 
 **SQLite is single-writer.** `store.Open` sets `SetMaxOpenConns(1)` with WAL mode — see
@@ -113,7 +113,7 @@ kind, option), colored from `lib/eventStatus.js` — screens never pick those co
 localStorage. `/tela` (`Tela.svelte`) is the living reference for all of it.
 
 **`frontend/src/lib/api.js`** is a single hand-written client mirroring every backend route 1:1 (grouped
-`events`/`public.events` namespaces) — there's no codegen from the Go handlers, so adding a backend route
+`eventos`/`publico.eventos` namespaces) — there's no codegen from the Go handlers, so adding a backend route
 means adding the matching entry here by hand.
 
 > **Whenever a new screen (view) is created, update this file**: add it to the "Screens" list below with

@@ -19,7 +19,7 @@
     }
     checking = true;
     try {
-      const { id } = await api.public.events.resolvePin(trimmed);
+      const { id } = await api.publico.eventos.resolverPin(trimmed);
       navigate(`/plateia/${id}?pin=${encodeURIComponent(trimmed)}`);
     } catch (e) {
       codeError = e.status === 404 ? 'Código não encontrado.' : e.message;

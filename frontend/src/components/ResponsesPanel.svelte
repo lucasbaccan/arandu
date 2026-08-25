@@ -27,7 +27,7 @@
   async function load() {
     loading = true;
     try {
-      const data = await api.events.responses.list(eventId);
+      const data = await api.eventos.respostas.listar(eventId);
       participantCount = data.participantCount;
       participants = data.participants;
     } catch (e) {
@@ -64,7 +64,7 @@
     try {
       const body =
         answer.questionType === 'OPEN_TEXT' ? { text: editValue.trim() } : { optionId: editValue };
-      await api.events.responses.updateAnswer(
+      await api.eventos.respostas.atualizarResposta(
         eventId,
         editing.participantId,
         answer.questionId,
@@ -106,7 +106,7 @@
     savingPhoto = true;
     photoSaveError = '';
     try {
-      await api.events.responses.updatePhoto(eventId, p.id, { photo: photoDraft });
+      await api.eventos.respostas.atualizarFoto(eventId, p.id, { photo: photoDraft });
       showToast('Foto atualizada!');
       editingPhotoFor = null;
       await load();

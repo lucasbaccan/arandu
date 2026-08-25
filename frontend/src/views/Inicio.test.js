@@ -8,9 +8,9 @@ vi.mock('../lib/router.js', () => ({
 
 vi.mock('../lib/api.js', () => ({
   api: {
-    public: {
-      events: {
-        resolvePin: vi.fn()
+    publico: {
+      eventos: {
+        resolverPin: vi.fn()
       }
     }
   }
@@ -46,22 +46,22 @@ describe('Tela inicial', () => {
   it('desabilita o botão Entrar enquanto o código estiver vazio', async () => {
     render(Inicio);
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeDisabled();
-    expect(api.public.events.resolvePin).not.toHaveBeenCalled();
+    expect(api.publico.eventos.resolverPin).not.toHaveBeenCalled();
   });
 
   it('navega pra live com o código já preenchido quando o código existe', async () => {
-    api.public.events.resolvePin.mockResolvedValue({ id: '42' });
+    api.publico.eventos.resolverPin.mockResolvedValue({ id: '42' });
     render(Inicio);
 
     await fireEvent.input(screen.getByPlaceholderText('DEV-TEAM'), { target: { value: 'dev-team' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
-    expect(api.public.events.resolvePin).toHaveBeenCalledWith('dev-team');
+    expect(api.publico.eventos.resolverPin).toHaveBeenCalledWith('dev-team');
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/plateia/42?pin=dev-team'));
   });
 
   it('mostra erro quando o código não existe', async () => {
-    api.public.events.resolvePin.mockRejectedValue(new ApiErrorLike(404, 'Código não encontrado.'));
+    api.publico.eventos.resolverPin.mockRejectedValue(new ApiErrorLike(404, 'Código não encontrado.'));
     render(Inicio);
 
     await fireEvent.input(screen.getByPlaceholderText('DEV-TEAM'), { target: { value: 'naoexiste' } });
