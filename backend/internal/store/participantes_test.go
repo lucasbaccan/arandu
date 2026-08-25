@@ -10,7 +10,7 @@ func TestUpsertParticipantCreatesAndReuses(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	p1, err := s.UpsertParticipant(ctx, Participant{ID: 500, EventID: eventID, Email: "ana@x.com", Photo: "foto1"})
+	p1, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 500, EventID: eventID, Email: "ana@x.com", Photo: "foto1"})
 	if err != nil {
 		t.Fatalf("criar participante: %v", err)
 	}
@@ -18,7 +18,7 @@ func TestUpsertParticipantCreatesAndReuses(t *testing.T) {
 		t.Errorf("participante divergente: %+v", p1)
 	}
 
-	p2, err := s.UpsertParticipant(ctx, Participant{ID: 501, EventID: eventID, Email: "ana@x.com", Photo: "foto2"})
+	p2, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 501, EventID: eventID, Email: "ana@x.com", Photo: "foto2"})
 	if err != nil {
 		t.Fatalf("reaproveitar participante: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestUpsertParticipantGeneratesStableEditToken(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	p1, err := s.UpsertParticipant(ctx, Participant{ID: 510, EventID: eventID, Email: "ana@x.com"})
+	p1, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 510, EventID: eventID, Email: "ana@x.com"})
 	if err != nil {
 		t.Fatalf("criar participante: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestUpsertParticipantGeneratesStableEditToken(t *testing.T) {
 		t.Fatal("edit_token não deveria vir vazio após criação")
 	}
 
-	p2, err := s.UpsertParticipant(ctx, Participant{ID: 511, EventID: eventID, Email: "ana@x.com"})
+	p2, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 511, EventID: eventID, Email: "ana@x.com"})
 	if err != nil {
 		t.Fatalf("reaproveitar participante: %v", err)
 	}
@@ -55,11 +55,11 @@ func TestUpsertParticipantPreservesPhotoWhenNotResent(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	if _, err := s.UpsertParticipant(ctx, Participant{ID: 520, EventID: eventID, Email: "ana@x.com", Photo: "foto1"}); err != nil {
+	if _, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 520, EventID: eventID, Email: "ana@x.com", Photo: "foto1"}); err != nil {
 		t.Fatalf("criar participante: %v", err)
 	}
 
-	p2, err := s.UpsertParticipant(ctx, Participant{ID: 521, EventID: eventID, Email: "ana@x.com", Photo: ""})
+	p2, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 521, EventID: eventID, Email: "ana@x.com", Photo: ""})
 	if err != nil {
 		t.Fatalf("reenviar sem foto: %v", err)
 	}
@@ -72,12 +72,12 @@ func TestFindParticipantByEventAndToken(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	p1, err := s.UpsertParticipant(ctx, Participant{ID: 530, EventID: eventID, Email: "ana@x.com"})
+	p1, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 530, EventID: eventID, Email: "ana@x.com"})
 	if err != nil {
 		t.Fatalf("criar participante: %v", err)
 	}
 
-	found, err := s.FindParticipantByEventAndToken(ctx, eventID, p1.EditToken)
+	found, err := s.BuscarParticipantePorEventoEToken(ctx, eventID, p1.EditToken)
 	if err != nil {
 		t.Fatalf("buscar por token: %v", err)
 	}
@@ -85,10 +85,10 @@ func TestFindParticipantByEventAndToken(t *testing.T) {
 		t.Errorf("participante divergente: got %d, esperado %d", found.ID, p1.ID)
 	}
 
-	if _, err := s.FindParticipantByEventAndToken(ctx, eventID, "token-invalido"); !errors.Is(err, ErrNotFound) {
+	if _, err := s.BuscarParticipantePorEventoEToken(ctx, eventID, "token-invalido"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("token inválido: esperado ErrNotFound, got %v", err)
 	}
-	if _, err := s.FindParticipantByEventAndToken(ctx, eventID, ""); !errors.Is(err, ErrNotFound) {
+	if _, err := s.BuscarParticipantePorEventoEToken(ctx, eventID, ""); !errors.Is(err, ErrNotFound) {
 		t.Errorf("token vazio: esperado ErrNotFound, got %v", err)
 	}
 }
@@ -97,15 +97,15 @@ func TestUpdateParticipantPhoto(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	p1, err := s.UpsertParticipant(ctx, Participant{ID: 540, EventID: eventID, Email: "ana@x.com"})
+	p1, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 540, EventID: eventID, Email: "ana@x.com"})
 	if err != nil {
 		t.Fatalf("criar participante: %v", err)
 	}
 
-	if err := s.UpdateParticipantPhoto(ctx, p1.ID, "nova-foto"); err != nil {
+	if err := s.AtualizarFotoDoParticipante(ctx, p1.ID, "nova-foto"); err != nil {
 		t.Fatalf("atualizar foto: %v", err)
 	}
-	updated, err := s.FindParticipantByID(ctx, p1.ID)
+	updated, err := s.BuscarParticipantePorID(ctx, p1.ID)
 	if err != nil {
 		t.Fatalf("buscar participante: %v", err)
 	}
@@ -113,14 +113,14 @@ func TestUpdateParticipantPhoto(t *testing.T) {
 		t.Errorf("foto não atualizada, got %q", updated.Photo)
 	}
 
-	if err := s.UpdateParticipantPhoto(ctx, 999999, "x"); !errors.Is(err, ErrNotFound) {
+	if err := s.AtualizarFotoDoParticipante(ctx, 999999, "x"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("participante inexistente: esperado ErrNotFound, got %v", err)
 	}
 }
 
 func TestFindParticipantByEventAndEmailNotFound(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
-	if _, err := s.FindParticipantByEventAndEmail(context.Background(), eventID, "nao-existe@x.com"); !errors.Is(err, ErrNotFound) {
+	if _, err := s.BuscarParticipantePorEventoEEmail(context.Background(), eventID, "nao-existe@x.com"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("esperado ErrNotFound, got %v", err)
 	}
 }
@@ -129,15 +129,15 @@ func TestUpsertParticipantScopedPerEvent(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	if _, err := s.CreateEvent(ctx, Event{ID: 11, OwnerID: 1, Title: "Outro evento", PINCode: "654321", Status: "PREPARATION"}); err != nil {
+	if _, err := s.CriarEvento(ctx, Event{ID: 11, OwnerID: 1, Title: "Outro evento", PINCode: "654321", Status: "PREPARATION"}); err != nil {
 		t.Fatalf("criar segundo evento: %v", err)
 	}
 
-	p1, err := s.UpsertParticipant(ctx, Participant{ID: 600, EventID: eventID, Email: "ana@x.com"})
+	p1, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 600, EventID: eventID, Email: "ana@x.com"})
 	if err != nil {
 		t.Fatalf("criar participante evento 1: %v", err)
 	}
-	p2, err := s.UpsertParticipant(ctx, Participant{ID: 601, EventID: 11, Email: "ana@x.com"})
+	p2, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 601, EventID: 11, Email: "ana@x.com"})
 	if err != nil {
 		t.Fatalf("criar participante evento 2: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestUpsertParticipantScopedPerEvent(t *testing.T) {
 }
 
 // insertParticipantWithoutToken simula uma linha criada antes do link de
-// edição existir (edit_token vazio), contornando o UpsertParticipant normal.
+// edição existir (edit_token vazio), contornando o InserirOuAtualizarParticipante normal.
 func insertParticipantWithoutToken(t *testing.T, s *Store, id, eventID int64, email string) {
 	t.Helper()
 	_, err := s.db.Exec(
@@ -164,7 +164,7 @@ func TestUpsertParticipantBackfillsMissingEditToken(t *testing.T) {
 	ctx := context.Background()
 	insertParticipantWithoutToken(t, s, 610, eventID, "legado@x.com")
 
-	p, err := s.UpsertParticipant(ctx, Participant{ID: 611, EventID: eventID, Email: "legado@x.com"})
+	p, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 611, EventID: eventID, Email: "legado@x.com"})
 	if err != nil {
 		t.Fatalf("reenviar participante legado: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestUpsertParticipantBackfillsMissingEditToken(t *testing.T) {
 		t.Fatal("edit_token deveria ser preenchido ao reenviar um participante legado sem token")
 	}
 
-	found, err := s.FindParticipantByEventAndToken(ctx, eventID, p.EditToken)
+	found, err := s.BuscarParticipantePorEventoEToken(ctx, eventID, p.EditToken)
 	if err != nil {
 		t.Fatalf("buscar pelo token recém-gerado: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestListParticipantsByEventBackfillsMissingEditToken(t *testing.T) {
 	ctx := context.Background()
 	insertParticipantWithoutToken(t, s, 620, eventID, "legado2@x.com")
 
-	list, err := s.ListParticipantsByEvent(ctx, eventID)
+	list, err := s.ListarParticipantesPorEvento(ctx, eventID)
 	if err != nil {
 		t.Fatalf("listar participantes: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestListParticipantsByEventBackfillsMissingEditToken(t *testing.T) {
 		t.Fatalf("edit_token deveria ser preenchido ao listar, got %+v", list)
 	}
 
-	found, err := s.FindParticipantByEventAndToken(ctx, eventID, list[0].EditToken)
+	found, err := s.BuscarParticipantePorEventoEToken(ctx, eventID, list[0].EditToken)
 	if err != nil {
 		t.Fatalf("buscar pelo token recém-gerado: %v", err)
 	}

@@ -15,9 +15,9 @@ type Answer struct {
 	FreeText   string
 }
 
-// ReplaceAnswers grava as respostas do participante, substituindo qualquer
+// SubstituirRespostas grava as respostas do participante, substituindo qualquer
 // resposta anterior às mesmas perguntas (permite reenvio).
-func (s *Store) ReplaceAnswers(ctx context.Context, participantID int64, answers []Answer) error {
+func (s *Store) SubstituirRespostas(ctx context.Context, participantID int64, answers []Answer) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("store: iniciar transação: %w", err)
@@ -44,8 +44,8 @@ func (s *Store) ReplaceAnswers(ctx context.Context, participantID int64, answers
 	return tx.Commit()
 }
 
-// ListAnswersByParticipant retorna as respostas de um participante, por pergunta.
-func (s *Store) ListAnswersByParticipant(ctx context.Context, participantID int64) ([]Answer, error) {
+// ListarRespostasPorParticipante retorna as respostas de um participante, por pergunta.
+func (s *Store) ListarRespostasPorParticipante(ctx context.Context, participantID int64) ([]Answer, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, question_id, COALESCE(option_id, 0), free_text
 		 FROM answers WHERE participant_id = ?`,
@@ -70,9 +70,9 @@ func (s *Store) ListAnswersByParticipant(ctx context.Context, participantID int6
 	return answers, nil
 }
 
-// UpdateAnswer atualiza a resposta de um participante a uma pergunta (moderação
+// AtualizarResposta atualiza a resposta de um participante a uma pergunta (moderação
 // pelo organizador). Retorna ErrNotFound se a resposta não existir.
-func (s *Store) UpdateAnswer(ctx context.Context, participantID, questionID, optionID int64, freeText string) error {
+func (s *Store) AtualizarResposta(ctx context.Context, participantID, questionID, optionID int64, freeText string) error {
 	var opt sql.NullInt64
 	if optionID != 0 {
 		opt = sql.NullInt64{Int64: optionID, Valid: true}

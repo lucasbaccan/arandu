@@ -65,12 +65,12 @@ func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *li
 	// durante a apresentação. Ver live.Manager.SetLoader.
 	liveManager.SetLoader(func(eventID int64) live.EventState {
 		ctx := context.Background()
-		revealed, err := st.ListRevealedByEvent(ctx, eventID)
+		revealed, err := st.ListarReveladosPorEvento(ctx, eventID)
 		if err != nil {
 			log.Printf("api: carregar revelações salvas do evento %d: %v", eventID, err)
 			revealed = make(map[int64]map[int64]bool)
 		}
-		liveState, err := st.GetEventLiveState(ctx, eventID)
+		liveState, err := st.BuscarEstadoAoVivoDoEvento(ctx, eventID)
 		if err != nil {
 			log.Printf("api: carregar estado ao vivo salvo do evento %d: %v", eventID, err)
 		}
@@ -90,51 +90,51 @@ func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *li
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /api/auth/register", a.handleRegister)
-	mux.HandleFunc("POST /api/auth/login", a.handleLogin)
-	mux.HandleFunc("POST /api/auth/logout", a.handleLogout)
-	mux.HandleFunc("GET /api/auth/me", a.requireAuth(a.handleMe))
-	mux.HandleFunc("GET /api/auth/config", a.handleConfig)
-	mux.HandleFunc("POST /api/events", a.requireAuth(a.handleCreateEvent))
-	mux.HandleFunc("GET /api/events", a.requireAuth(a.handleListEvents))
-	mux.HandleFunc("GET /api/events/{id}", a.requireAuth(a.handleGetEvent))
-	mux.HandleFunc("PATCH /api/events/{id}", a.requireAuth(a.handleUpdateEvent))
-	mux.HandleFunc("GET /api/events/{id}/questions", a.requireAuth(a.handleListQuestions))
-	mux.HandleFunc("POST /api/events/{id}/questions", a.requireAuth(a.handleCreateQuestion))
-	mux.HandleFunc("PUT /api/events/{id}/questions/order", a.requireAuth(a.handleReorderQuestions))
-	mux.HandleFunc("PATCH /api/events/{id}/questions/{questionId}", a.requireAuth(a.handleUpdateQuestion))
-	mux.HandleFunc("DELETE /api/events/{id}/questions/{questionId}", a.requireAuth(a.handleDeleteQuestion))
-	mux.HandleFunc("GET /api/events/{id}/responses", a.requireAuth(a.handleListResponses))
-	mux.HandleFunc("PATCH /api/events/{id}/responses/{participantId}/answers/{questionId}", a.requireAuth(a.handleUpdateAnswer))
-	mux.HandleFunc("PATCH /api/events/{id}/responses/{participantId}/photo", a.requireAuth(a.handleUpdateParticipantPhoto))
-	mux.HandleFunc("POST /api/events/{id}/live/question", a.requireAuth(a.handleLiveSetQuestion))
-	mux.HandleFunc("POST /api/events/{id}/live/reveal", a.requireAuth(a.handleLiveReveal))
-	mux.HandleFunc("POST /api/events/{id}/live/unreveal", a.requireAuth(a.handleLiveUnreveal))
-	mux.HandleFunc("POST /api/events/{id}/live/reveal-all", a.requireAuth(a.handleLiveRevealAll))
-	mux.HandleFunc("POST /api/events/{id}/live/reset", a.requireAuth(a.handleLiveReset))
-	mux.HandleFunc("POST /api/events/{id}/live/reset-all", a.requireAuth(a.handleLiveResetAll))
-	mux.HandleFunc("POST /api/events/{id}/live/blank", a.requireAuth(a.handleLiveSetBlanked))
-	mux.HandleFunc("POST /api/events/{id}/live/hide-answers", a.requireAuth(a.handleLiveSetAnswersHidden))
-	mux.HandleFunc("POST /api/events/{id}/live/hide-names", a.requireAuth(a.handleLiveSetNamesHidden))
-	mux.HandleFunc("POST /api/events/{id}/live/density-mode", a.requireAuth(a.handleLiveSetPresentDensityMode))
-	mux.HandleFunc("POST /api/events/{id}/live/message", a.requireAuth(a.handleLiveSetMessage))
-	mux.HandleFunc("POST /api/events/{id}/live/interactions", a.requireAuth(a.handleLiveSetInteractions))
-	mux.HandleFunc("POST /api/events/{id}/live/qa/{messageId}/dismiss", a.requireAuth(a.handleLiveDismissQA))
-	mux.HandleFunc("GET /api/events/{id}/live/state", a.requireAuth(a.handleLiveAdminState))
-	mux.HandleFunc("GET /api/events/{id}/live/stream", a.requireAuth(a.handleLiveAdminStream))
-	mux.HandleFunc("GET /api/events/{id}/live/presentation/state", a.requireAuth(a.handleLivePresentationState))
-	mux.HandleFunc("GET /api/events/{id}/live/presentation/stream", a.requireAuth(a.handleLivePresentationStream))
-	mux.HandleFunc("GET /api/public/events/by-pin", a.handlePublicResolvePIN)
-	mux.HandleFunc("GET /api/public/events/{id}", a.handlePublicGetEvent)
-	mux.HandleFunc("GET /api/public/events/{id}/participant", a.handlePublicGetParticipant)
-	mux.HandleFunc("POST /api/public/events/{id}/submit", a.handleSubmitAnswers)
-	mux.HandleFunc("POST /api/public/events/{id}/live/join", a.handleLiveJoin)
-	mux.HandleFunc("GET /api/public/events/{id}/live/state", a.handleLiveState)
-	mux.HandleFunc("GET /api/public/events/{id}/live/stream", a.handleLiveStream)
-	mux.HandleFunc("POST /api/public/events/{id}/live/react", a.handleLiveReact)
-	mux.HandleFunc("POST /api/public/events/{id}/live/qa", a.handleLiveSubmitQA)
-	mux.HandleFunc("DELETE /api/public/events/{id}/live/qa/{messageId}", a.handleLiveDeleteQA)
-	mux.HandleFunc("GET /api/photos/{participantId}", a.handleParticipantPhoto)
+	mux.HandleFunc("POST /api/conta/criar-conta", a.handleCriarConta)
+	mux.HandleFunc("POST /api/conta/entrar", a.handleEntrar)
+	mux.HandleFunc("POST /api/conta/sair", a.handleSair)
+	mux.HandleFunc("GET /api/conta/eu", a.requireAuth(a.handleEu))
+	mux.HandleFunc("GET /api/conta/configuracao", a.handleConfiguracao)
+	mux.HandleFunc("POST /api/eventos", a.requireAuth(a.handleCriarEvento))
+	mux.HandleFunc("GET /api/eventos", a.requireAuth(a.handleListarEventos))
+	mux.HandleFunc("GET /api/eventos/{id}", a.requireAuth(a.handleBuscarEvento))
+	mux.HandleFunc("PATCH /api/eventos/{id}", a.requireAuth(a.handleAtualizarEvento))
+	mux.HandleFunc("GET /api/eventos/{id}/perguntas", a.requireAuth(a.handleListarPerguntas))
+	mux.HandleFunc("POST /api/eventos/{id}/perguntas", a.requireAuth(a.handleCriarPergunta))
+	mux.HandleFunc("PUT /api/eventos/{id}/perguntas/ordem", a.requireAuth(a.handleReordenarPerguntas))
+	mux.HandleFunc("PATCH /api/eventos/{id}/perguntas/{questionId}", a.requireAuth(a.handleAtualizarPergunta))
+	mux.HandleFunc("DELETE /api/eventos/{id}/perguntas/{questionId}", a.requireAuth(a.handleRemoverPergunta))
+	mux.HandleFunc("GET /api/eventos/{id}/respostas", a.requireAuth(a.handleListarRespostas))
+	mux.HandleFunc("PATCH /api/eventos/{id}/respostas/{participantId}/resposta/{questionId}", a.requireAuth(a.handleAtualizarResposta))
+	mux.HandleFunc("PATCH /api/eventos/{id}/respostas/{participantId}/foto", a.requireAuth(a.handleAtualizarFotoParticipante))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/pergunta", a.requireAuth(a.handleAoVivoDefinirPergunta))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/revelar", a.requireAuth(a.handleAoVivoRevelar))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/ocultar", a.requireAuth(a.handleAoVivoOcultar))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/revelar-todos", a.requireAuth(a.handleAoVivoRevelarTodos))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/reiniciar", a.requireAuth(a.handleAoVivoReiniciar))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/reiniciar-tudo", a.requireAuth(a.handleAoVivoReiniciarTudo))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/em-branco", a.requireAuth(a.handleAoVivoDefinirEmBranco))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/ocultar-respostas", a.requireAuth(a.handleAoVivoOcultarRespostas))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/ocultar-nomes", a.requireAuth(a.handleAoVivoOcultarNomes))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/modo-densidade", a.requireAuth(a.handleAoVivoDefinirModoDensidade))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/mensagem", a.requireAuth(a.handleAoVivoDefinirMensagem))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/interacoes", a.requireAuth(a.handleAoVivoDefinirInteracoes))
+	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/perguntas/{messageId}/dispensar", a.requireAuth(a.handleAoVivoDispensarPergunta))
+	mux.HandleFunc("GET /api/eventos/{id}/ao-vivo/estado", a.requireAuth(a.handleAoVivoEstadoAdmin))
+	mux.HandleFunc("GET /api/eventos/{id}/ao-vivo/fluxo", a.requireAuth(a.handleAoVivoFluxoAdmin))
+	mux.HandleFunc("GET /api/eventos/{id}/ao-vivo/apresentacao/estado", a.requireAuth(a.handleAoVivoEstadoApresentacao))
+	mux.HandleFunc("GET /api/eventos/{id}/ao-vivo/apresentacao/fluxo", a.requireAuth(a.handleAoVivoFluxoApresentacao))
+	mux.HandleFunc("GET /api/publico/eventos/por-pin", a.handlePublicoResolverPIN)
+	mux.HandleFunc("GET /api/publico/eventos/{id}", a.handlePublicoBuscarEvento)
+	mux.HandleFunc("GET /api/publico/eventos/{id}/participante", a.handlePublicoBuscarParticipante)
+	mux.HandleFunc("POST /api/publico/eventos/{id}/enviar", a.handleEnviarRespostas)
+	mux.HandleFunc("POST /api/publico/eventos/{id}/ao-vivo/entrar", a.handleAoVivoEntrar)
+	mux.HandleFunc("GET /api/publico/eventos/{id}/ao-vivo/estado", a.handleAoVivoEstado)
+	mux.HandleFunc("GET /api/publico/eventos/{id}/ao-vivo/fluxo", a.handleAoVivoFluxo)
+	mux.HandleFunc("POST /api/publico/eventos/{id}/ao-vivo/reagir", a.handleAoVivoReagir)
+	mux.HandleFunc("POST /api/publico/eventos/{id}/ao-vivo/perguntas", a.handleAoVivoEnviarPergunta)
+	mux.HandleFunc("DELETE /api/publico/eventos/{id}/ao-vivo/perguntas/{messageId}", a.handleAoVivoRemoverPergunta)
+	mux.HandleFunc("GET /api/fotos/{participantId}", a.handleFotoParticipante)
 	mux.HandleFunc("/api/", a.handleAPI404)
 
 	if a.cfg.ViteDevURL != "" {
@@ -282,7 +282,7 @@ type registerRequest struct {
 	Password string `json:"password"`
 }
 
-func (a *API) handleRegister(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleCriarConta(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := readJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -320,7 +320,7 @@ func (a *API) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := a.store.CreateUser(r.Context(), store.User{
+	u, err := a.store.CriarUsuario(r.Context(), store.User{
 		ID:           a.ids.NextID(),
 		Email:        req.Email,
 		Name:         req.Name,
@@ -346,7 +346,7 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
-func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleEntrar(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := readJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -359,7 +359,7 @@ func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := a.store.FindUserByEmail(r.Context(), req.Email)
+	u, err := a.store.BuscarUsuarioPorEmail(r.Context(), req.Email)
 	if errors.Is(err, store.ErrNotFound) || (err == nil && !auth.CheckPassword(u.PasswordHash, req.Password)) {
 		writeError(w, http.StatusUnauthorized, "E-mail ou senha inválidos.")
 		return
@@ -374,14 +374,14 @@ func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": toUserDTO(u)})
 }
 
-func (a *API) handleLogout(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleSair(w http.ResponseWriter, r *http.Request) {
 	a.clearSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (a *API) handleMe(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleEu(w http.ResponseWriter, r *http.Request) {
 	userID := userIDFromContext(r.Context())
-	u, err := a.store.FindUserByID(r.Context(), userID)
+	u, err := a.store.BuscarUsuarioPorID(r.Context(), userID)
 	if err != nil {
 		// Token assinado corretamente, mas o dono não existe mais neste banco
 		// (conta removida, ou o servidor trocou de DATABASE_PATH). Sem limpar o
@@ -394,7 +394,7 @@ func (a *API) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": toUserDTO(u)})
 }
 
-func (a *API) handleConfig(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleConfiguracao(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"minPasswordLength": a.cfg.MinPasswordLength,
 	})

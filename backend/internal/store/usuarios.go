@@ -26,7 +26,7 @@ func New(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
+func (s *Store) CriarUsuario(ctx context.Context, u User) (User, error) {
 	u.CreatedAt = time.Now()
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO users (id, email, name, password_hash, auth_provider, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -42,7 +42,7 @@ func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
 	return u, nil
 }
 
-func (s *Store) FindUserByEmail(ctx context.Context, email string) (User, error) {
+func (s *Store) BuscarUsuarioPorEmail(ctx context.Context, email string) (User, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, email, name, password_hash, auth_provider, created_at FROM users WHERE email = ?`,
 		email,
@@ -50,7 +50,7 @@ func (s *Store) FindUserByEmail(ctx context.Context, email string) (User, error)
 	return scanUser(row)
 }
 
-func (s *Store) FindUserByID(ctx context.Context, id int64) (User, error) {
+func (s *Store) BuscarUsuarioPorID(ctx context.Context, id int64) (User, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, email, name, password_hash, auth_provider, created_at FROM users WHERE id = ?`,
 		id,

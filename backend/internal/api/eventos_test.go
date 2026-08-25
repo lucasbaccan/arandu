@@ -12,7 +12,7 @@ var digitsRe = regexp.MustCompile(`^\d{6}$`)
 
 func createEvent(t *testing.T, h http.Handler, cookie *http.Cookie, body map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
-	return doJSON(t, h, http.MethodPost, "/api/events", body, []*http.Cookie{cookie})
+	return doJSON(t, h, http.MethodPost, "/api/eventos", body, []*http.Cookie{cookie})
 }
 
 func TestCreateEventAutoPIN(t *testing.T) {
@@ -84,7 +84,7 @@ func TestCreateEventValidation(t *testing.T) {
 
 func TestCreateEventUnauthenticated(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodPost, "/api/events", map[string]string{"title": "A"}, nil)
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos", map[string]string{"title": "A"}, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status esperado 401, got %d", rec.Code)
 	}
@@ -125,7 +125,7 @@ func TestListEventsOnlyOwned(t *testing.T) {
 	cookieAna := registerUser(t, h)
 
 	// segunda conta
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Bia", "email": "bia@exemplo.com", "password": "segredo",
 	}, nil)
 	cookieBia := sessionCookie(t, rec)
@@ -133,7 +133,7 @@ func TestListEventsOnlyOwned(t *testing.T) {
 	createEvent(t, h, cookieAna, map[string]string{"title": "Evento da Ana"})
 	createEvent(t, h, cookieBia, map[string]string{"title": "Evento da Bia"})
 
-	rec = doJSON(t, h, http.MethodGet, "/api/events", nil, []*http.Cookie{cookieAna})
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos", nil, []*http.Cookie{cookieAna})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d", rec.Code)
 	}
@@ -150,7 +150,7 @@ func TestListEventsOnlyOwned(t *testing.T) {
 
 func TestListEventsUnauthenticated(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodGet, "/api/events", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos", nil, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status esperado 401, got %d", rec.Code)
 	}
@@ -176,7 +176,7 @@ func TestGetEvent(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventAndGetID(t, h, cookie, "Meu evento")
 
-	rec := doJSON(t, h, http.MethodGet, "/api/events/"+id, nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+id, nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -195,7 +195,7 @@ func TestGetEventErrors(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookieAna := registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Bia", "email": "bia@exemplo.com", "password": "segredo",
 	}, nil)
 	cookieBia := sessionCookie(t, rec)
@@ -208,10 +208,10 @@ func TestGetEventErrors(t *testing.T) {
 		cookie *http.Cookie
 		want   int
 	}{
-		{"evento de outro dono", "/api/events/" + id, cookieBia, http.StatusNotFound},
-		{"evento inexistente", "/api/events/999999", cookieAna, http.StatusNotFound},
-		{"id inválido", "/api/events/abc", cookieAna, http.StatusBadRequest},
-		{"sem autenticação", "/api/events/" + id, nil, http.StatusUnauthorized},
+		{"evento de outro dono", "/api/eventos/" + id, cookieBia, http.StatusNotFound},
+		{"evento inexistente", "/api/eventos/999999", cookieAna, http.StatusNotFound},
+		{"id inválido", "/api/eventos/abc", cookieAna, http.StatusBadRequest},
+		{"sem autenticação", "/api/eventos/" + id, nil, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -228,7 +228,7 @@ func TestUpdateEvent(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventAndGetID(t, h, cookie, "Antes")
 
-	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+	rec := doJSON(t, h, http.MethodPatch, "/api/eventos/"+id, map[string]any{
 		"title": "Depois", "pinCode": "novo-pin", "configShowRanking": true,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -250,7 +250,7 @@ func TestUpdateEventKeepsPINWhenEmpty(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventAndGetID(t, h, cookie, "Evento")
 
-	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+	rec := doJSON(t, h, http.MethodPatch, "/api/eventos/"+id, map[string]any{
 		"title": "Título novo", "pinCode": "", "configShowRanking": false,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -270,7 +270,7 @@ func TestUpdateEventTogglesStatus(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventAndGetID(t, h, cookie, "Evento")
 
-	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+	rec := doJSON(t, h, http.MethodPatch, "/api/eventos/"+id, map[string]any{
 		"title": "Evento", "status": "OPEN_FOR_ANSWERS",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -286,7 +286,7 @@ func TestUpdateEventTogglesStatus(t *testing.T) {
 		t.Errorf("status esperado OPEN_FOR_ANSWERS, got %s", resp.Event.Status)
 	}
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+id, map[string]any{
 		"title": "Evento", "status": "CLOSED_FOR_ANSWERS",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -298,7 +298,7 @@ func TestUpdateEventTogglesStatus(t *testing.T) {
 	}
 
 	// omitir status preserva o valor atual
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+id, map[string]any{
 		"title": "Evento",
 	}, []*http.Cookie{cookie})
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
@@ -312,7 +312,7 @@ func TestUpdateEventRejectsInvalidStatus(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventAndGetID(t, h, cookie, "Evento")
 
-	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+id, map[string]any{
+	rec := doJSON(t, h, http.MethodPatch, "/api/eventos/"+id, map[string]any{
 		"title": "Evento", "status": "FINISHED",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusBadRequest {
@@ -336,9 +336,9 @@ func TestUpdateEventErrors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			path := "/api/events/" + id
+			path := "/api/eventos/" + id
 			if tc.body["title"] == "A" && tc.want == http.StatusNotFound {
-				path = "/api/events/999999"
+				path = "/api/eventos/999999"
 			}
 			rec := doJSON(t, h, http.MethodPatch, path, tc.body, []*http.Cookie{cookie})
 			if rec.Code != tc.want {
@@ -358,7 +358,7 @@ func TestUpdateEventPINTaken(t *testing.T) {
 	}
 	id2 := createEventAndGetID(t, h, cookie, "Segundo")
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id2, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+id2, map[string]any{
 		"title": "Segundo", "pinCode": "mesmo-pin", "configShowRanking": false,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusConflict {

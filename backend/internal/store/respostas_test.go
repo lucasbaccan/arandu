@@ -13,19 +13,19 @@ func setupAnswerStore(t *testing.T) (s *Store, groupQID, openQID, optA, optB, pa
 	s, eventID = setupQuestionStore(t)
 	ctx := context.Background()
 
-	q, err := s.CreateQuestion(ctx, Question{ID: 300, EventID: eventID, Title: "Escolha", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
+	q, err := s.CriarPergunta(ctx, Question{ID: 300, EventID: eventID, Title: "Escolha", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
 		{ID: 301, TextLabel: "A"},
 		{ID: 302, TextLabel: "B"},
 	})
 	if err != nil {
 		t.Fatalf("criar pergunta de grupo: %v", err)
 	}
-	oq, err := s.CreateQuestion(ctx, Question{ID: 310, EventID: eventID, Title: "Aberta", Type: "OPEN_TEXT", LayoutView: "TIMELINE"}, nil)
+	oq, err := s.CriarPergunta(ctx, Question{ID: 310, EventID: eventID, Title: "Aberta", Type: "OPEN_TEXT", LayoutView: "TIMELINE"}, nil)
 	if err != nil {
 		t.Fatalf("criar pergunta aberta: %v", err)
 	}
 
-	p, err := s.UpsertParticipant(ctx, Participant{ID: 700, EventID: eventID, Email: "ana@x.com"})
+	p, err := s.InserirOuAtualizarParticipante(ctx, Participant{ID: 700, EventID: eventID, Email: "ana@x.com"})
 	if err != nil {
 		t.Fatalf("criar participante: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestReplaceAnswersCreatesAndUpdates(t *testing.T) {
 	s, groupQID, openQID, optA, optB, participantID := setupAnswerStore(t)
 	ctx := context.Background()
 
-	if err := s.ReplaceAnswers(ctx, participantID, []Answer{
+	if err := s.SubstituirRespostas(ctx, participantID, []Answer{
 		{ID: 1, QuestionID: groupQID, OptionID: optA},
 		{ID: 2, QuestionID: openQID, FreeText: "Minha resposta"},
 	}); err != nil {
@@ -45,7 +45,7 @@ func TestReplaceAnswersCreatesAndUpdates(t *testing.T) {
 	}
 
 	// reenviar com resposta diferente para a pergunta de grupo deve substituir, não duplicar
-	if err := s.ReplaceAnswers(ctx, participantID, []Answer{
+	if err := s.SubstituirRespostas(ctx, participantID, []Answer{
 		{ID: 3, QuestionID: groupQID, OptionID: optB},
 	}); err != nil {
 		t.Fatalf("substituir resposta: %v", err)
@@ -76,7 +76,7 @@ func TestReplaceAnswersFreeTextHasNullOption(t *testing.T) {
 	s, _, openQID, _, _, participantID := setupAnswerStore(t)
 	ctx := context.Background()
 
-	if err := s.ReplaceAnswers(ctx, participantID, []Answer{
+	if err := s.SubstituirRespostas(ctx, participantID, []Answer{
 		{ID: 1, QuestionID: openQID, FreeText: "Texto livre"},
 	}); err != nil {
 		t.Fatalf("gravar resposta aberta: %v", err)
@@ -101,14 +101,14 @@ func TestListAnswersByParticipant(t *testing.T) {
 	s, groupQID, openQID, optA, _, participantID := setupAnswerStore(t)
 	ctx := context.Background()
 
-	if err := s.ReplaceAnswers(ctx, participantID, []Answer{
+	if err := s.SubstituirRespostas(ctx, participantID, []Answer{
 		{ID: 1, QuestionID: groupQID, OptionID: optA},
 		{ID: 2, QuestionID: openQID, FreeText: "Pizza"},
 	}); err != nil {
 		t.Fatalf("gravar respostas: %v", err)
 	}
 
-	answers, err := s.ListAnswersByParticipant(ctx, participantID)
+	answers, err := s.ListarRespostasPorParticipante(ctx, participantID)
 	if err != nil {
 		t.Fatalf("listar respostas: %v", err)
 	}
@@ -131,21 +131,21 @@ func TestUpdateAnswer(t *testing.T) {
 	s, groupQID, openQID, optA, optB, participantID := setupAnswerStore(t)
 	ctx := context.Background()
 
-	if err := s.ReplaceAnswers(ctx, participantID, []Answer{
+	if err := s.SubstituirRespostas(ctx, participantID, []Answer{
 		{ID: 1, QuestionID: groupQID, OptionID: optA},
 		{ID: 2, QuestionID: openQID, FreeText: "Original"},
 	}); err != nil {
 		t.Fatalf("gravar respostas: %v", err)
 	}
 
-	if err := s.UpdateAnswer(ctx, participantID, groupQID, optB, ""); err != nil {
+	if err := s.AtualizarResposta(ctx, participantID, groupQID, optB, ""); err != nil {
 		t.Fatalf("atualizar resposta de grupo: %v", err)
 	}
-	if err := s.UpdateAnswer(ctx, participantID, openQID, 0, "[removido pelo organizador]"); err != nil {
+	if err := s.AtualizarResposta(ctx, participantID, openQID, 0, "[removido pelo organizador]"); err != nil {
 		t.Fatalf("atualizar resposta aberta: %v", err)
 	}
 
-	answers, err := s.ListAnswersByParticipant(ctx, participantID)
+	answers, err := s.ListarRespostasPorParticipante(ctx, participantID)
 	if err != nil {
 		t.Fatalf("listar respostas: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestUpdateAnswerNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// nunca respondida -> nada para atualizar
-	if err := s.UpdateAnswer(ctx, participantID, groupQID, optA, ""); !errors.Is(err, ErrNotFound) {
+	if err := s.AtualizarResposta(ctx, participantID, groupQID, optA, ""); !errors.Is(err, ErrNotFound) {
 		t.Errorf("esperado ErrNotFound, got %v", err)
 	}
 }

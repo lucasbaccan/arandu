@@ -11,7 +11,7 @@ func setupQuestionStore(t *testing.T) (*Store, int64) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	createOwner(t, s, 1, "dono@x.com")
-	if _, err := s.CreateEvent(ctx, Event{ID: 10, OwnerID: 1, Title: "Evento", PINCode: "123456", Status: "PREPARATION"}); err != nil {
+	if _, err := s.CriarEvento(ctx, Event{ID: 10, OwnerID: 1, Title: "Evento", PINCode: "123456", Status: "PREPARATION"}); err != nil {
 		t.Fatalf("criar evento: %v", err)
 	}
 	return s, 10
@@ -21,7 +21,7 @@ func TestCreateQuestionWithOptionsAndOrder(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	q1, err := s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "Primeira", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
+	q1, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Primeira", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
 		{ID: 1, TextLabel: "A"},
 		{ID: 2, TextLabel: "B"},
 	})
@@ -35,7 +35,7 @@ func TestCreateQuestionWithOptionsAndOrder(t *testing.T) {
 		t.Errorf("opções divergentes: %+v", q1.Options)
 	}
 
-	q2, err := s.CreateQuestion(ctx, Question{ID: 200, EventID: eventID, Title: "Segunda", Type: "INDIVIDUAL", LayoutView: "CENTER"}, []QuestionOption{
+	q2, err := s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Segunda", Type: "INDIVIDUAL", LayoutView: "CENTER"}, []QuestionOption{
 		{ID: 3, TextLabel: "Único"},
 	})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestCreateQuestionSkipsInvalidOptions(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	q, err := s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "P", Type: "GROUP"}, []QuestionOption{
+	q, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "P", Type: "GROUP"}, []QuestionOption{
 		{ID: 0, TextLabel: "sem id"},
 		{ID: 1, TextLabel: "válida"},
 	})
@@ -66,15 +66,15 @@ func TestListQuestionsByEventWithOptions(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "Uma", Type: "GROUP"}, []QuestionOption{
+	s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Uma", Type: "GROUP"}, []QuestionOption{
 		{ID: 1, TextLabel: "A"},
 		{ID: 2, TextLabel: "B"},
 	})
-	s.CreateQuestion(ctx, Question{ID: 200, EventID: eventID, Title: "Duas", Type: "INDIVIDUAL", LayoutView: "TIMELINE"}, []QuestionOption{
+	s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Duas", Type: "INDIVIDUAL", LayoutView: "TIMELINE"}, []QuestionOption{
 		{ID: 3, TextLabel: "C"},
 	})
 
-	questions, err := s.ListQuestionsByEvent(ctx, eventID)
+	questions, err := s.ListarPerguntasPorEvento(ctx, eventID)
 	if err != nil {
 		t.Fatalf("listar perguntas: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestListQuestionsByEventWithOptions(t *testing.T) {
 		t.Errorf("layout padrão divergente: %+v", questions[1])
 	}
 
-	if others, err := s.ListQuestionsByEvent(ctx, 999); err != nil || len(others) != 0 {
+	if others, err := s.ListarPerguntasPorEvento(ctx, 999); err != nil || len(others) != 0 {
 		t.Errorf("evento sem perguntas deveria retornar lista vazia, got %v (%v)", others, err)
 	}
 }
@@ -100,16 +100,16 @@ func TestDeleteQuestionCascadesOptions(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "Uma", Type: "GROUP"}, []QuestionOption{
+	s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Uma", Type: "GROUP"}, []QuestionOption{
 		{ID: 1, TextLabel: "A"},
 		{ID: 2, TextLabel: "B"},
 	})
 
-	if err := s.DeleteQuestion(ctx, 100, eventID); err != nil {
+	if err := s.RemoverPergunta(ctx, 100, eventID); err != nil {
 		t.Fatalf("remover pergunta: %v", err)
 	}
 
-	questions, _ := s.ListQuestionsByEvent(ctx, eventID)
+	questions, _ := s.ListarPerguntasPorEvento(ctx, eventID)
 	if len(questions) != 0 {
 		t.Errorf("pergunta deveria ter sido removida: %+v", questions)
 	}
@@ -135,7 +135,7 @@ func TestDeleteQuestionNotFound(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	err := s.DeleteQuestion(ctx, 999, eventID)
+	err := s.RemoverPergunta(ctx, 999, eventID)
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("esperado ErrNotFound, got %v", err)
 	}
@@ -145,16 +145,16 @@ func TestUpdateQuestion(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	q, err := s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "Antes", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
+	q, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Antes", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
 		{ID: 1, TextLabel: "A"},
 		{ID: 2, TextLabel: "B"},
 	})
 	if err != nil {
 		t.Fatalf("criar pergunta: %v", err)
 	}
-	s.CreateQuestion(ctx, Question{ID: 200, EventID: eventID, Title: "Outra", Type: "GROUP"}, []QuestionOption{{ID: 3, TextLabel: "C"}})
+	s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Outra", Type: "GROUP"}, []QuestionOption{{ID: 3, TextLabel: "C"}})
 
-	updated, err := s.UpdateQuestion(ctx, Question{
+	updated, err := s.AtualizarPergunta(ctx, Question{
 		ID: 100, EventID: eventID, Title: "Depois", Type: "GROUP", LayoutView: "CENTER", OrderIndex: q.OrderIndex,
 	}, []QuestionOption{
 		{ID: 5, TextLabel: "X"},
@@ -170,7 +170,7 @@ func TestUpdateQuestion(t *testing.T) {
 		t.Errorf("opções substituídas divergentes: %+v", updated.Options)
 	}
 
-	questions, _ := s.ListQuestionsByEvent(ctx, eventID)
+	questions, _ := s.ListarPerguntasPorEvento(ctx, eventID)
 	if questions[0].Title != "Depois" || questions[0].OrderIndex != 0 || questions[0].Type != "GROUP" {
 		t.Errorf("alterações não persistidas ou ordem/tipo alterados: %+v", questions[0])
 	}
@@ -186,11 +186,11 @@ func TestUpdateQuestionNotFound(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "Minha", Type: "GROUP"}, []QuestionOption{{ID: 1, TextLabel: "A"}})
+	s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Minha", Type: "GROUP"}, []QuestionOption{{ID: 1, TextLabel: "A"}})
 
 	createOwner(t, s, 2, "outro@x.com")
-	s.CreateEvent(ctx, Event{ID: 20, OwnerID: 2, Title: "Outro evento", PINCode: "654321", Status: "PREPARATION"})
-	s.CreateQuestion(ctx, Question{ID: 400, EventID: 20, Title: "De outro evento", Type: "GROUP"}, []QuestionOption{{ID: 4, TextLabel: "D"}})
+	s.CriarEvento(ctx, Event{ID: 20, OwnerID: 2, Title: "Outro evento", PINCode: "654321", Status: "PREPARATION"})
+	s.CriarPergunta(ctx, Question{ID: 400, EventID: 20, Title: "De outro evento", Type: "GROUP"}, []QuestionOption{{ID: 4, TextLabel: "D"}})
 
 	cases := []struct {
 		name string
@@ -201,7 +201,7 @@ func TestUpdateQuestionNotFound(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := s.UpdateQuestion(ctx, Question{ID: tc.id, EventID: eventID, Title: "X"}, []QuestionOption{{ID: 9, TextLabel: "N"}})
+			_, err := s.AtualizarPergunta(ctx, Question{ID: tc.id, EventID: eventID, Title: "X"}, []QuestionOption{{ID: 9, TextLabel: "N"}})
 			if !errors.Is(err, ErrNotFound) {
 				t.Errorf("esperado ErrNotFound, got %v", err)
 			}
@@ -213,15 +213,15 @@ func TestReorderQuestions(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "Primeira", Type: "GROUP"}, []QuestionOption{{ID: 1, TextLabel: "A"}})
-	s.CreateQuestion(ctx, Question{ID: 200, EventID: eventID, Title: "Segunda", Type: "GROUP"}, []QuestionOption{{ID: 2, TextLabel: "B"}})
-	s.CreateQuestion(ctx, Question{ID: 300, EventID: eventID, Title: "Terceira", Type: "GROUP"}, []QuestionOption{{ID: 3, TextLabel: "C"}})
+	s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Primeira", Type: "GROUP"}, []QuestionOption{{ID: 1, TextLabel: "A"}})
+	s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Segunda", Type: "GROUP"}, []QuestionOption{{ID: 2, TextLabel: "B"}})
+	s.CriarPergunta(ctx, Question{ID: 300, EventID: eventID, Title: "Terceira", Type: "GROUP"}, []QuestionOption{{ID: 3, TextLabel: "C"}})
 
-	if err := s.ReorderQuestions(ctx, eventID, []int64{300, 100, 200}); err != nil {
+	if err := s.ReordenarPerguntas(ctx, eventID, []int64{300, 100, 200}); err != nil {
 		t.Fatalf("reordenar: %v", err)
 	}
 
-	questions, err := s.ListQuestionsByEvent(ctx, eventID)
+	questions, err := s.ListarPerguntasPorEvento(ctx, eventID)
 	if err != nil {
 		t.Fatalf("listar: %v", err)
 	}
@@ -241,24 +241,24 @@ func TestReorderQuestionsScopedToEventAndNotFound(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	s.CreateQuestion(ctx, Question{ID: 100, EventID: eventID, Title: "Do evento", Type: "GROUP"}, []QuestionOption{{ID: 1, TextLabel: "A"}})
+	s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Do evento", Type: "GROUP"}, []QuestionOption{{ID: 1, TextLabel: "A"}})
 
 	createOwner(t, s, 2, "outro@x.com")
-	s.CreateEvent(ctx, Event{ID: 20, OwnerID: 2, Title: "Outro evento", PINCode: "654321", Status: "PREPARATION"})
-	s.CreateQuestion(ctx, Question{ID: 400, EventID: 20, Title: "De outro evento", Type: "GROUP"}, []QuestionOption{{ID: 4, TextLabel: "D"}})
+	s.CriarEvento(ctx, Event{ID: 20, OwnerID: 2, Title: "Outro evento", PINCode: "654321", Status: "PREPARATION"})
+	s.CriarPergunta(ctx, Question{ID: 400, EventID: 20, Title: "De outro evento", Type: "GROUP"}, []QuestionOption{{ID: 4, TextLabel: "D"}})
 
-	err := s.ReorderQuestions(ctx, eventID, []int64{400})
+	err := s.ReordenarPerguntas(ctx, eventID, []int64{400})
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("pergunta de outro evento deveria ser ErrNotFound, got %v", err)
 	}
 
 	// ordem do outro evento não deve mudar
-	others, _ := s.ListQuestionsByEvent(ctx, 20)
+	others, _ := s.ListarPerguntasPorEvento(ctx, 20)
 	if len(others) != 1 || others[0].OrderIndex != 0 {
 		t.Errorf("pergunta de outro evento não deveria ser alterada: %+v", others)
 	}
 
-	if err := s.ReorderQuestions(ctx, eventID, []int64{}); err != nil {
+	if err := s.ReordenarPerguntas(ctx, eventID, []int64{}); err != nil {
 		t.Errorf("reordenação vazia deveria ser no-op, got %v", err)
 	}
 }

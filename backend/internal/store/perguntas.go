@@ -25,8 +25,8 @@ type QuestionWithOptions struct {
 	Options []QuestionOption
 }
 
-// CreateQuestion insere uma pergunta com suas opções, posicionada ao final do evento.
-func (s *Store) CreateQuestion(ctx context.Context, q Question, options []QuestionOption) (QuestionWithOptions, error) {
+// CriarPergunta insere uma pergunta com suas opções, posicionada ao final do evento.
+func (s *Store) CriarPergunta(ctx context.Context, q Question, options []QuestionOption) (QuestionWithOptions, error) {
 	var nextOrder int64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT COALESCE(MAX(order_index), -1) + 1 FROM questions WHERE event_id = ?`,
@@ -73,8 +73,8 @@ func (s *Store) CreateQuestion(ctx context.Context, q Question, options []Questi
 	return QuestionWithOptions{Question: q, Options: opts}, nil
 }
 
-// ListQuestionsByEvent retorna as perguntas do evento na ordem definida, com opções.
-func (s *Store) ListQuestionsByEvent(ctx context.Context, eventID int64) ([]QuestionWithOptions, error) {
+// ListarPerguntasPorEvento retorna as perguntas do evento na ordem definida, com opções.
+func (s *Store) ListarPerguntasPorEvento(ctx context.Context, eventID int64) ([]QuestionWithOptions, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, event_id, title, type, layout_view, order_index
 		 FROM questions WHERE event_id = ? ORDER BY order_index, id`,
@@ -131,9 +131,9 @@ func (s *Store) listOptionsByQuestion(ctx context.Context, questionID int64) ([]
 	return opts, nil
 }
 
-// UpdateQuestion atualiza o texto e substitui as opções de uma pergunta do evento.
+// AtualizarPergunta atualiza o texto e substitui as opções de uma pergunta do evento.
 // Tipo, layout e ordem são preservados.
-func (s *Store) UpdateQuestion(ctx context.Context, q Question, options []QuestionOption) (QuestionWithOptions, error) {
+func (s *Store) AtualizarPergunta(ctx context.Context, q Question, options []QuestionOption) (QuestionWithOptions, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return QuestionWithOptions{}, fmt.Errorf("store: iniciar transação: %w", err)
@@ -181,8 +181,8 @@ func (s *Store) UpdateQuestion(ctx context.Context, q Question, options []Questi
 	return QuestionWithOptions{Question: q, Options: opts}, nil
 }
 
-// ReorderQuestions redefine a ordem das perguntas de um evento na sequência dada.
-func (s *Store) ReorderQuestions(ctx context.Context, eventID int64, ids []int64) error {
+// ReordenarPerguntas redefine a ordem das perguntas de um evento na sequência dada.
+func (s *Store) ReordenarPerguntas(ctx context.Context, eventID int64, ids []int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("store: iniciar transação: %w", err)
@@ -208,8 +208,8 @@ func (s *Store) ReorderQuestions(ctx context.Context, eventID int64, ids []int64
 	return tx.Commit()
 }
 
-// DeleteQuestion remove a pergunta (e suas opções, via cascade) de um evento do dono.
-func (s *Store) DeleteQuestion(ctx context.Context, questionID, eventID int64) error {
+// RemoverPergunta remove a pergunta (e suas opções, via cascade) de um evento do dono.
+func (s *Store) RemoverPergunta(ctx context.Context, questionID, eventID int64) error {
 	res, err := s.db.ExecContext(ctx,
 		`DELETE FROM questions WHERE id = ? AND event_id = ?`,
 		questionID, eventID,

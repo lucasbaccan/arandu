@@ -12,7 +12,7 @@ import (
 
 // photoURL devolve a URL pública da foto de um participante ("" quando ele
 // não tem foto). As respostas JSON nunca mais carregam o base64 — a foto é
-// servida como arquivo estático por GET /api/photos/{id}.
+// servida como arquivo estático por GET /api/fotos/{id}.
 func (a *API) photoURL(p store.Participant) string {
 	if p.Photo == "" {
 		return ""
@@ -20,12 +20,12 @@ func (a *API) photoURL(p store.Participant) string {
 	return a.photos.URL(p.ID)
 }
 
-// handleParticipantPhoto serve a foto de um participante como arquivo. Na
+// handleFotoParticipante serve a foto de um participante como arquivo. Na
 // primeira vez o arquivo é materializado em disco a partir do data URL salvo
 // no banco (mais lento); nas seguintes, é servido direto do disco (rápido).
 // A foto não exige autenticação: ela já é exibida publicamente na tela da
 // apresentação.
-func (a *API) handleParticipantPhoto(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleFotoParticipante(w http.ResponseWriter, r *http.Request) {
 	participantID, err := strconv.ParseInt(r.PathValue("participantId"), 10, 64)
 	if err != nil || participantID <= 0 {
 		writeError(w, http.StatusBadRequest, "ID de participante inválido.")
@@ -33,7 +33,7 @@ func (a *API) handleParticipantPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.photos.Serve(w, r, participantID, func() (string, error) {
-		p, err := a.store.FindParticipantByID(r.Context(), participantID)
+		p, err := a.store.BuscarParticipantePorID(r.Context(), participantID)
 		if err != nil {
 			return "", err
 		}

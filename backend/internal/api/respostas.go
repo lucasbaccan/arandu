@@ -30,13 +30,13 @@ type participantResponseDTO struct {
 	Answers   []answerDTO `json:"answers"`
 }
 
-func (a *API) handleListResponses(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleListarRespostas(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
 	}
 
-	questions, err := a.store.ListQuestionsByEvent(r.Context(), eventID)
+	questions, err := a.store.ListarPerguntasPorEvento(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: listar perguntas para respostas: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar as respostas.")
@@ -47,7 +47,7 @@ func (a *API) handleListResponses(w http.ResponseWriter, r *http.Request) {
 		qByID[q.ID] = q
 	}
 
-	participants, err := a.store.ListParticipantsByEvent(r.Context(), eventID)
+	participants, err := a.store.ListarParticipantesPorEvento(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: listar participantes: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar as respostas.")
@@ -56,7 +56,7 @@ func (a *API) handleListResponses(w http.ResponseWriter, r *http.Request) {
 
 	dtos := make([]participantResponseDTO, 0, len(participants))
 	for _, p := range participants {
-		answers, err := a.store.ListAnswersByParticipant(r.Context(), p.ID)
+		answers, err := a.store.ListarRespostasPorParticipante(r.Context(), p.ID)
 		if err != nil {
 			log.Printf("api: listar respostas do participante: %v", err)
 			writeError(w, http.StatusInternalServerError, "Erro interno ao buscar as respostas.")
@@ -116,7 +116,7 @@ type updateAnswerRequest struct {
 	Text     string `json:"text"`
 }
 
-func (a *API) handleUpdateAnswer(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAtualizarResposta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -133,7 +133,7 @@ func (a *API) handleUpdateAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	participant, err := a.store.FindParticipantByID(r.Context(), participantID)
+	participant, err := a.store.BuscarParticipantePorID(r.Context(), participantID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Participante não encontrado.")
 		return
@@ -148,7 +148,7 @@ func (a *API) handleUpdateAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	questions, err := a.store.ListQuestionsByEvent(r.Context(), eventID)
+	questions, err := a.store.ListarPerguntasPorEvento(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: listar perguntas: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar a resposta.")
@@ -203,7 +203,7 @@ func (a *API) handleUpdateAnswer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := a.store.UpdateAnswer(r.Context(), participantID, questionID, optionID, text); errors.Is(err, store.ErrNotFound) {
+	if err := a.store.AtualizarResposta(r.Context(), participantID, questionID, optionID, text); errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Resposta não encontrada.")
 		return
 	} else if err != nil {
@@ -219,10 +219,10 @@ type updateParticipantPhotoRequest struct {
 	Photo string `json:"photo"`
 }
 
-// handleUpdateParticipantPhoto permite ao organizador definir ou corrigir a
+// handleAtualizarFotoParticipante permite ao organizador definir ou corrigir a
 // foto de um participante (ex: participante pediu atualização por fora do
 // link de edição, ou não enviou foto ao responder).
-func (a *API) handleUpdateParticipantPhoto(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAtualizarFotoParticipante(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -234,7 +234,7 @@ func (a *API) handleUpdateParticipantPhoto(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	participant, err := a.store.FindParticipantByID(r.Context(), participantID)
+	participant, err := a.store.BuscarParticipantePorID(r.Context(), participantID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Participante não encontrado.")
 		return
@@ -263,7 +263,7 @@ func (a *API) handleUpdateParticipantPhoto(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := a.store.UpdateParticipantPhoto(r.Context(), participantID, req.Photo); errors.Is(err, store.ErrNotFound) {
+	if err := a.store.AtualizarFotoDoParticipante(r.Context(), participantID, req.Photo); errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Participante não encontrado.")
 		return
 	} else if err != nil {

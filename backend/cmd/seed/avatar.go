@@ -14,7 +14,7 @@ import (
 // como GitHub gera pra usuários sem foto) determinístico a partir de um
 // seed (o e-mail do participante), e o devolve como data URL — mesmo
 // formato (data:image/...) que o upload real de foto grava em
-// participants.photo (ver AvatarCropper.svelte / handleUpdateParticipantPhoto).
+// participants.photo (ver AvatarCropper.svelte / handleAtualizarFotoParticipante).
 // Serve como asset fake pros participantes "com foto" do seed, sem precisar
 // de nenhum arquivo de imagem externo.
 func avatarDataURL(seed string) string {

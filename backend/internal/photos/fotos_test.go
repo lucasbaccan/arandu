@@ -16,8 +16,8 @@ func TestURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if got := s.URL(42); got != "/api/photos/42" {
-		t.Errorf("URL esperada /api/photos/42, got %q", got)
+	if got := s.URL(42); got != "/api/fotos/42" {
+		t.Errorf("URL esperada /api/fotos/42, got %q", got)
 	}
 }
 

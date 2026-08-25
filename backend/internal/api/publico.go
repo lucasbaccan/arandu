@@ -47,19 +47,19 @@ type publicParticipantDTO struct {
 	Answers []publicAnswerDTO `json:"answers"`
 }
 
-// handlePublicGetParticipant resolve o participante pelo token de edição
+// handlePublicoBuscarParticipante resolve o participante pelo token de edição
 // (link enviado a ele após o primeiro envio), para pré-preencher o
 // formulário de resposta. O token é o único segredo que autoriza o acesso;
 // token inválido ou de outro evento retorna 404 (não revela se o e-mail
 // existe).
-func (a *API) handlePublicGetParticipant(w http.ResponseWriter, r *http.Request) {
+func (a *API) handlePublicoBuscarParticipante(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
 		return
 	}
 	token := strings.TrimSpace(r.URL.Query().Get("token"))
 
-	participant, err := a.store.FindParticipantByEventAndToken(r.Context(), id, token)
+	participant, err := a.store.BuscarParticipantePorEventoEToken(r.Context(), id, token)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Link de edição inválido ou expirado.")
 		return
@@ -70,7 +70,7 @@ func (a *API) handlePublicGetParticipant(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	answers, err := a.store.ListAnswersByParticipant(r.Context(), participant.ID)
+	answers, err := a.store.ListarRespostasPorParticipante(r.Context(), participant.ID)
 	if err != nil {
 		log.Printf("api: listar respostas do participante: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar suas respostas.")
@@ -96,18 +96,18 @@ func (a *API) handlePublicGetParticipant(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// handlePublicResolvePIN acha o evento a partir só do PIN, pra tela inicial
+// handlePublicoResolverPIN acha o evento a partir só do PIN, pra tela inicial
 // (sem ID na URL) poder checar se o código existe antes de avançar pro
 // próximo passo. Não revela mais que o ID — status e detalhes do evento só
 // aparecem nas rotas que já exigem PIN validado (join da live).
-func (a *API) handlePublicResolvePIN(w http.ResponseWriter, r *http.Request) {
+func (a *API) handlePublicoResolverPIN(w http.ResponseWriter, r *http.Request) {
 	pin := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("pin")))
 	if pin == "" || !pinRe.MatchString(pin) {
 		writeError(w, http.StatusNotFound, "Código não encontrado.")
 		return
 	}
 
-	event, err := a.store.FindEventByPIN(r.Context(), pin)
+	event, err := a.store.BuscarEventoPorPIN(r.Context(), pin)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Código não encontrado.")
 		return
@@ -121,13 +121,13 @@ func (a *API) handlePublicResolvePIN(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"id": strconv.FormatInt(event.ID, 10)})
 }
 
-func (a *API) handlePublicGetEvent(w http.ResponseWriter, r *http.Request) {
+func (a *API) handlePublicoBuscarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
 		return
 	}
 
-	ev, err := a.store.FindEventByID(r.Context(), id)
+	ev, err := a.store.BuscarEventoPorID(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Evento não encontrado.")
 		return
@@ -138,7 +138,7 @@ func (a *API) handlePublicGetEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	questions, err := a.store.ListQuestionsByEvent(r.Context(), id)
+	questions, err := a.store.ListarPerguntasPorEvento(r.Context(), id)
 	if err != nil {
 		log.Printf("api: listar perguntas públicas: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar as perguntas.")
@@ -184,13 +184,13 @@ type submitRequest struct {
 	Answers   []submitAnswerRequest `json:"answers"`
 }
 
-func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleEnviarRespostas(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
 		return
 	}
 
-	ev, err := a.store.FindEventByID(r.Context(), id)
+	ev, err := a.store.BuscarEventoPorID(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Evento não encontrado.")
 		return
@@ -216,7 +216,7 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "A edição de respostas está desabilitada para este evento.")
 			return
 		}
-		p, err := a.store.FindParticipantByEventAndToken(r.Context(), id, req.EditToken)
+		p, err := a.store.BuscarParticipantePorEventoEToken(r.Context(), id, req.EditToken)
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Link de edição inválido ou expirado.")
 			return
@@ -234,7 +234,7 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !ev.AllowEdit {
-			_, err := a.store.FindParticipantByEventAndEmail(r.Context(), id, req.Email)
+			_, err := a.store.BuscarParticipantePorEventoEEmail(r.Context(), id, req.Email)
 			if err == nil {
 				writeError(w, http.StatusForbidden, "Você já enviou suas respostas. A edição está desabilitada para este evento.")
 				return
@@ -264,7 +264,7 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	questions, err := a.store.ListQuestionsByEvent(r.Context(), id)
+	questions, err := a.store.ListarPerguntasPorEvento(r.Context(), id)
 	if err != nil {
 		log.Printf("api: listar perguntas para envio: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
@@ -338,7 +338,7 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		answers = append(answers, answer)
 	}
 
-	participant, err := a.store.UpsertParticipant(r.Context(), store.Participant{
+	participant, err := a.store.InserirOuAtualizarParticipante(r.Context(), store.Participant{
 		ID:      a.ids.NextID(),
 		EventID: id,
 		Email:   req.Email,
@@ -356,7 +356,7 @@ func (a *API) handleSubmitAnswers(w http.ResponseWriter, r *http.Request) {
 		a.photos.Remove(participant.ID)
 	}
 
-	if err := a.store.ReplaceAnswers(r.Context(), participant.ID, answers); err != nil {
+	if err := a.store.SubstituirRespostas(r.Context(), participant.ID, answers); err != nil {
 		log.Printf("api: salvar respostas: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
 		return

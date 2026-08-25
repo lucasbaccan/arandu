@@ -190,7 +190,7 @@ func Migrate(db *sql.DB) error {
 	}
 
 	// client_id identifica o navegador que mandou a pergunta de Q&A — quem
-	// perguntou pode remover a própria mensagem (ver DeleteLiveQAMessageByClient).
+	// perguntou pode remover a própria mensagem (ver RemoverPerguntaAoVivoPorCliente).
 	// Bancos antigos ficam com '' (mensagem sem dono de navegador, não removível
 	// pelo participante).
 	if _, err := db.Exec(`ALTER TABLE live_qa_messages ADD COLUMN client_id TEXT NOT NULL DEFAULT ''`); err != nil {

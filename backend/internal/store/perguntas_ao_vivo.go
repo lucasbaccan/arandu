@@ -12,7 +12,7 @@ import (
 // organizador durante a apresentação ao vivo. ParticipantID é 0 quando quem
 // mandou é convidado/observador (sem identidade além do token anônimo).
 // ClientID é um identificador gerado pelo navegador de quem mandou — permite
-// que a própria pessoa remova a mensagem dela (ver DeleteLiveQAMessageByClient);
+// que a própria pessoa remova a mensagem dela (ver RemoverPerguntaAoVivoPorCliente);
 // vazio = mensagem sem dono de navegador (bancos antigos).
 type LiveQAMessage struct {
 	ID            int64
@@ -24,7 +24,7 @@ type LiveQAMessage struct {
 	CreatedAt     time.Time
 }
 
-func (s *Store) CreateLiveQAMessage(ctx context.Context, m LiveQAMessage) (LiveQAMessage, error) {
+func (s *Store) CriarPerguntaAoVivo(ctx context.Context, m LiveQAMessage) (LiveQAMessage, error) {
 	m.CreatedAt = time.Now()
 	var participantID sql.NullInt64
 	if m.ParticipantID != 0 {
@@ -41,9 +41,9 @@ func (s *Store) CreateLiveQAMessage(ctx context.Context, m LiveQAMessage) (LiveQ
 	return m, nil
 }
 
-// ListLiveQAMessagesByEvent retorna as mensagens ainda não dispensadas, da
-// mais antiga pra mais nova (mesma ordem de ListParticipantsByEvent).
-func (s *Store) ListLiveQAMessagesByEvent(ctx context.Context, eventID int64) ([]LiveQAMessage, error) {
+// ListarPerguntasAoVivoPorEvento retorna as mensagens ainda não dispensadas, da
+// mais antiga pra mais nova (mesma ordem de ListarParticipantesPorEvento).
+func (s *Store) ListarPerguntasAoVivoPorEvento(ctx context.Context, eventID int64) ([]LiveQAMessage, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, event_id, COALESCE(participant_id, 0), COALESCE(client_id, ''), text, dismissed, created_at
 		 FROM live_qa_messages WHERE event_id = ? AND dismissed = 0 ORDER BY created_at`,
@@ -68,7 +68,7 @@ func (s *Store) ListLiveQAMessagesByEvent(ctx context.Context, eventID int64) ([
 	return messages, nil
 }
 
-func (s *Store) FindLiveQAMessageByID(ctx context.Context, id int64) (LiveQAMessage, error) {
+func (s *Store) BuscarPerguntaAoVivoPorID(ctx context.Context, id int64) (LiveQAMessage, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, event_id, COALESCE(participant_id, 0), COALESCE(client_id, ''), text, dismissed, created_at
 		 FROM live_qa_messages WHERE id = ?`,
@@ -77,7 +77,7 @@ func (s *Store) FindLiveQAMessageByID(ctx context.Context, id int64) (LiveQAMess
 	return scanLiveQAMessage(row)
 }
 
-func (s *Store) DismissLiveQAMessage(ctx context.Context, id int64) error {
+func (s *Store) DispensarPerguntaAoVivo(ctx context.Context, id int64) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE live_qa_messages SET dismissed = 1 WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("store: dispensar mensagem de q&a: %w", err)
@@ -92,10 +92,10 @@ func (s *Store) DismissLiveQAMessage(ctx context.Context, id int64) error {
 	return nil
 }
 
-// DeleteLiveQAMessageByClient remove (dispensa) a mensagem só se o clientID
+// RemoverPerguntaAoVivoPorCliente remove (dispensa) a mensagem só se o clientID
 // bater — quem perguntou consegue apagar a própria pergunta, ninguém mais.
 // Retorna ErrNotFound quando não existe mensagem com (id, clientID).
-func (s *Store) DeleteLiveQAMessageByClient(ctx context.Context, id int64, clientID string) error {
+func (s *Store) RemoverPerguntaAoVivoPorCliente(ctx context.Context, id int64, clientID string) error {
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE live_qa_messages SET dismissed = 1 WHERE id = ? AND client_id = ? AND dismissed = 0`,
 		id, clientID,

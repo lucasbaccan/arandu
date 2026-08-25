@@ -20,10 +20,10 @@ type EventLiveState struct {
 	PresentDensityMode string
 }
 
-// GetEventLiveState busca o estado ao vivo persistido do evento. Evento
+// BuscarEstadoAoVivoDoEvento busca o estado ao vivo persistido do evento. Evento
 // nunca apresentado (sem linha em event_live_state) retorna o zero value,
 // não erro — equivalente a "nada foi definido ainda".
-func (s *Store) GetEventLiveState(ctx context.Context, eventID int64) (EventLiveState, error) {
+func (s *Store) BuscarEstadoAoVivoDoEvento(ctx context.Context, eventID int64) (EventLiveState, error) {
 	var st EventLiveState
 	row := s.db.QueryRowContext(ctx,
 		`SELECT current_question_id, blanked, message, answers_hidden, names_hidden, present_density_mode
@@ -42,7 +42,7 @@ func (s *Store) GetEventLiveState(ctx context.Context, eventID int64) (EventLive
 	return st, nil
 }
 
-func (s *Store) SetEventCurrentQuestion(ctx context.Context, eventID, questionID int64) error {
+func (s *Store) DefinirPerguntaAtualDoEvento(ctx context.Context, eventID, questionID int64) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO event_live_state (event_id, current_question_id) VALUES (?, ?)
 		 ON CONFLICT(event_id) DO UPDATE SET current_question_id = excluded.current_question_id`,
@@ -54,7 +54,7 @@ func (s *Store) SetEventCurrentQuestion(ctx context.Context, eventID, questionID
 	return nil
 }
 
-func (s *Store) SetEventBlanked(ctx context.Context, eventID int64, blanked bool) error {
+func (s *Store) DefinirEmBrancoDoEvento(ctx context.Context, eventID int64, blanked bool) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO event_live_state (event_id, blanked) VALUES (?, ?)
 		 ON CONFLICT(event_id) DO UPDATE SET blanked = excluded.blanked`,
@@ -66,7 +66,7 @@ func (s *Store) SetEventBlanked(ctx context.Context, eventID int64, blanked bool
 	return nil
 }
 
-func (s *Store) SetEventMessage(ctx context.Context, eventID int64, message string) error {
+func (s *Store) DefinirMensagemDoEvento(ctx context.Context, eventID int64, message string) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO event_live_state (event_id, message) VALUES (?, ?)
 		 ON CONFLICT(event_id) DO UPDATE SET message = excluded.message`,
@@ -78,7 +78,7 @@ func (s *Store) SetEventMessage(ctx context.Context, eventID int64, message stri
 	return nil
 }
 
-func (s *Store) SetEventAnswersHidden(ctx context.Context, eventID int64, hidden bool) error {
+func (s *Store) DefinirRespostasOcultasDoEvento(ctx context.Context, eventID int64, hidden bool) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO event_live_state (event_id, answers_hidden) VALUES (?, ?)
 		 ON CONFLICT(event_id) DO UPDATE SET answers_hidden = excluded.answers_hidden`,
@@ -90,7 +90,7 @@ func (s *Store) SetEventAnswersHidden(ctx context.Context, eventID int64, hidden
 	return nil
 }
 
-func (s *Store) SetEventNamesHidden(ctx context.Context, eventID int64, hidden bool) error {
+func (s *Store) DefinirNomesOcultosDoEvento(ctx context.Context, eventID int64, hidden bool) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO event_live_state (event_id, names_hidden) VALUES (?, ?)
 		 ON CONFLICT(event_id) DO UPDATE SET names_hidden = excluded.names_hidden`,
@@ -102,7 +102,7 @@ func (s *Store) SetEventNamesHidden(ctx context.Context, eventID int64, hidden b
 	return nil
 }
 
-func (s *Store) SetEventPresentDensityMode(ctx context.Context, eventID int64, mode string) error {
+func (s *Store) DefinirModoDensidadeDoEvento(ctx context.Context, eventID int64, mode string) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO event_live_state (event_id, present_density_mode) VALUES (?, ?)
 		 ON CONFLICT(event_id) DO UPDATE SET present_density_mode = excluded.present_density_mode`,
@@ -114,9 +114,9 @@ func (s *Store) SetEventPresentDensityMode(ctx context.Context, eventID int64, m
 	return nil
 }
 
-// RevealAnswer grava que um participante foi revelado numa pergunta.
+// RevelarResposta grava que um participante foi revelado numa pergunta.
 // INSERT OR IGNORE: revelar de novo quem já está revelado é um no-op, não erro.
-func (s *Store) RevealAnswer(ctx context.Context, eventID, questionID, participantID int64) error {
+func (s *Store) RevelarResposta(ctx context.Context, eventID, questionID, participantID int64) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT OR IGNORE INTO revealed_answers (event_id, question_id, participant_id) VALUES (?, ?, ?)`,
 		eventID, questionID, participantID,
@@ -127,7 +127,7 @@ func (s *Store) RevealAnswer(ctx context.Context, eventID, questionID, participa
 	return nil
 }
 
-func (s *Store) UnrevealAnswer(ctx context.Context, eventID, questionID, participantID int64) error {
+func (s *Store) OcultarResposta(ctx context.Context, eventID, questionID, participantID int64) error {
 	_, err := s.db.ExecContext(ctx,
 		`DELETE FROM revealed_answers WHERE event_id = ? AND question_id = ? AND participant_id = ?`,
 		eventID, questionID, participantID,
@@ -138,7 +138,7 @@ func (s *Store) UnrevealAnswer(ctx context.Context, eventID, questionID, partici
 	return nil
 }
 
-func (s *Store) RevealAllAnswers(ctx context.Context, eventID, questionID int64, participantIDs []int64) error {
+func (s *Store) RevelarTodasRespostas(ctx context.Context, eventID, questionID int64, participantIDs []int64) error {
 	for _, participantID := range participantIDs {
 		if _, err := s.db.ExecContext(ctx,
 			`INSERT OR IGNORE INTO revealed_answers (event_id, question_id, participant_id) VALUES (?, ?, ?)`,
@@ -150,7 +150,7 @@ func (s *Store) RevealAllAnswers(ctx context.Context, eventID, questionID int64,
 	return nil
 }
 
-func (s *Store) ResetRevealedForQuestion(ctx context.Context, eventID, questionID int64) error {
+func (s *Store) ReiniciarReveladosDaPergunta(ctx context.Context, eventID, questionID int64) error {
 	_, err := s.db.ExecContext(ctx,
 		`DELETE FROM revealed_answers WHERE event_id = ? AND question_id = ?`,
 		eventID, questionID,
@@ -161,7 +161,7 @@ func (s *Store) ResetRevealedForQuestion(ctx context.Context, eventID, questionI
 	return nil
 }
 
-func (s *Store) ResetRevealedForEvent(ctx context.Context, eventID int64) error {
+func (s *Store) ReiniciarReveladosDoEvento(ctx context.Context, eventID int64) error {
 	_, err := s.db.ExecContext(ctx,
 		`DELETE FROM revealed_answers WHERE event_id = ?`,
 		eventID,
@@ -172,11 +172,11 @@ func (s *Store) ResetRevealedForEvent(ctx context.Context, eventID int64) error 
 	return nil
 }
 
-// ListRevealedByEvent retorna, pra cada pergunta do evento, o conjunto de
+// ListarReveladosPorEvento retorna, pra cada pergunta do evento, o conjunto de
 // participantIDs já revelados — usado pra reidratar o estado em memória
 // (live.Manager) na primeira vez que o evento é acessado depois de um
 // restart do processo.
-func (s *Store) ListRevealedByEvent(ctx context.Context, eventID int64) (map[int64]map[int64]bool, error) {
+func (s *Store) ListarReveladosPorEvento(ctx context.Context, eventID int64) (map[int64]map[int64]bool, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT question_id, participant_id FROM revealed_answers WHERE event_id = ?`,
 		eventID,

@@ -24,7 +24,7 @@ func TestCreateAndFindUser(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	u, err := s.CreateUser(ctx, User{
+	u, err := s.CriarUsuario(ctx, User{
 		ID:           1001,
 		Email:        "ana@exemplo.com",
 		Name:         "Ana",
@@ -38,7 +38,7 @@ func TestCreateAndFindUser(t *testing.T) {
 		t.Errorf("id esperado 1001, got %d", u.ID)
 	}
 
-	got, err := s.FindUserByEmail(ctx, "ana@exemplo.com")
+	got, err := s.BuscarUsuarioPorEmail(ctx, "ana@exemplo.com")
 	if err != nil {
 		t.Fatalf("buscar por email: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestCreateAndFindUser(t *testing.T) {
 		t.Errorf("usuário divergente: %+v", got)
 	}
 
-	got, err = s.FindUserByID(ctx, 1001)
+	got, err = s.BuscarUsuarioPorID(ctx, 1001)
 	if err != nil {
 		t.Fatalf("buscar por id: %v", err)
 	}
@@ -59,11 +59,11 @@ func TestCreateUserDuplicateEmail(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	_, err := s.CreateUser(ctx, User{ID: 1, Email: "a@b.com", Name: "A", PasswordHash: "h", AuthProvider: "email"})
+	_, err := s.CriarUsuario(ctx, User{ID: 1, Email: "a@b.com", Name: "A", PasswordHash: "h", AuthProvider: "email"})
 	if err != nil {
 		t.Fatalf("criar primeiro usuário: %v", err)
 	}
-	_, err = s.CreateUser(ctx, User{ID: 2, Email: "a@b.com", Name: "B", PasswordHash: "h", AuthProvider: "email"})
+	_, err = s.CriarUsuario(ctx, User{ID: 2, Email: "a@b.com", Name: "B", PasswordHash: "h", AuthProvider: "email"})
 	if !errors.Is(err, ErrEmailTaken) {
 		t.Errorf("esperado ErrEmailTaken, got %v", err)
 	}
@@ -72,10 +72,10 @@ func TestCreateUserDuplicateEmail(t *testing.T) {
 func TestFindUserNotFound(t *testing.T) {
 	s := newTestStore(t)
 
-	if _, err := s.FindUserByEmail(context.Background(), "nada@x.com"); !errors.Is(err, ErrNotFound) {
+	if _, err := s.BuscarUsuarioPorEmail(context.Background(), "nada@x.com"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("esperado ErrNotFound, got %v", err)
 	}
-	if _, err := s.FindUserByID(context.Background(), 999); !errors.Is(err, ErrNotFound) {
+	if _, err := s.BuscarUsuarioPorID(context.Background(), 999); !errors.Is(err, ErrNotFound) {
 		t.Errorf("esperado ErrNotFound, got %v", err)
 	}
 }

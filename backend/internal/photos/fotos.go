@@ -3,7 +3,7 @@ package photos
 // As fotos dos participantes ficam salvas no banco como data URLs base64
 // (coluna participants.photo) — a fonte da verdade. Este pacote materializa
 // essas fotos em arquivos no disco e as serve como arquivos estáticos
-// (GET /api/photos/{id}), para que nenhum payload JSON (lista de respostas,
+// (GET /api/fotos/{id}), para que nenhum payload JSON (lista de respostas,
 // snapshot da apresentação) precise carregar o base64.
 //
 // A primeira requisição a uma foto decodifica o data URL do banco e grava o
@@ -28,7 +28,7 @@ import (
 
 const (
 	// URLPrefix é a rota que serve as fotos como arquivo.
-	URLPrefix = "/api/photos/"
+	URLPrefix = "/api/fotos/"
 
 	// DefaultMaxAge é a idade máxima dos arquivos de foto em disco antes de
 	// serem apagados pela limpeza diária.

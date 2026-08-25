@@ -3,7 +3,7 @@ package main
 // Conteúdo fake usado para popular o banco em modo demo. Tudo em pt-BR pra
 // combinar com o resto do produto.
 
-// eventStatuses espelha os status válidos de internal/api/events.go
+// eventStatuses espelha os status válidos de internal/api/eventos.go
 // (constantes não exportadas lá, por isso repetidas aqui).
 var eventStatuses = []string{"PREPARATION", "OPEN_FOR_ANSWERS", "CLOSED_FOR_ANSWERS"}
 

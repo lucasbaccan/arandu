@@ -34,7 +34,7 @@ const (
 	minParticipantsPerEvent = 15
 	maxParticipantsPerEvent = 22
 
-	// maxTitleLen espelha maxQuestionTitleLength de internal/api/questions.go.
+	// maxTitleLen espelha maxQuestionTitleLength de internal/api/perguntas.go.
 	maxTitleLen = 300
 
 	roleOpen15    = "open15"
@@ -92,7 +92,7 @@ func main() {
 // cuida de perguntas/participantes/respostas), pra `make seed` ser
 // idempotente e não empilhar dados a cada chamada.
 func ensureDemoUser(ctx context.Context, db *sql.DB, st *store.Store, gen *ids.Generator) (store.User, error) {
-	existing, err := st.FindUserByEmail(ctx, demoEmail)
+	existing, err := st.BuscarUsuarioPorEmail(ctx, demoEmail)
 	if err == nil {
 		if _, err := db.ExecContext(ctx, `DELETE FROM events WHERE owner_id = ?`, existing.ID); err != nil {
 			return store.User{}, fmt.Errorf("limpar eventos antigos do usuário demo: %w", err)
@@ -107,7 +107,7 @@ func ensureDemoUser(ctx context.Context, db *sql.DB, st *store.Store, gen *ids.G
 	if err != nil {
 		return store.User{}, err
 	}
-	return st.CreateUser(ctx, store.User{
+	return st.CriarUsuario(ctx, store.User{
 		ID:           gen.NextID(),
 		Email:        demoEmail,
 		Name:         demoName,
@@ -117,7 +117,7 @@ func ensureDemoUser(ctx context.Context, db *sql.DB, st *store.Store, gen *ids.G
 }
 
 func seedEvent(ctx context.Context, st *store.Store, gen *ids.Generator, rng *rand.Rand, ownerID int64, idx int) (numQuestions, numParticipants, numAnswers int, err error) {
-	event, err := st.CreateEvent(ctx, store.Event{
+	event, err := st.CriarEvento(ctx, store.Event{
 		ID:                  gen.NextID(),
 		OwnerID:             ownerID,
 		Title:               eventTitles[idx%len(eventTitles)],
@@ -174,7 +174,7 @@ func seedQuestions(ctx context.Context, st *store.Store, gen *ids.Generator, rng
 
 	result := make([]seededQuestion, 0, 10)
 	for _, def := range openDefs {
-		q, err := st.CreateQuestion(ctx, store.Question{
+		q, err := st.CriarPergunta(ctx, store.Question{
 			ID:         gen.NextID(),
 			EventID:    eventID,
 			Title:      def.title,
@@ -194,7 +194,7 @@ func seedQuestions(ctx context.Context, st *store.Store, gen *ids.Generator, rng
 		for _, label := range gq.Options {
 			opts = append(opts, store.QuestionOption{ID: gen.NextID(), TextLabel: label})
 		}
-		q, err := st.CreateQuestion(ctx, store.Question{
+		q, err := st.CriarPergunta(ctx, store.Question{
 			ID:         gen.NextID(),
 			EventID:    eventID,
 			Title:      gq.Title,
@@ -227,7 +227,7 @@ func seedParticipants(ctx context.Context, st *store.Store, gen *ids.Generator, 
 		if i%2 == 0 {
 			photo = avatarDataURL(email)
 		}
-		created, err := st.UpsertParticipant(ctx, store.Participant{
+		created, err := st.InserirOuAtualizarParticipante(ctx, store.Participant{
 			ID:      gen.NextID(),
 			EventID: eventID,
 			Email:   email,
@@ -255,7 +255,7 @@ func seedAnswers(ctx context.Context, st *store.Store, gen *ids.Generator, rng *
 			}
 			answers = append(answers, a)
 		}
-		if err := st.ReplaceAnswers(ctx, p.ID, answers); err != nil {
+		if err := st.SubstituirRespostas(ctx, p.ID, answers); err != nil {
 			return total, fmt.Errorf("gravar respostas do participante %d: %w", p.ID, err)
 		}
 		total += len(answers)

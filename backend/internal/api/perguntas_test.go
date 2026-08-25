@@ -16,7 +16,7 @@ func TestCreateQuestion(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title":   "Qual é o seu prato favorito?",
 		"type":    "GROUP",
 		"options": []string{"Pizza", "Sushi", "Churrasco"},
@@ -54,10 +54,10 @@ func TestCreateQuestionOrdering(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Primeira", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Segunda", "type": "INDIVIDUAL", "options": []string{"Única"},
 	}, []*http.Cookie{cookie})
 
@@ -93,7 +93,7 @@ func TestCreateQuestionValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", tc.body, []*http.Cookie{cookie})
+			rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", tc.body, []*http.Cookie{cookie})
 			if rec.Code != tc.want {
 				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
 			}
@@ -106,7 +106,7 @@ func TestCreateQuestionOpenText(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Qual sua comida favorita?", "type": "OPEN_TEXT",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusCreated {
@@ -132,7 +132,7 @@ func TestCreateQuestionOpenTextIgnoresOptions(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Comentário livre", "type": "OPEN_TEXT", "options": []string{"Ignorada"},
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusCreated {
@@ -151,7 +151,7 @@ func TestCreateQuestionOwnership(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookieAna := registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Bia", "email": "bia@exemplo.com", "password": "segredo",
 	}, nil)
 	cookieBia := sessionCookie(t, rec)
@@ -164,10 +164,10 @@ func TestCreateQuestionOwnership(t *testing.T) {
 		cookie *http.Cookie
 		want   int
 	}{
-		{"evento de outro dono", "/api/events/" + id + "/questions", cookieBia, http.StatusNotFound},
-		{"evento inexistente", "/api/events/999999/questions", cookieAna, http.StatusNotFound},
-		{"id de evento inválido", "/api/events/abc/questions", cookieAna, http.StatusBadRequest},
-		{"sem autenticação", "/api/events/" + id + "/questions", nil, http.StatusUnauthorized},
+		{"evento de outro dono", "/api/eventos/" + id + "/perguntas", cookieBia, http.StatusNotFound},
+		{"evento inexistente", "/api/eventos/999999/perguntas", cookieAna, http.StatusNotFound},
+		{"id de evento inválido", "/api/eventos/abc/perguntas", cookieAna, http.StatusBadRequest},
+		{"sem autenticação", "/api/eventos/" + id + "/perguntas", nil, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -186,14 +186,14 @@ func TestListQuestions(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Primeira", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
-	doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Segunda", "type": "INDIVIDUAL", "options": []string{"Única"},
 	}, []*http.Cookie{cookie})
 
-	rec := doJSON(t, h, http.MethodGet, "/api/events/"+id+"/questions", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+id+"/perguntas", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -219,7 +219,7 @@ func TestListQuestionsEmpty(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodGet, "/api/events/"+id+"/questions", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+id+"/perguntas", nil, []*http.Cookie{cookie})
 	var resp struct {
 		Questions []questionDTO `json:"questions"`
 	}
@@ -236,7 +236,7 @@ func TestDeleteQuestion(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Para remover", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
 	var created struct {
@@ -244,12 +244,12 @@ func TestDeleteQuestion(t *testing.T) {
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &created)
 
-	rec = doJSON(t, h, http.MethodDelete, "/api/events/"+id+"/questions/"+created.Question.ID, nil, []*http.Cookie{cookie})
+	rec = doJSON(t, h, http.MethodDelete, "/api/eventos/"+id+"/perguntas/"+created.Question.ID, nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status esperado 204, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	list := doJSON(t, h, http.MethodGet, "/api/events/"+id+"/questions", nil, []*http.Cookie{cookie})
+	list := doJSON(t, h, http.MethodGet, "/api/eventos/"+id+"/perguntas", nil, []*http.Cookie{cookie})
 	var resp struct {
 		Questions []questionDTO `json:"questions"`
 	}
@@ -269,9 +269,9 @@ func TestDeleteQuestionErrors(t *testing.T) {
 		path string
 		want int
 	}{
-		{"pergunta inexistente", "/api/events/" + id + "/questions/999999", http.StatusNotFound},
-		{"id de pergunta inválido", "/api/events/" + id + "/questions/abc", http.StatusBadRequest},
-		{"evento inexistente", "/api/events/999999/questions/1", http.StatusNotFound},
+		{"pergunta inexistente", "/api/eventos/" + id + "/perguntas/999999", http.StatusNotFound},
+		{"id de pergunta inválido", "/api/eventos/" + id + "/perguntas/abc", http.StatusBadRequest},
+		{"evento inexistente", "/api/eventos/999999/perguntas/1", http.StatusNotFound},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -287,7 +287,7 @@ func createQuestionsForReorder(t *testing.T, h http.Handler, cookie *http.Cookie
 	t.Helper()
 	ids := make([]string, 0, 3)
 	for _, title := range []string{"Primeira", "Segunda", "Terceira"} {
-		rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+		rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 			"title": title, "type": "GROUP", "options": []string{"A", "B"},
 		}, []*http.Cookie{cookie})
 		var resp struct {
@@ -303,7 +303,7 @@ func createQuestionsForReorder(t *testing.T, h http.Handler, cookie *http.Cookie
 
 func listQuestionTitles(t *testing.T, h http.Handler, cookie *http.Cookie, id string) []string {
 	t.Helper()
-	rec := doJSON(t, h, http.MethodGet, "/api/events/"+id+"/questions", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+id+"/perguntas", nil, []*http.Cookie{cookie})
 	var resp struct {
 		Questions []questionDTO `json:"questions"`
 	}
@@ -322,7 +322,7 @@ func TestUpdateQuestion(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Antes", "type": "GROUP", "layoutView": "CENTER", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
 	var created struct {
@@ -332,7 +332,7 @@ func TestUpdateQuestion(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id+"/questions/"+created.Question.ID, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+id+"/perguntas/"+created.Question.ID, map[string]any{
 		"title": "Depois", "options": []string{"X", "Y", "Z"},
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -365,7 +365,7 @@ func TestUpdateQuestionOpenText(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Antes", "type": "OPEN_TEXT",
 	}, []*http.Cookie{cookie})
 	var created struct {
@@ -375,7 +375,7 @@ func TestUpdateQuestionOpenText(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+id+"/questions/"+created.Question.ID, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+id+"/perguntas/"+created.Question.ID, map[string]any{
 		"title": "Depois",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -397,7 +397,7 @@ func TestUpdateQuestionValidation(t *testing.T) {
 	cookie := registerUser(t, h)
 	id := createEventForQuestions(t, h, cookie)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+id+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
 		"title": "Minha", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
 	var created struct {
@@ -413,14 +413,14 @@ func TestUpdateQuestionValidation(t *testing.T) {
 		body map[string]any
 		want int
 	}{
-		{"sem título", "/api/events/" + id + "/questions/" + created.Question.ID, map[string]any{"title": "", "options": []string{"A", "B"}}, http.StatusBadRequest},
-		{"título vazio", "/api/events/" + id + "/questions/" + created.Question.ID, map[string]any{"title": "  ", "options": []string{"A", "B"}}, http.StatusBadRequest},
-		{"menos de 2 opções", "/api/events/" + id + "/questions/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A"}}, http.StatusBadRequest},
-		{"opções duplicadas", "/api/events/" + id + "/questions/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A", "A"}}, http.StatusBadRequest},
-		{"pergunta inexistente", "/api/events/" + id + "/questions/999999", map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusNotFound},
-		{"pergunta de outro evento", "/api/events/" + otherID + "/questions/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusNotFound},
-		{"id inválido", "/api/events/" + id + "/questions/abc", map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusBadRequest},
-		{"sem autenticação", "/api/events/" + id + "/questions/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusUnauthorized},
+		{"sem título", "/api/eventos/" + id + "/perguntas/" + created.Question.ID, map[string]any{"title": "", "options": []string{"A", "B"}}, http.StatusBadRequest},
+		{"título vazio", "/api/eventos/" + id + "/perguntas/" + created.Question.ID, map[string]any{"title": "  ", "options": []string{"A", "B"}}, http.StatusBadRequest},
+		{"menos de 2 opções", "/api/eventos/" + id + "/perguntas/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A"}}, http.StatusBadRequest},
+		{"opções duplicadas", "/api/eventos/" + id + "/perguntas/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A", "A"}}, http.StatusBadRequest},
+		{"pergunta inexistente", "/api/eventos/" + id + "/perguntas/999999", map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusNotFound},
+		{"pergunta de outro evento", "/api/eventos/" + otherID + "/perguntas/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusNotFound},
+		{"id inválido", "/api/eventos/" + id + "/perguntas/abc", map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusBadRequest},
+		{"sem autenticação", "/api/eventos/" + id + "/perguntas/" + created.Question.ID, map[string]any{"title": "P", "options": []string{"A", "B"}}, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -448,7 +448,7 @@ func TestReorderQuestions(t *testing.T) {
 	id := createEventForQuestions(t, h, cookie)
 	ids := createQuestionsForReorder(t, h, cookie, id)
 
-	rec := doJSON(t, h, http.MethodPut, "/api/events/"+id+"/questions/order", map[string]any{
+	rec := doJSON(t, h, http.MethodPut, "/api/eventos/"+id+"/perguntas/ordem", map[string]any{
 		"questionIds": []string{ids[2], ids[0], ids[1]},
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusNoContent {
@@ -489,7 +489,7 @@ func TestReorderQuestionsValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := doJSON(t, h, http.MethodPut, "/api/events/"+id+"/questions/order", tc.body, []*http.Cookie{cookie})
+			rec := doJSON(t, h, http.MethodPut, "/api/eventos/"+id+"/perguntas/ordem", tc.body, []*http.Cookie{cookie})
 			if rec.Code != tc.want {
 				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
 			}
@@ -507,7 +507,7 @@ func TestReorderQuestionsOwnershipAndAuth(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookieAna := registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Bia", "email": "bia@exemplo.com", "password": "segredo",
 	}, nil)
 	cookieBia := sessionCookie(t, rec)
@@ -521,9 +521,9 @@ func TestReorderQuestionsOwnershipAndAuth(t *testing.T) {
 		cookie *http.Cookie
 		want   int
 	}{
-		{"evento de outro dono", "/api/events/" + id + "/questions/order", cookieBia, http.StatusNotFound},
-		{"evento inexistente", "/api/events/999999/questions/order", cookieAna, http.StatusNotFound},
-		{"sem autenticação", "/api/events/" + id + "/questions/order", nil, http.StatusUnauthorized},
+		{"evento de outro dono", "/api/eventos/" + id + "/perguntas/ordem", cookieBia, http.StatusNotFound},
+		{"evento inexistente", "/api/eventos/999999/perguntas/ordem", cookieAna, http.StatusNotFound},
+		{"sem autenticação", "/api/eventos/" + id + "/perguntas/ordem", nil, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

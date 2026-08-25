@@ -63,7 +63,7 @@ type createEventRequest struct {
 	PINCode string `json:"pinCode"`
 }
 
-func (a *API) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleCriarEvento(w http.ResponseWriter, r *http.Request) {
 	var req createEventRequest
 	if err := readJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -99,7 +99,7 @@ func (a *API) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		if !customPIN {
 			pin = generatePIN()
 		}
-		ev, err := a.store.CreateEvent(r.Context(), store.Event{
+		ev, err := a.store.CriarEvento(r.Context(), store.Event{
 			ID:                  a.ids.NextID(),
 			OwnerID:             ownerID,
 			Title:               req.Title,
@@ -126,9 +126,9 @@ func (a *API) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusConflict, "Não foi possível gerar um PIN livre. Tente novamente.")
 }
 
-func (a *API) handleListEvents(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleListarEventos(w http.ResponseWriter, r *http.Request) {
 	ownerID := userIDFromContext(r.Context())
-	events, err := a.store.ListEventSummariesByOwner(r.Context(), ownerID)
+	events, err := a.store.ListarResumosDeEventosPorDono(r.Context(), ownerID)
 	if err != nil {
 		log.Printf("api: listar eventos: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao listar eventos.")
@@ -141,13 +141,13 @@ func (a *API) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"events": dtos})
 }
 
-func (a *API) handleGetEvent(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleBuscarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
 		return
 	}
 	ownerID := userIDFromContext(r.Context())
-	ev, err := a.store.FindEventByIDAndOwner(r.Context(), id, ownerID)
+	ev, err := a.store.BuscarEventoPorIDEDono(r.Context(), id, ownerID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Evento não encontrado.")
 		return
@@ -168,7 +168,7 @@ type updateEventRequest struct {
 	AllowEdit   bool   `json:"allowEdit"`
 }
 
-func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAtualizarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
 		return
@@ -201,7 +201,7 @@ func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	current, err := a.store.FindEventByIDAndOwner(r.Context(), id, ownerID)
+	current, err := a.store.BuscarEventoPorIDEDono(r.Context(), id, ownerID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Evento não encontrado.")
 		return
@@ -221,7 +221,7 @@ func (a *API) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 		status = req.Status
 	}
 
-	ev, err := a.store.UpdateEvent(r.Context(), store.Event{
+	ev, err := a.store.AtualizarEvento(r.Context(), store.Event{
 		ID:          id,
 		OwnerID:     ownerID,
 		Title:       req.Title,

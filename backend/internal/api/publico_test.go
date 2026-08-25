@@ -14,7 +14,7 @@ func setupPublicEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventI
 	cookie = registerUser(t, h)
 	eventID = createEventAndGetID(t, h, cookie, "Evento Público")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
 		"title": "Qual sua linguagem favorita?", "type": "GROUP", "options": []string{"Go", "JS"},
 	}, []*http.Cookie{cookie})
 	var created struct {
@@ -27,7 +27,7 @@ func setupPublicEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventI
 	optAID = created.Question.Options[0].ID
 	optBID = created.Question.Options[1].ID
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
 		"title": "Qual sua comida favorita?", "type": "OPEN_TEXT",
 	}, []*http.Cookie{cookie})
 	var createdOpen struct {
@@ -38,7 +38,7 @@ func setupPublicEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventI
 	}
 	openQID = createdOpen.Question.ID
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
 		"title": "Evento Público", "status": "OPEN_FOR_ANSWERS", "allowEdit": true,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -50,7 +50,7 @@ func setupPublicEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventI
 
 func TestPublicGetEventNotFound(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/999999", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/999999", nil, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status esperado 404, got %d", rec.Code)
 	}
@@ -58,7 +58,7 @@ func TestPublicGetEventNotFound(t *testing.T) {
 
 func TestPublicResolvePINNotFound(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/by-pin?pin=NAOEXISTE", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/por-pin?pin=NAOEXISTE", nil, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status esperado 404, got %d", rec.Code)
 	}
@@ -66,7 +66,7 @@ func TestPublicResolvePINNotFound(t *testing.T) {
 
 func TestPublicResolvePINEmpty(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/by-pin?pin=", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/por-pin?pin=", nil, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status esperado 404, got %d", rec.Code)
 	}
@@ -75,7 +75,7 @@ func TestPublicResolvePINEmpty(t *testing.T) {
 func TestPublicResolvePINFindsEvent(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie := registerUser(t, h)
-	rec := doJSON(t, h, http.MethodPost, "/api/events", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos", map[string]string{
 		"title": "Evento com PIN", "pinCode": "ACHAME123",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusCreated {
@@ -88,7 +88,7 @@ func TestPublicResolvePINFindsEvent(t *testing.T) {
 		t.Fatalf("decode evento: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodGet, "/api/public/events/by-pin?pin=achame123", nil, nil)
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/por-pin?pin=achame123", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -107,7 +107,7 @@ func TestPublicGetEvent(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID, nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID, nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -146,7 +146,7 @@ func TestPublicGetEventAnswersClosedByDefault(t *testing.T) {
 	cookie := registerUser(t, h)
 	eventID := createEventAndGetID(t, h, cookie, "Evento recém-criado")
 
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID, nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID, nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -163,7 +163,7 @@ func TestPublicGetEventAnswersClosedByDefault(t *testing.T) {
 
 func TestSubmitAnswersEventNotFound(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/999999/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/999999/enviar", map[string]any{
 		"email": "a@b.com", "answers": []map[string]string{},
 	}, nil)
 	if rec.Code != http.StatusNotFound {
@@ -176,14 +176,14 @@ func TestSubmitAnswersNoQuestions(t *testing.T) {
 	cookie := registerUser(t, h)
 	eventID := createEventAndGetID(t, h, cookie, "Evento vazio")
 
-	rec := doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+	rec := doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
 		"title": "Evento vazio", "status": "OPEN_FOR_ANSWERS",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("abrir respostas: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "a@b.com", "answers": []map[string]string{},
 	}, nil)
 	if rec.Code != http.StatusBadRequest {
@@ -196,7 +196,7 @@ func TestSubmitAnswersRejectedWhenNotOpen(t *testing.T) {
 	cookie := registerUser(t, h)
 	eventID := createEventAndGetID(t, h, cookie, "Evento fechado")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
 		"title": "P", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
 	var created struct {
@@ -206,7 +206,7 @@ func TestSubmitAnswersRejectedWhenNotOpen(t *testing.T) {
 		t.Fatalf("decode pergunta: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "a@b.com",
 		"answers": []map[string]string{
 			{"questionId": created.Question.ID, "optionId": created.Question.Options[0].ID},
@@ -222,7 +222,7 @@ func TestSubmitAnswersSuccess(t *testing.T) {
 	h := app.Handler()
 	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "Participante@Exemplo.com",
 		"name":  "Participante",
 		"photo": "",
@@ -239,7 +239,7 @@ func TestSubmitAnswersSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse eventID: %v", err)
 	}
-	p, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "participante@exemplo.com")
+	p, err := app.store.BuscarParticipantePorEventoEEmail(context.Background(), id, "participante@exemplo.com")
 	if err != nil {
 		t.Fatalf("participante não encontrado: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestSubmitAnswersReusesParticipant(t *testing.T) {
 		}
 	}
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", body(optAID), nil)
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", body(optAID), nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("primeiro envio: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -273,16 +273,16 @@ func TestSubmitAnswersReusesParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse eventID: %v", err)
 	}
-	first, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	first, err := app.store.BuscarParticipantePorEventoEEmail(context.Background(), id, "ana@exemplo.com")
 	if err != nil {
 		t.Fatalf("participante não encontrado após primeiro envio: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", body(optBID), nil)
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", body(optBID), nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("reenvio: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	second, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	second, err := app.store.BuscarParticipantePorEventoEEmail(context.Background(), id, "ana@exemplo.com")
 	if err != nil {
 		t.Fatalf("participante não encontrado após reenvio: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestSubmitAnswersReturnsEditToken(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "ana@exemplo.com",
 		"name":  "Ana",
 		"answers": []map[string]string{
@@ -323,7 +323,7 @@ func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
 	h := app.Handler()
 	_, eventID, groupQID, openQID, optAID, optBID := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "ana@exemplo.com",
 		"name":  "Ana",
 		"answers": []map[string]string{
@@ -342,13 +342,13 @@ func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse eventID: %v", err)
 	}
-	before, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	before, err := app.store.BuscarParticipantePorEventoEEmail(context.Background(), id, "ana@exemplo.com")
 	if err != nil {
 		t.Fatalf("participante não encontrado: %v", err)
 	}
 
 	// reenvio via token, sem informar e-mail: deve atualizar o mesmo participante.
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"editToken": first.EditToken,
 		"name":      "Ana",
 		"answers": []map[string]string{
@@ -360,7 +360,7 @@ func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
 		t.Fatalf("reenvio via token: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	after, err := app.store.FindParticipantByEventAndEmail(context.Background(), id, "ana@exemplo.com")
+	after, err := app.store.BuscarParticipantePorEventoEEmail(context.Background(), id, "ana@exemplo.com")
 	if err != nil {
 		t.Fatalf("participante não encontrado após reenvio: %v", err)
 	}
@@ -368,7 +368,7 @@ func TestSubmitAnswersWithEditTokenUpdatesSameParticipant(t *testing.T) {
 		t.Errorf("reenvio via token deveria reaproveitar o mesmo participante, got %d e %d", before.ID, after.ID)
 	}
 
-	answers, err := app.store.ListAnswersByParticipant(context.Background(), after.ID)
+	answers, err := app.store.ListarRespostasPorParticipante(context.Background(), after.ID)
 	if err != nil {
 		t.Fatalf("listar respostas: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestSubmitAnswersBlockedWhenAllowEditDisabled(t *testing.T) {
 	h := app.Handler()
 	cookie, eventID, groupQID, openQID, optAID, optBID := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "ana@exemplo.com",
 		"name":  "Ana",
 		"answers": []map[string]string{
@@ -407,7 +407,7 @@ func TestSubmitAnswersBlockedWhenAllowEditDisabled(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
 		"title": "Evento Público", "status": "OPEN_FOR_ANSWERS", "allowEdit": false,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -415,7 +415,7 @@ func TestSubmitAnswersBlockedWhenAllowEditDisabled(t *testing.T) {
 	}
 
 	// reenvio via token de edição: deve ser bloqueado.
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"editToken": first.EditToken,
 		"name":      "Ana",
 		"answers": []map[string]string{
@@ -428,7 +428,7 @@ func TestSubmitAnswersBlockedWhenAllowEditDisabled(t *testing.T) {
 	}
 
 	// reenvio com o mesmo e-mail, sem token: também deve ser bloqueado.
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "ana@exemplo.com",
 		"name":  "Ana",
 		"answers": []map[string]string{
@@ -441,7 +441,7 @@ func TestSubmitAnswersBlockedWhenAllowEditDisabled(t *testing.T) {
 	}
 
 	// primeiro envio de outra pessoa continua permitido: allowEdit só afeta reenvios.
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "bia@exemplo.com",
 		"name":  "Bia",
 		"answers": []map[string]string{
@@ -458,7 +458,7 @@ func TestSubmitAnswersWithInvalidEditToken(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"editToken": "token-que-nao-existe",
 		"answers": []map[string]string{
 			{"questionId": groupQID, "optionId": optAID},
@@ -474,7 +474,7 @@ func TestPublicGetParticipantByToken(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "ana@exemplo.com",
 		"name":  "Ana",
 		"photo": "data:image/jpeg;base64,Zm9vCg==",
@@ -490,7 +490,7 @@ func TestPublicGetParticipantByToken(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID+"/participant?token="+submitResp.EditToken, nil, nil)
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/participante?token="+submitResp.EditToken, nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -503,7 +503,7 @@ func TestPublicGetParticipantByToken(t *testing.T) {
 	if resp.Participant.Email != "ana@exemplo.com" {
 		t.Errorf("email divergente: %+v", resp.Participant)
 	}
-	if !strings.HasPrefix(resp.Participant.Photo, "/api/photos/") {
+	if !strings.HasPrefix(resp.Participant.Photo, "/api/fotos/") {
 		t.Errorf("foto deveria ser uma URL de arquivo, got %q", resp.Participant.Photo)
 	}
 	if len(resp.Participant.Answers) != 2 {
@@ -515,7 +515,7 @@ func TestPublicGetParticipantInvalidToken(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, _, _, _, _ := setupPublicEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID+"/participant?token=inexistente", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/participante?token=inexistente", nil, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status esperado 404, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -526,7 +526,7 @@ func TestPublicGetParticipantWrongEvent(t *testing.T) {
 	cookie, eventID1, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
 	eventID2 := createEventAndGetID(t, h, cookie, "Segundo evento")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID1+"/submit", map[string]any{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID1+"/enviar", map[string]any{
 		"email": "ana@exemplo.com",
 		"name":  "Ana",
 		"answers": []map[string]string{
@@ -541,7 +541,7 @@ func TestPublicGetParticipantWrongEvent(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	rec = doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID2+"/participant?token="+submitResp.EditToken, nil, nil)
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID2+"/participante?token="+submitResp.EditToken, nil, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("token de outro evento deveria ser 404, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -597,7 +597,7 @@ func TestSubmitAnswersValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			body := valid()
 			tc.mutate(body)
-			rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", body, nil)
+			rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", body, nil)
 			if rec.Code != tc.want {
 				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
 			}

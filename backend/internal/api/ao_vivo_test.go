@@ -30,7 +30,7 @@ func setupLiveEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventID,
 	liveEventCounter++
 	n := liveEventCounter
 
-	regRec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	regRec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Organizador", "email": fmt.Sprintf("organizador-live-%d@exemplo.com", n), "password": "segredo",
 	}, nil)
 	if regRec.Code != http.StatusCreated {
@@ -51,7 +51,7 @@ func setupLiveEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventID,
 	}
 	eventID = created.Event.ID
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
 		"title": "Qual sua linguagem favorita?", "type": "GROUP", "options": []string{"Go", "JS"},
 	}, []*http.Cookie{cookie})
 	var q struct {
@@ -64,25 +64,25 @@ func setupLiveEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventID,
 	optAID = q.Question.Options[0].ID
 	optBID = q.Question.Options[1].ID
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
 		"title": "Evento Live", "status": "OPEN_FOR_ANSWERS",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("abrir respostas: status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email":   "ana@exemplo.com",
 		"name":    "Ana",
 		"answers": []map[string]string{{"questionId": questionID, "optionId": optAID}},
 	}, nil)
-	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email":   "bia@exemplo.com",
 		"name":    "Bia",
 		"answers": []map[string]string{{"questionId": questionID, "optionId": optBID}},
 	}, nil)
 
-	rec = doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/respostas", nil, []*http.Cookie{cookie})
 	var resp struct {
 		Participants []participantResponseDTO `json:"participants"`
 	}
@@ -105,7 +105,7 @@ func setupLiveEvent(t *testing.T, h http.Handler) (cookie *http.Cookie, eventID,
 
 func liveJoin(t *testing.T, h http.Handler, eventID, pin, email string) (token, role string, code int) {
 	t.Helper()
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/join", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/entrar", map[string]string{
 		"pinCode": pin, "email": email,
 	}, nil)
 	if rec.Code != http.StatusOK {
@@ -123,7 +123,7 @@ func liveJoin(t *testing.T, h http.Handler, eventID, pin, email string) (token, 
 
 func getLiveState(t *testing.T, h http.Handler, eventID, token string) liveSnapshotDTO {
 	t.Helper()
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID+"/live/state?token="+token, nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/ao-vivo/estado?token="+token, nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("state: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -202,7 +202,7 @@ func TestLiveJoinAsGuestWithoutEmail(t *testing.T) {
 
 func getLiveAdminState(t *testing.T, h http.Handler, eventID string, cookie *http.Cookie) liveAdminSnapshotDTO {
 	t.Helper()
-	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/state", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/ao-vivo/estado", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("admin state: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -218,7 +218,7 @@ func TestLiveSetBlankedAppearsInPublicSnapshot(t *testing.T) {
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/blank", map[string]bool{"blanked": true}, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/em-branco", map[string]bool{"blanked": true}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("blank: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -226,7 +226,7 @@ func TestLiveSetBlankedAppearsInPublicSnapshot(t *testing.T) {
 		t.Fatalf("esperava blanked=true no snapshot público, got %+v", snap)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/blank", map[string]bool{"blanked": false}, []*http.Cookie{cookie})
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/em-branco", map[string]bool{"blanked": false}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unblank: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -240,7 +240,7 @@ func TestLiveSetAnswersHiddenAppearsInPublicSnapshot(t *testing.T) {
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-answers", map[string]bool{"hidden": true}, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar-respostas", map[string]bool{"hidden": true}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("hide-answers: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -248,7 +248,7 @@ func TestLiveSetAnswersHiddenAppearsInPublicSnapshot(t *testing.T) {
 		t.Fatalf("esperava answersHidden=true no snapshot público, got %+v", snap)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-answers", map[string]bool{"hidden": false}, []*http.Cookie{cookie})
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar-respostas", map[string]bool{"hidden": false}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("show-answers: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -266,7 +266,7 @@ func TestLiveSetNamesHiddenAppearsInPresentationSnapshot(t *testing.T) {
 	cookie, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)
 
 	getPresentationState := func() liveSnapshotDTO {
-		rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/presentation/state", nil, []*http.Cookie{cookie})
+		rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/ao-vivo/apresentacao/estado", nil, []*http.Cookie{cookie})
 		if rec.Code != http.StatusOK {
 			t.Fatalf("presentation state: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 		}
@@ -281,7 +281,7 @@ func TestLiveSetNamesHiddenAppearsInPresentationSnapshot(t *testing.T) {
 		t.Fatalf("esperava namesHidden=false por padrao")
 	}
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-names", map[string]bool{"hidden": true}, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar-nomes", map[string]bool{"hidden": true}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("hide-names: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -289,7 +289,7 @@ func TestLiveSetNamesHiddenAppearsInPresentationSnapshot(t *testing.T) {
 		t.Fatalf("esperava namesHidden=true no snapshot de apresentação")
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/hide-names", map[string]bool{"hidden": false}, []*http.Cookie{cookie})
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar-nomes", map[string]bool{"hidden": false}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("show-names: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -303,7 +303,7 @@ func TestLiveSetMessageAppearsInSnapshotAndClears(t *testing.T) {
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{"message": "Voltamos em 5 min"}, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/mensagem", map[string]string{"message": "Voltamos em 5 min"}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("mensagem: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -311,7 +311,7 @@ func TestLiveSetMessageAppearsInSnapshotAndClears(t *testing.T) {
 		t.Fatalf("esperava mensagem no snapshot público, got %+v", snap)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{"message": ""}, []*http.Cookie{cookie})
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/mensagem", map[string]string{"message": ""}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("limpar mensagem: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -324,7 +324,7 @@ func TestLiveSetMessageRejectsTooLong(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/mensagem", map[string]string{
 		"message": strings.Repeat("a", maxLiveMessageLength+1),
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusBadRequest {
@@ -341,7 +341,7 @@ func TestLiveSetInteractionsDefaultsTrueAndToggles(t *testing.T) {
 		t.Fatalf("esperava interações ligadas por padrão, got %+v", snap)
 	}
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/interactions", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/interacoes", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("desligar interações: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -359,12 +359,12 @@ func TestLiveBlankMessageInteractionsRequireOwnership(t *testing.T) {
 		path string
 		body any
 	}{
-		{"/api/events/" + eventID + "/live/blank", map[string]bool{"blanked": true}},
-		{"/api/events/" + eventID + "/live/hide-answers", map[string]bool{"hidden": true}},
-		{"/api/events/" + eventID + "/live/hide-names", map[string]bool{"hidden": true}},
-		{"/api/events/" + eventID + "/live/message", map[string]string{"message": "oi"}},
-		{"/api/events/" + eventID + "/live/interactions", map[string]bool{"enabled": false}},
-		{"/api/events/" + eventID + "/live/reset-all", nil},
+		{"/api/eventos/" + eventID + "/ao-vivo/em-branco", map[string]bool{"blanked": true}},
+		{"/api/eventos/" + eventID + "/ao-vivo/ocultar-respostas", map[string]bool{"hidden": true}},
+		{"/api/eventos/" + eventID + "/ao-vivo/ocultar-nomes", map[string]bool{"hidden": true}},
+		{"/api/eventos/" + eventID + "/ao-vivo/mensagem", map[string]string{"message": "oi"}},
+		{"/api/eventos/" + eventID + "/ao-vivo/interacoes", map[string]bool{"enabled": false}},
+		{"/api/eventos/" + eventID + "/ao-vivo/reiniciar-tudo", nil},
 	}
 	for _, rt := range routes {
 		rec := doJSON(t, h, http.MethodPost, rt.path, rt.body, []*http.Cookie{other})
@@ -383,7 +383,7 @@ func TestLiveReactRejectsUnlistedEmoji(t *testing.T) {
 	_, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+token, map[string]string{"emoji": "🍕"}, nil)
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/reagir?token="+token, map[string]string{"emoji": "🍕"}, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("emoji fora da lista: status esperado 400, got %d", rec.Code)
 	}
@@ -394,7 +394,7 @@ func TestLiveReactAcceptsAllowedEmoji(t *testing.T) {
 	_, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+token, map[string]string{"emoji": "👍"}, nil)
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/reagir?token="+token, map[string]string{"emoji": "👍"}, nil)
 	if rec.Code != http.StatusOK {
 		t.Errorf("emoji permitido: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -405,12 +405,12 @@ func TestLiveReactRequiresInteractionsEnabled(t *testing.T) {
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/interactions", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/interacoes", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("desligar interações: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+token, map[string]string{"emoji": "👍"}, nil)
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/reagir?token="+token, map[string]string{"emoji": "👍"}, nil)
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("interações desligadas: status esperado 403, got %d", rec.Code)
 	}
@@ -424,7 +424,7 @@ func TestLiveSubmitQAPersistsAndVisibleToOrganizer(t *testing.T) {
 		t.Fatalf("esperava ana como participante, got role=%s", role)
 	}
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "Posso ir ao banheiro?"}, nil)
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas?token="+token, map[string]string{"text": "Posso ir ao banheiro?"}, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit qa: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -446,7 +446,7 @@ func TestLiveSubmitQAGuestHasNoEmail(t *testing.T) {
 		t.Fatalf("esperava convidado como observador, got role=%s", role)
 	}
 
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "Oi!"}, nil)
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas?token="+token, map[string]string{"text": "Oi!"}, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit qa: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -471,7 +471,7 @@ func TestLiveSubmitQARejectsEmptyOrTooLong(t *testing.T) {
 		{"muito longa", strings.Repeat("a", maxLiveQATextLength+1)},
 	}
 	for _, tc := range cases {
-		rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": tc.text}, nil)
+		rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas?token="+token, map[string]string{"text": tc.text}, nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("%s: status esperado 400, got %d", tc.name, rec.Code)
 		}
@@ -483,12 +483,12 @@ func TestLiveSubmitQARequiresInteractionsEnabled(t *testing.T) {
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/interactions", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/interacoes", map[string]bool{"enabled": false}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("desligar interações: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "oi"}, nil)
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas?token="+token, map[string]string{"text": "oi"}, nil)
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("interações desligadas: status esperado 403, got %d", rec.Code)
 	}
@@ -504,14 +504,14 @@ func TestLiveDismissQARemovesFromInbox(t *testing.T) {
 	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]string{"text": "oi"}, nil)
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas?token="+token, map[string]string{"text": "oi"}, nil)
 	snap := getLiveAdminState(t, h, eventID, cookie)
 	if len(snap.QAInbox) != 1 {
 		t.Fatalf("esperava 1 mensagem antes de dispensar, got %+v", snap.QAInbox)
 	}
 	messageID := snap.QAInbox[0].ID
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/qa/"+messageID+"/dismiss", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/perguntas/"+messageID+"/dispensar", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("dismiss: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -528,14 +528,14 @@ func TestLiveDismissQARejectsMessageFromAnotherEvent(t *testing.T) {
 	cookieB, eventB, _, _, _, _, _, _ := setupLiveEvent(t, h)
 
 	tokenA, _, _ := liveJoin(t, h, eventA, pinA, "curioso@exemplo.com")
-	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventA+"/live/qa?token="+tokenA, map[string]string{"text": "oi"}, nil)
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventA+"/ao-vivo/perguntas?token="+tokenA, map[string]string{"text": "oi"}, nil)
 	snap := getLiveAdminState(t, h, eventA, cookieA)
 	if len(snap.QAInbox) != 1 {
 		t.Fatalf("esperava 1 mensagem, got %+v", snap.QAInbox)
 	}
 	messageID := snap.QAInbox[0].ID
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventB+"/live/qa/"+messageID+"/dismiss", nil, []*http.Cookie{cookieB})
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventB+"/ao-vivo/perguntas/"+messageID+"/dispensar", nil, []*http.Cookie{cookieB})
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("mensagem de outro evento: status esperado 404, got %d", rec.Code)
 	}
@@ -548,7 +548,7 @@ func TestLiveDeleteQAOnlyOwnerCanRemove(t *testing.T) {
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
 	// envio com o identificador de navegador; a resposta traz o id da mensagem
-	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]any{"text": "minha pergunta", "clientId": "browser-abc"}, nil)
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas?token="+token, map[string]any{"text": "minha pergunta", "clientId": "browser-abc"}, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("submit qa: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -569,19 +569,19 @@ func TestLiveDeleteQAOnlyOwnerCanRemove(t *testing.T) {
 	messageID := snap.QAInbox[0].ID
 
 	// sem clientId → 400
-	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{}, nil)
+	rec = doJSON(t, h, http.MethodDelete, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas/"+messageID+"?token="+token, map[string]string{}, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("sem clientId: status esperado 400, got %d", rec.Code)
 	}
 
 	// outro navegador (clientId diferente) não remove → 404 (não revela a msg)
-	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{"clientId": "browser-outro"}, nil)
+	rec = doJSON(t, h, http.MethodDelete, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas/"+messageID+"?token="+token, map[string]string{"clientId": "browser-outro"}, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("clientId errado: status esperado 404, got %d", rec.Code)
 	}
 
 	// o dono do navegador remove — some da caixa do organizador
-	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{"clientId": "browser-abc"}, nil)
+	rec = doJSON(t, h, http.MethodDelete, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas/"+messageID+"?token="+token, map[string]string{"clientId": "browser-abc"}, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("delete do dono: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -591,7 +591,7 @@ func TestLiveDeleteQAOnlyOwnerCanRemove(t *testing.T) {
 	}
 
 	// remover de novo → 404 (já foi)
-	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{"clientId": "browser-abc"}, nil)
+	rec = doJSON(t, h, http.MethodDelete, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas/"+messageID+"?token="+token, map[string]string{"clientId": "browser-abc"}, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("segunda remoção: status esperado 404, got %d", rec.Code)
 	}
@@ -638,7 +638,7 @@ func TestLiveAdminStreamPushesReactionsAndQAUpdates(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events/"+eventID+"/live/stream", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/eventos/"+eventID+"/ao-vivo/fluxo", nil)
 	if err != nil {
 		t.Fatalf("montar request: %v", err)
 	}
@@ -666,7 +666,7 @@ func TestLiveAdminStreamPushesReactionsAndQAUpdates(t *testing.T) {
 		t.Fatalf("esperava caixa de q&a vazia inicialmente, got %+v", initial.QAInbox)
 	}
 
-	reactRec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+viewerToken, map[string]string{"emoji": "🎉"}, nil)
+	reactRec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/reagir?token="+viewerToken, map[string]string{"emoji": "🎉"}, nil)
 	if reactRec.Code != http.StatusOK {
 		t.Fatalf("reagir: status esperado 200, got %d: %s", reactRec.Code, reactRec.Body.String())
 	}
@@ -685,7 +685,7 @@ func TestLiveAdminStreamPushesReactionsAndQAUpdates(t *testing.T) {
 		t.Errorf("emoji esperado 🎉, got %q", reaction.Emoji)
 	}
 
-	qaRec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+viewerToken, map[string]string{"text": "Uma pergunta"}, nil)
+	qaRec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/perguntas?token="+viewerToken, map[string]string{"text": "Uma pergunta"}, nil)
 	if qaRec.Code != http.StatusOK {
 		t.Fatalf("submit qa: status esperado 200, got %d: %s", qaRec.Code, qaRec.Body.String())
 	}
@@ -722,7 +722,7 @@ func TestLiveStateNeverSerializesNullArrays(t *testing.T) {
 	_, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
 	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID+"/live/state?token="+token, nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/ao-vivo/estado?token="+token, nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -756,7 +756,7 @@ func TestLiveStateRequiresValidToken(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	_, eventID, _, _, _, _, _, _ := setupLiveEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID+"/live/state?token=lixo", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/ao-vivo/estado?token=lixo", nil, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("token invalido: status esperado 401, got %d", rec.Code)
 	}
@@ -769,7 +769,7 @@ func TestLiveStateRejectsTokenFromAnotherEvent(t *testing.T) {
 
 	token, _, _ := liveJoin(t, h, eventID1, pin1, "ana@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodGet, "/api/public/events/"+eventID2+"/live/state?token="+token, nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID2+"/ao-vivo/estado?token="+token, nil, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("token de outro evento: status esperado 401, got %d", rec.Code)
 	}
@@ -797,7 +797,7 @@ func TestLiveStateNeverLeaksUnrevealedAnswers(t *testing.T) {
 	}
 
 	// admin revela só a ana
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -839,7 +839,7 @@ func TestLiveRevealAllAndReset(t *testing.T) {
 	cookie, eventID, questionID, _, _, pin, anaID, biaID := setupLiveEvent(t, h)
 	viewerToken, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal-all", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar-todos", map[string]string{
 		"questionId": questionID,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -858,7 +858,7 @@ func TestLiveRevealAllAndReset(t *testing.T) {
 		t.Fatalf("esperava 2 participantes revelados no total, got %d", total)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reset", map[string]string{
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/reiniciar", map[string]string{
 		"questionId": questionID,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -878,7 +878,7 @@ func TestLiveRevealThenUnreveal(t *testing.T) {
 	cookie, eventID, questionID, _, _, pin, anaID, _ := setupLiveEvent(t, h)
 	viewerToken, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -894,7 +894,7 @@ func TestLiveRevealThenUnreveal(t *testing.T) {
 		t.Fatalf("esperava ana revelada e 1 pendente, got pending=%+v groups=%+v", snap.Pending, snap.Groups)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/unreveal", map[string]string{
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
@@ -918,21 +918,21 @@ func TestLiveAdminEndpointsRequireOwnership(t *testing.T) {
 
 	other := registerUser2(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{other})
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("dono errado: status esperado 404, got %d", rec.Code)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("sem sessao: status esperado 401, got %d", rec.Code)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/unreveal", map[string]string{
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{other})
 	if rec.Code != http.StatusNotFound {
@@ -942,7 +942,7 @@ func TestLiveAdminEndpointsRequireOwnership(t *testing.T) {
 
 func registerUser2(t *testing.T, h http.Handler) *http.Cookie {
 	t.Helper()
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Bia", "email": "bia-admin@exemplo.com", "password": "segredo",
 	}, nil)
 	if rec.Code != http.StatusCreated {
@@ -970,7 +970,7 @@ func TestLiveStreamPushesUpdates(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/public/events/"+eventID+"/live/stream?token="+token, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/publico/eventos/"+eventID+"/ao-vivo/fluxo?token="+token, nil)
 	if err != nil {
 		t.Fatalf("montar request: %v", err)
 	}
@@ -1015,7 +1015,7 @@ func TestLiveStreamPushesUpdates(t *testing.T) {
 		t.Fatalf("snapshot inicial deveria ter 2 pendentes, got %d", len(initial.Pending))
 	}
 
-	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	revealRec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if revealRec.Code != http.StatusOK {
@@ -1046,8 +1046,8 @@ func TestLivePresentationStateRequiresOwnership(t *testing.T) {
 	other := registerUser2(t, h)
 
 	for _, path := range []string{
-		"/api/events/" + eventID + "/live/presentation/state",
-		"/api/events/" + eventID + "/live/presentation/stream",
+		"/api/eventos/" + eventID + "/ao-vivo/apresentacao/estado",
+		"/api/eventos/" + eventID + "/ao-vivo/apresentacao/fluxo",
 	} {
 		rec := doJSON(t, h, http.MethodGet, path, nil, nil)
 		if rec.Code != http.StatusUnauthorized {
@@ -1067,7 +1067,7 @@ func TestLivePresentationStateMatchesLiveSnapshot(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h)
 
-	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/presentation/state", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/ao-vivo/apresentacao/estado", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -1082,14 +1082,14 @@ func TestLivePresentationStateMatchesLiveSnapshot(t *testing.T) {
 		t.Fatalf("esperava 2 pendentes, got %d", len(snap.Pending))
 	}
 
-	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	revealRec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if revealRec.Code != http.StatusOK {
 		t.Fatalf("revelar: status esperado 200, got %d: %s", revealRec.Code, revealRec.Body.String())
 	}
 
-	rec = doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/presentation/state", nil, []*http.Cookie{cookie})
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/ao-vivo/apresentacao/estado", nil, []*http.Cookie{cookie})
 	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
 		t.Fatalf("decode snapshot atualizado: %v", err)
 	}
@@ -1119,7 +1119,7 @@ func TestLivePresentationStreamPushesUpdates(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events/"+eventID+"/live/presentation/stream", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/eventos/"+eventID+"/ao-vivo/apresentacao/fluxo", nil)
 	if err != nil {
 		t.Fatalf("montar request: %v", err)
 	}
@@ -1144,7 +1144,7 @@ func TestLivePresentationStreamPushesUpdates(t *testing.T) {
 		t.Fatalf("snapshot inicial deveria ter 2 pendentes, got %d", len(initial.Pending))
 	}
 
-	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	revealRec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if revealRec.Code != http.StatusOK {
@@ -1186,7 +1186,7 @@ func TestLivePresentationStreamPushesReactions(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events/"+eventID+"/live/presentation/stream", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/eventos/"+eventID+"/ao-vivo/apresentacao/fluxo", nil)
 	if err != nil {
 		t.Fatalf("montar request: %v", err)
 	}
@@ -1206,7 +1206,7 @@ func TestLivePresentationStreamPushesReactions(t *testing.T) {
 		t.Fatalf("esperava frame default (snapshot) primeiro, got event=%q", name)
 	}
 
-	reactRec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/react?token="+viewerToken, map[string]string{"emoji": "🎉"}, nil)
+	reactRec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/ao-vivo/reagir?token="+viewerToken, map[string]string{"emoji": "🎉"}, nil)
 	if reactRec.Code != http.StatusOK {
 		t.Fatalf("reagir: status esperado 200, got %d: %s", reactRec.Code, reactRec.Body.String())
 	}
@@ -1249,7 +1249,7 @@ func TestLiveSnapshotShowsOpenTextGroupsBeforeReveal(t *testing.T) {
 	}
 	eventID := created.Event.ID
 
-	rec = doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/questions", map[string]any{
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
 		"title": "Uma palavra sobre o time?", "type": "OPEN_TEXT", "options": []string{},
 	}, []*http.Cookie{cookie})
 	var q struct {
@@ -1260,14 +1260,14 @@ func TestLiveSnapshotShowsOpenTextGroupsBeforeReveal(t *testing.T) {
 	}
 	questionID := q.Question.ID
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/events/"+eventID, map[string]any{
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
 		"title": "Evento Aberto", "status": "OPEN_FOR_ANSWERS",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("abrir respostas: status %d: %s", rec.Code, rec.Body.String())
 	}
 
-	doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/submit", map[string]any{
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
 		"email": "ana@exemplo.com", "name": "Ana",
 		"answers": []map[string]string{{"questionId": questionID, "text": "Incrível"}},
 	}, nil)
@@ -1290,7 +1290,7 @@ func TestLiveSnapshotShowsOpenTextGroupsBeforeReveal(t *testing.T) {
 		t.Fatalf("esperava balde vazio (ninguém revelado ainda), got %+v", snap.Groups[0].Participants)
 	}
 
-	respRec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/responses", nil, []*http.Cookie{cookie})
+	respRec := doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/respostas", nil, []*http.Cookie{cookie})
 	var resp struct {
 		Participants []participantResponseDTO `json:"participants"`
 	}
@@ -1302,7 +1302,7 @@ func TestLiveSnapshotShowsOpenTextGroupsBeforeReveal(t *testing.T) {
 	}
 	anaID := resp.Participants[0].ID
 
-	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	revealRec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if revealRec.Code != http.StatusOK {
@@ -1320,7 +1320,7 @@ func TestLiveSnapshotShowsOpenTextGroupsBeforeReveal(t *testing.T) {
 
 func getAdminState(t *testing.T, h http.Handler, eventID string, cookie *http.Cookie) liveAdminSnapshotDTO {
 	t.Helper()
-	rec := doJSON(t, h, http.MethodGet, "/api/events/"+eventID+"/live/state", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/ao-vivo/estado", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("admin state: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -1342,17 +1342,17 @@ func TestLiveAdminStateExposesCurrentQuestionAndRevealedForResume(t *testing.T) 
 
 	initial := getAdminState(t, h, eventID, cookie)
 	if initial.CurrentQuestionID != "" {
-		t.Fatalf("esperava currentQuestionId vazio antes de qualquer /live/question, got %q", initial.CurrentQuestionID)
+		t.Fatalf("esperava currentQuestionId vazio antes de qualquer /ao-vivo/pergunta, got %q", initial.CurrentQuestionID)
 	}
 	if len(initial.Revealed) != 0 {
 		t.Fatalf("esperava revealed vazio antes de qualquer revelação, got %+v", initial.Revealed)
 	}
 
-	setQRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/question", map[string]string{"questionId": questionID}, []*http.Cookie{cookie})
+	setQRec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/pergunta", map[string]string{"questionId": questionID}, []*http.Cookie{cookie})
 	if setQRec.Code != http.StatusOK {
 		t.Fatalf("definir pergunta atual: status %d: %s", setQRec.Code, setQRec.Body.String())
 	}
-	revealRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{
+	revealRec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
 		"questionId": questionID, "participantId": anaID,
 	}, []*http.Cookie{cookie})
 	if revealRec.Code != http.StatusOK {
@@ -1370,7 +1370,7 @@ func TestLiveAdminStateExposesCurrentQuestionAndRevealedForResume(t *testing.T) 
 
 	// reset-all limpa a revelação de todas as perguntas, mas não mexe na
 	// pergunta atual.
-	resetRec := doJSON(t, h, http.MethodPost, "/api/events/"+eventID+"/live/reset-all", nil, []*http.Cookie{cookie})
+	resetRec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/reiniciar-tudo", nil, []*http.Cookie{cookie})
 	if resetRec.Code != http.StatusOK {
 		t.Fatalf("reset-all: status %d: %s", resetRec.Code, resetRec.Body.String())
 	}
@@ -1407,22 +1407,22 @@ func TestLiveStateSurvivesServerRestart(t *testing.T) {
 
 	cookie, eventID, questionID, _, _, _, anaID, _ := setupLiveEvent(t, h1)
 
-	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/question", map[string]string{"questionId": questionID}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+	if rec := doJSON(t, h1, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/pergunta", map[string]string{"questionId": questionID}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
 		t.Fatalf("definir pergunta atual: status %d: %s", rec.Code, rec.Body.String())
 	}
-	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/reveal", map[string]string{"questionId": questionID, "participantId": anaID}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+	if rec := doJSON(t, h1, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{"questionId": questionID, "participantId": anaID}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
 		t.Fatalf("revelar: status %d: %s", rec.Code, rec.Body.String())
 	}
-	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/blank", map[string]bool{"blanked": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+	if rec := doJSON(t, h1, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/em-branco", map[string]bool{"blanked": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
 		t.Fatalf("blank: status %d: %s", rec.Code, rec.Body.String())
 	}
-	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/message", map[string]string{"message": "Voltamos já"}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+	if rec := doJSON(t, h1, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/mensagem", map[string]string{"message": "Voltamos já"}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
 		t.Fatalf("message: status %d: %s", rec.Code, rec.Body.String())
 	}
-	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/hide-answers", map[string]bool{"hidden": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+	if rec := doJSON(t, h1, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar-respostas", map[string]bool{"hidden": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
 		t.Fatalf("hide-answers: status %d: %s", rec.Code, rec.Body.String())
 	}
-	if rec := doJSON(t, h1, http.MethodPost, "/api/events/"+eventID+"/live/hide-names", map[string]bool{"hidden": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
+	if rec := doJSON(t, h1, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/ocultar-nomes", map[string]bool{"hidden": true}, []*http.Cookie{cookie}); rec.Code != http.StatusOK {
 		t.Fatalf("hide-names: status %d: %s", rec.Code, rec.Body.String())
 	}
 	db1.Close()

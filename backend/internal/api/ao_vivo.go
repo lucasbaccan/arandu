@@ -36,7 +36,7 @@ type liveSetQuestionRequest struct {
 	QuestionID string `json:"questionId"`
 }
 
-func (a *API) handleLiveSetQuestion(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoDefinirPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -51,7 +51,7 @@ func (a *API) handleLiveSetQuestion(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ID de pergunta inválido.")
 		return
 	}
-	if err := a.store.SetEventCurrentQuestion(r.Context(), eventID, questionID); err != nil {
+	if err := a.store.DefinirPerguntaAtualDoEvento(r.Context(), eventID, questionID); err != nil {
 		log.Printf("api: salvar pergunta atual: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -65,7 +65,7 @@ type liveRevealRequest struct {
 	ParticipantID string `json:"participantId"`
 }
 
-func (a *API) handleLiveReveal(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoRevelar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -81,7 +81,7 @@ func (a *API) handleLiveReveal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Dados inválidos.")
 		return
 	}
-	if err := a.store.RevealAnswer(r.Context(), eventID, questionID, participantID); err != nil {
+	if err := a.store.RevelarResposta(r.Context(), eventID, questionID, participantID); err != nil {
 		log.Printf("api: salvar revelação: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -90,7 +90,7 @@ func (a *API) handleLiveReveal(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-func (a *API) handleLiveUnreveal(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoOcultar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -106,7 +106,7 @@ func (a *API) handleLiveUnreveal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Dados inválidos.")
 		return
 	}
-	if err := a.store.UnrevealAnswer(r.Context(), eventID, questionID, participantID); err != nil {
+	if err := a.store.OcultarResposta(r.Context(), eventID, questionID, participantID); err != nil {
 		log.Printf("api: salvar desrevelação: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -119,7 +119,7 @@ type liveRevealAllRequest struct {
 	QuestionID string `json:"questionId"`
 }
 
-func (a *API) handleLiveRevealAll(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoRevelarTodos(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -134,7 +134,7 @@ func (a *API) handleLiveRevealAll(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ID de pergunta inválido.")
 		return
 	}
-	participants, err := a.store.ListParticipantsByEvent(r.Context(), eventID)
+	participants, err := a.store.ListarParticipantesPorEvento(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: listar participantes para revelar todos: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
@@ -144,7 +144,7 @@ func (a *API) handleLiveRevealAll(w http.ResponseWriter, r *http.Request) {
 	for i, p := range participants {
 		ids[i] = p.ID
 	}
-	if err := a.store.RevealAllAnswers(r.Context(), eventID, questionID, ids); err != nil {
+	if err := a.store.RevelarTodasRespostas(r.Context(), eventID, questionID, ids); err != nil {
 		log.Printf("api: salvar revelar todos: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -157,7 +157,7 @@ type liveResetRequest struct {
 	QuestionID string `json:"questionId"`
 }
 
-func (a *API) handleLiveReset(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoReiniciar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -172,7 +172,7 @@ func (a *API) handleLiveReset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ID de pergunta inválido.")
 		return
 	}
-	if err := a.store.ResetRevealedForQuestion(r.Context(), eventID, questionID); err != nil {
+	if err := a.store.ReiniciarReveladosDaPergunta(r.Context(), eventID, questionID); err != nil {
 		log.Printf("api: salvar reinício da revelação: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -181,14 +181,14 @@ func (a *API) handleLiveReset(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// handleLiveResetAll limpa a revelação de todas as perguntas do evento de
+// handleAoVivoReiniciarTudo limpa a revelação de todas as perguntas do evento de
 // uma vez — botão "Reiniciar tudo" em /stage.
-func (a *API) handleLiveResetAll(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoReiniciarTudo(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
 	}
-	if err := a.store.ResetRevealedForEvent(r.Context(), eventID); err != nil {
+	if err := a.store.ReiniciarReveladosDoEvento(r.Context(), eventID); err != nil {
 		log.Printf("api: salvar reinício de toda a revelação: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -201,7 +201,7 @@ type liveSetBlankedRequest struct {
 	Blanked bool `json:"blanked"`
 }
 
-func (a *API) handleLiveSetBlanked(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoDefinirEmBranco(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -211,7 +211,7 @@ func (a *API) handleLiveSetBlanked(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := a.store.SetEventBlanked(r.Context(), eventID, req.Blanked); err != nil {
+	if err := a.store.DefinirEmBrancoDoEvento(r.Context(), eventID, req.Blanked); err != nil {
 		log.Printf("api: salvar tela em branco: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -224,7 +224,7 @@ type liveSetAnswersHiddenRequest struct {
 	Hidden bool `json:"hidden"`
 }
 
-func (a *API) handleLiveSetAnswersHidden(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoOcultarRespostas(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -234,7 +234,7 @@ func (a *API) handleLiveSetAnswersHidden(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := a.store.SetEventAnswersHidden(r.Context(), eventID, req.Hidden); err != nil {
+	if err := a.store.DefinirRespostasOcultasDoEvento(r.Context(), eventID, req.Hidden); err != nil {
 		log.Printf("api: salvar ocultar respostas: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -247,11 +247,11 @@ type liveSetNamesHiddenRequest struct {
 	Hidden bool `json:"hidden"`
 }
 
-// handleLiveSetNamesHidden liga/desliga a legenda de nome sob cada rosto na
+// handleAoVivoOcultarNomes liga/desliga a legenda de nome sob cada rosto na
 // janela de apresentação (/stage/{id}/present) e na tela da plateia
 // (/audience/{id}) — o painel do organizador (/stage) sempre mostra os
 // nomes, esse switch não afeta ele.
-func (a *API) handleLiveSetNamesHidden(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoOcultarNomes(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -261,7 +261,7 @@ func (a *API) handleLiveSetNamesHidden(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := a.store.SetEventNamesHidden(r.Context(), eventID, req.Hidden); err != nil {
+	if err := a.store.DefinirNomesOcultosDoEvento(r.Context(), eventID, req.Hidden); err != nil {
 		log.Printf("api: salvar ocultar nomes: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -281,12 +281,12 @@ var validPresentDensityModes = map[string]bool{
 	"": true, "smart": true, "1": true, "2": true, "3": true, "4": true,
 }
 
-// handleLiveSetPresentDensityMode escolhe o modo de densidade do placar de
+// handleAoVivoDefinirModoDensidade escolhe o modo de densidade do placar de
 // respostas (colunas × escala das pílulas) — reflete em tempo real tanto na
 // janela de apresentação (/stage/{id}/present) quanto na tela pública
 // (/audience/{id}), já que as duas leem o mesmo snapshot (buildLiveSnapshot).
 // Escolhido pelos botões no rodapé de /stage.
-func (a *API) handleLiveSetPresentDensityMode(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoDefinirModoDensidade(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -300,7 +300,7 @@ func (a *API) handleLiveSetPresentDensityMode(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "Modo de apresentação inválido.")
 		return
 	}
-	if err := a.store.SetEventPresentDensityMode(r.Context(), eventID, req.Mode); err != nil {
+	if err := a.store.DefinirModoDensidadeDoEvento(r.Context(), eventID, req.Mode); err != nil {
 		log.Printf("api: salvar modo de densidade da apresentação: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -313,7 +313,7 @@ type liveSetMessageRequest struct {
 	Message string `json:"message"`
 }
 
-func (a *API) handleLiveSetMessage(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoDefinirMensagem(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -328,7 +328,7 @@ func (a *API) handleLiveSetMessage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Mensagem muito longa (máximo "+strconv.Itoa(maxLiveMessageLength)+" caracteres).")
 		return
 	}
-	if err := a.store.SetEventMessage(r.Context(), eventID, msg); err != nil {
+	if err := a.store.DefinirMensagemDoEvento(r.Context(), eventID, msg); err != nil {
 		log.Printf("api: salvar aviso: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -341,7 +341,7 @@ type liveSetInteractionsRequest struct {
 	Enabled bool `json:"enabled"`
 }
 
-func (a *API) handleLiveSetInteractions(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoDefinirInteracoes(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -351,7 +351,7 @@ func (a *API) handleLiveSetInteractions(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := a.store.SetInteractionsEnabled(r.Context(), eventID, req.Enabled); err != nil {
+	if err := a.store.DefinirInteracoesHabilitadas(r.Context(), eventID, req.Enabled); err != nil {
 		log.Printf("api: alternar interações: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -360,7 +360,7 @@ func (a *API) handleLiveSetInteractions(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-func (a *API) handleLiveDismissQA(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoDispensarPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -370,7 +370,7 @@ func (a *API) handleLiveDismissQA(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ID de mensagem inválido.")
 		return
 	}
-	msg, err := a.store.FindLiveQAMessageByID(r.Context(), messageID)
+	msg, err := a.store.BuscarPerguntaAoVivoPorID(r.Context(), messageID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
 		return
@@ -384,7 +384,7 @@ func (a *API) handleLiveDismissQA(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
 		return
 	}
-	if err := a.store.DismissLiveQAMessage(r.Context(), messageID); err != nil {
+	if err := a.store.DispensarPerguntaAoVivo(r.Context(), messageID); err != nil {
 		log.Printf("api: dispensar mensagem de q&a: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
@@ -393,12 +393,12 @@ func (a *API) handleLiveDismissQA(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// handleLiveDeleteQA deixa QUEM PERGUNTOU remover a própria pergunta: o
+// handleAoVivoRemoverPergunta deixa QUEM PERGUNTOU remover a própria pergunta: o
 // navegador envia o mesmo clientId usado no envio (identificador persistido
 // pelo frontend) e a mensagem só é removida se o clientId bater e pertencer
 // ao evento da URL. Qualquer divergência responde "não encontrada" pra não
 // revelar a existência da mensagem a terceiros.
-func (a *API) handleLiveDeleteQA(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoRemoverPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {
 		return
@@ -420,7 +420,7 @@ func (a *API) handleLiveDeleteQA(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Identificador do navegador ausente.")
 		return
 	}
-	msg, err := a.store.FindLiveQAMessageByID(r.Context(), messageID)
+	msg, err := a.store.BuscarPerguntaAoVivoPorID(r.Context(), messageID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
 		return
@@ -434,7 +434,7 @@ func (a *API) handleLiveDeleteQA(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
 		return
 	}
-	if err := a.store.DeleteLiveQAMessageByClient(r.Context(), messageID, clientID); err != nil {
+	if err := a.store.RemoverPerguntaAoVivoPorCliente(r.Context(), messageID, clientID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
 			return
@@ -447,10 +447,10 @@ func (a *API) handleLiveDeleteQA(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// handleLiveAdminState é o equivalente autenticado de handleLiveState — deixa
+// handleAoVivoEstadoAdmin é o equivalente autenticado de handleAoVivoEstado — deixa
 // buscar o snapshot do organizador sem abrir SSE (útil pra testes e como
 // fallback), espelhando o par state/stream que já existe pro público.
-func (a *API) handleLiveAdminState(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoEstadoAdmin(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -464,10 +464,10 @@ func (a *API) handleLiveAdminState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, snapshot)
 }
 
-// handleLiveAdminStream espelha handleLiveStream, mas pro organizador
+// handleAoVivoFluxoAdmin espelha handleAoVivoFluxo, mas pro organizador
 // autenticado: snapshot administrativo (inclui a caixa de Q&A privada) + a
 // mesma fila de reações ao vivo que os participantes veem.
-func (a *API) handleLiveAdminStream(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoFluxoAdmin(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -526,12 +526,12 @@ func (a *API) handleLiveAdminStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleLivePresentationState é o par autenticado de handleLiveState: mesmo
+// handleAoVivoEstadoApresentacao é o par autenticado de handleAoVivoEstado: mesmo
 // snapshot somente-leitura (pergunta atual, pendentes, grupos revelados) que
 // a plateia vê, mas restrito ao dono do evento — sem PIN nem token de
 // visitante. Alimenta a janela "Modo apresentação", que só o organizador
 // pode abrir.
-func (a *API) handleLivePresentationState(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoEstadoApresentacao(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -545,10 +545,10 @@ func (a *API) handleLivePresentationState(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, snapshot)
 }
 
-// handleLivePresentationStream espelha handleLiveStream (mesmo snapshot,
+// handleAoVivoFluxoApresentacao espelha handleAoVivoFluxo (mesmo snapshot,
 // atualizado a cada mudança), mas autenticado pro dono do evento — a janela
 // de apresentação não tem token de visitante nem PIN.
-func (a *API) handleLivePresentationStream(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoFluxoApresentacao(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -614,11 +614,11 @@ type liveJoinRequest struct {
 	Email   string `json:"email"`
 }
 
-// handleLiveJoin autoriza o acesso à apresentação pública com PIN e,
+// handleAoVivoEntrar autoriza o acesso à apresentação pública com PIN e,
 // opcionalmente, e-mail. PIN errado nunca autoriza. Com o PIN certo: e-mail
 // de quem já respondeu vira "participante"; e-mail em branco (entrada como
 // convidado) ou de quem não respondeu vira "observador" (só assiste).
-func (a *API) handleLiveJoin(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoEntrar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseEventID(w, r)
 	if !ok {
 		return
@@ -640,7 +640,7 @@ func (a *API) handleLiveJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := a.store.FindEventByID(r.Context(), eventID)
+	event, err := a.store.BuscarEventoPorID(r.Context(), eventID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Evento não encontrado.")
 		return
@@ -658,7 +658,7 @@ func (a *API) handleLiveJoin(w http.ResponseWriter, r *http.Request) {
 	role := auth.LiveRoleObserver
 	var participantID int64
 	if email != "" {
-		participant, err := a.store.FindParticipantByEventAndEmail(r.Context(), eventID, email)
+		participant, err := a.store.BuscarParticipantePorEventoEEmail(r.Context(), eventID, email)
 		if err == nil {
 			role = auth.LiveRoleParticipant
 			participantID = participant.ID
@@ -682,10 +682,10 @@ type liveReactRequest struct {
 	Emoji string `json:"emoji"`
 }
 
-// handleLiveReact transmite uma reação de emoji pra quem estiver assistindo
+// handleAoVivoReagir transmite uma reação de emoji pra quem estiver assistindo
 // (participantes + organizador), sem gravar nada no banco — é efêmera por
 // decisão de produto.
-func (a *API) handleLiveReact(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoReagir(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {
 		return
@@ -699,7 +699,7 @@ func (a *API) handleLiveReact(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Emoji não permitido.")
 		return
 	}
-	event, err := a.store.FindEventByID(r.Context(), eventID)
+	event, err := a.store.BuscarEventoPorID(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: buscar evento para reação: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
@@ -720,10 +720,10 @@ type liveSubmitQARequest struct {
 	ClientID string `json:"clientId"`
 }
 
-// handleLiveSubmitQA grava uma pergunta/recado de um participante pro
+// handleAoVivoEnviarPergunta grava uma pergunta/recado de um participante pro
 // organizador. Fica só na caixa de entrada privada do organizador — nunca é
 // exposta a outros participantes nem no snapshot público.
-func (a *API) handleLiveSubmitQA(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoEnviarPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, claims, ok := a.resolveLiveViewer(w, r)
 	if !ok {
 		return
@@ -744,13 +744,13 @@ func (a *API) handleLiveSubmitQA(w http.ResponseWriter, r *http.Request) {
 	}
 	// clientID é opcional (mensagens antigas/outros clientes não têm); se vier,
 	// só precisa ser curto — o dono do navegador usa pra remover a própria
-	// pergunta (ver handleLiveDeleteQA).
+	// pergunta (ver handleAoVivoRemoverPergunta).
 	clientID := strings.TrimSpace(req.ClientID)
 	if len(clientID) > 64 {
 		writeError(w, http.StatusBadRequest, "Identificador do navegador inválido.")
 		return
 	}
-	event, err := a.store.FindEventByID(r.Context(), eventID)
+	event, err := a.store.BuscarEventoPorID(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: buscar evento para q&a: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
@@ -766,7 +766,7 @@ func (a *API) handleLiveSubmitQA(w http.ResponseWriter, r *http.Request) {
 		participantID, _ = strconv.ParseInt(claims.ParticipantID, 10, 64)
 	}
 	messageID := a.ids.NextID()
-	if _, err := a.store.CreateLiveQAMessage(r.Context(), store.LiveQAMessage{
+	if _, err := a.store.CriarPerguntaAoVivo(r.Context(), store.LiveQAMessage{
 		ID:            messageID,
 		EventID:       eventID,
 		ParticipantID: participantID,
@@ -804,7 +804,7 @@ func (a *API) resolveLiveViewer(w http.ResponseWriter, r *http.Request) (int64, 
 	return eventID, claims, true
 }
 
-func (a *API) handleLiveState(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoEstado(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {
 		return
@@ -818,9 +818,9 @@ func (a *API) handleLiveState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, snapshot)
 }
 
-// handleLiveStream mantém uma conexão SSE aberta, mandando o snapshot atual
+// handleAoVivoFluxo mantém uma conexão SSE aberta, mandando o snapshot atual
 // assim que conecta e de novo a cada mudança no estado da apresentação.
-func (a *API) handleLiveStream(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAoVivoFluxo(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {
 		return
@@ -968,12 +968,12 @@ type liveAdminSnapshotDTO struct {
 // blank/aviso/interações/revelação (pra restaurar depois de um F5 ou ao
 // reabrir /stage) e a caixa de Q&A privada.
 func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAdminSnapshotDTO, error) {
-	event, err := a.store.FindEventByID(ctx, eventID)
+	event, err := a.store.BuscarEventoPorID(ctx, eventID)
 	if err != nil {
 		return liveAdminSnapshotDTO{}, fmt.Errorf("buscar evento: %w", err)
 	}
 	state := a.live.Get(eventID)
-	messages, err := a.store.ListLiveQAMessagesByEvent(ctx, eventID)
+	messages, err := a.store.ListarPerguntasAoVivoPorEvento(ctx, eventID)
 	if err != nil {
 		return liveAdminSnapshotDTO{}, fmt.Errorf("listar mensagens de q&a: %w", err)
 	}
@@ -983,7 +983,7 @@ func (a *API) buildAdminLiveSnapshot(ctx context.Context, eventID int64) (liveAd
 		email := ""
 		name := ""
 		if m.ParticipantID != 0 {
-			if p, err := a.store.FindParticipantByID(ctx, m.ParticipantID); err == nil {
+			if p, err := a.store.BuscarParticipantePorID(ctx, m.ParticipantID); err == nil {
 				email = p.Email
 				name = p.Name
 			}
@@ -1035,15 +1035,15 @@ type revealedLiveAnswer struct {
 }
 
 func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapshotDTO, error) {
-	event, err := a.store.FindEventByID(ctx, eventID)
+	event, err := a.store.BuscarEventoPorID(ctx, eventID)
 	if err != nil {
 		return liveSnapshotDTO{}, fmt.Errorf("buscar evento: %w", err)
 	}
-	questions, err := a.store.ListQuestionsByEvent(ctx, eventID)
+	questions, err := a.store.ListarPerguntasPorEvento(ctx, eventID)
 	if err != nil {
 		return liveSnapshotDTO{}, fmt.Errorf("listar perguntas: %w", err)
 	}
-	participants, err := a.store.ListParticipantsByEvent(ctx, eventID)
+	participants, err := a.store.ListarParticipantesPorEvento(ctx, eventID)
 	if err != nil {
 		return liveSnapshotDTO{}, fmt.Errorf("listar participantes: %w", err)
 	}
@@ -1110,7 +1110,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 			}
 			continue
 		}
-		answers, err := a.store.ListAnswersByParticipant(ctx, p.ID)
+		answers, err := a.store.ListarRespostasPorParticipante(ctx, p.ID)
 		if err != nil {
 			return liveSnapshotDTO{}, fmt.Errorf("listar respostas do participante: %w", err)
 		}
@@ -1141,7 +1141,7 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 // freeTextAnswerFor busca a resposta de texto livre de um participante pra
 // uma pergunta específica, sem expor o restante das respostas dele.
 func freeTextAnswerFor(ctx context.Context, st *store.Store, participantID, questionID int64) (string, bool) {
-	answers, err := st.ListAnswersByParticipant(ctx, participantID)
+	answers, err := st.ListarRespostasPorParticipante(ctx, participantID)
 	if err != nil {
 		return "", false
 	}

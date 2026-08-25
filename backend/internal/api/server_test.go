@@ -85,7 +85,7 @@ func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 
 func registerUser(t *testing.T, h http.Handler) *http.Cookie {
 	t.Helper()
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Ana", "email": "ana@exemplo.com", "password": "segredo",
 	}, nil)
 	if rec.Code != http.StatusCreated {
@@ -96,7 +96,7 @@ func registerUser(t *testing.T, h http.Handler) *http.Cookie {
 
 func TestRegisterSuccess(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Ana", "email": "Ana@Exemplo.com", "password": "abc",
 	}, nil)
 
@@ -139,7 +139,7 @@ func TestRegisterValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := doJSON(t, h, http.MethodPost, "/api/auth/register", tc.body, nil)
+			rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", tc.body, nil)
 			if rec.Code != tc.want {
 				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
 			}
@@ -155,7 +155,7 @@ func TestRegisterValidation(t *testing.T) {
 func TestRegisterPasswordTooLong(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	long := strings.Repeat("a", 73)
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "A", "email": "a@b.com", "password": long,
 	}, nil)
 	if rec.Code != http.StatusBadRequest {
@@ -167,7 +167,7 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/register", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/criar-conta", map[string]string{
 		"name": "Outra", "email": "ana@exemplo.com", "password": "segredo",
 	}, nil)
 	if rec.Code != http.StatusConflict {
@@ -179,7 +179,7 @@ func TestLoginSuccess(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/login", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/entrar", map[string]string{
 		"email": "ana@exemplo.com", "password": "segredo",
 	}, nil)
 	if rec.Code != http.StatusOK {
@@ -194,7 +194,7 @@ func TestLoginWrongPassword(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/login", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/entrar", map[string]string{
 		"email": "ana@exemplo.com", "password": "errada",
 	}, nil)
 	if rec.Code != http.StatusUnauthorized {
@@ -204,7 +204,7 @@ func TestLoginWrongPassword(t *testing.T) {
 
 func TestLoginUnknownUser(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/login", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/entrar", map[string]string{
 		"email": "ninguem@exemplo.com", "password": "qualquer",
 	}, nil)
 	if rec.Code != http.StatusUnauthorized {
@@ -215,21 +215,21 @@ func TestLoginUnknownUser(t *testing.T) {
 func TestLoginValidation(t *testing.T) {
 	h := newTestAPI(t).Handler()
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/login", map[string]string{
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/entrar", map[string]string{
 		"email": "", "password": "",
 	}, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("campos vazios: status esperado 400, got %d", rec.Code)
 	}
 
-	rec = doJSON(t, h, http.MethodPost, "/api/auth/login", map[string]string{
+	rec = doJSON(t, h, http.MethodPost, "/api/conta/entrar", map[string]string{
 		"email": "", "password": "123",
 	}, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("email vazio: status esperado 400, got %d", rec.Code)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBufferString("{"))
+	req := httptest.NewRequest(http.MethodPost, "/api/conta/entrar", bytes.NewBufferString("{"))
 	req.Header.Set("Content-Type", "application/json")
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, req)
@@ -243,7 +243,7 @@ func TestMeInvalidSession(t *testing.T) {
 	cookie := registerUser(t, h)
 
 	cookie.Value = cookie.Value + "x"
-	rec := doJSON(t, h, http.MethodGet, "/api/auth/me", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/conta/eu", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("token adulterado: status esperado 401, got %d", rec.Code)
 	}
@@ -255,7 +255,7 @@ func TestMeUnknownUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gerar token: %v", err)
 	}
-	rec := doJSON(t, h, http.MethodGet, "/api/auth/me", nil, []*http.Cookie{{Name: "session", Value: token}})
+	rec := doJSON(t, h, http.MethodGet, "/api/conta/eu", nil, []*http.Cookie{{Name: "session", Value: token}})
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("usuário inexistente: status esperado 401, got %d", rec.Code)
 	}
@@ -265,7 +265,7 @@ func TestMe(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie := registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodGet, "/api/auth/me", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodGet, "/api/conta/eu", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -282,7 +282,7 @@ func TestMe(t *testing.T) {
 
 func TestMeUnauthenticated(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodGet, "/api/auth/me", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/conta/eu", nil, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status esperado 401, got %d", rec.Code)
 	}
@@ -292,7 +292,7 @@ func TestLogout(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie := registerUser(t, h)
 
-	rec := doJSON(t, h, http.MethodPost, "/api/auth/logout", nil, []*http.Cookie{cookie})
+	rec := doJSON(t, h, http.MethodPost, "/api/conta/sair", nil, []*http.Cookie{cookie})
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status esperado 204, got %d", rec.Code)
 	}
@@ -310,7 +310,7 @@ func TestLogout(t *testing.T) {
 
 func TestConfig(t *testing.T) {
 	h := newTestAPI(t).Handler()
-	rec := doJSON(t, h, http.MethodGet, "/api/auth/config", nil, nil)
+	rec := doJSON(t, h, http.MethodGet, "/api/conta/configuracao", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d", rec.Code)
 	}

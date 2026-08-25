@@ -50,12 +50,12 @@ func (s *Store) ensureEditToken(ctx context.Context, p *Participant) error {
 	return nil
 }
 
-// UpsertParticipant cria o participante ou reaproveita o existente (mesmo
+// InserirOuAtualizarParticipante cria o participante ou reaproveita o existente (mesmo
 // evento + e-mail). Nome e foto só são sobrescritos quando um novo valor é
 // enviado, para não apagar dados já salvos quando o participante reenvia sem
 // trocar nome/foto (ex: editando respostas pelo link de edição).
-func (s *Store) UpsertParticipant(ctx context.Context, p Participant) (Participant, error) {
-	existing, err := s.FindParticipantByEventAndEmail(ctx, p.EventID, p.Email)
+func (s *Store) InserirOuAtualizarParticipante(ctx context.Context, p Participant) (Participant, error) {
+	existing, err := s.BuscarParticipantePorEventoEEmail(ctx, p.EventID, p.Email)
 	if err == nil {
 		if p.Name != "" && p.Name != existing.Name {
 			if _, err := s.db.ExecContext(ctx,
@@ -96,14 +96,14 @@ func (s *Store) UpsertParticipant(ctx context.Context, p Participant) (Participa
 		if isUniqueViolation(err) {
 			// condição de corrida rara: outra requisição criou o participante
 			// entre a busca e a inserção acima.
-			return s.FindParticipantByEventAndEmail(ctx, p.EventID, p.Email)
+			return s.BuscarParticipantePorEventoEEmail(ctx, p.EventID, p.Email)
 		}
 		return Participant{}, fmt.Errorf("store: criar participante: %w", err)
 	}
 	return p, nil
 }
 
-func (s *Store) FindParticipantByEventAndEmail(ctx context.Context, eventID int64, email string) (Participant, error) {
+func (s *Store) BuscarParticipantePorEventoEEmail(ctx context.Context, eventID int64, email string) (Participant, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, event_id, email, name, photo, edit_token, created_at FROM participants WHERE event_id = ? AND email = ?`,
 		eventID, email,
@@ -111,7 +111,7 @@ func (s *Store) FindParticipantByEventAndEmail(ctx context.Context, eventID int6
 	return scanParticipant(row)
 }
 
-func (s *Store) FindParticipantByEventAndToken(ctx context.Context, eventID int64, token string) (Participant, error) {
+func (s *Store) BuscarParticipantePorEventoEToken(ctx context.Context, eventID int64, token string) (Participant, error) {
 	if token == "" {
 		return Participant{}, ErrNotFound
 	}
@@ -122,7 +122,7 @@ func (s *Store) FindParticipantByEventAndToken(ctx context.Context, eventID int6
 	return scanParticipant(row)
 }
 
-func (s *Store) FindParticipantByID(ctx context.Context, id int64) (Participant, error) {
+func (s *Store) BuscarParticipantePorID(ctx context.Context, id int64) (Participant, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, event_id, email, name, photo, edit_token, created_at FROM participants WHERE id = ?`,
 		id,
@@ -130,9 +130,9 @@ func (s *Store) FindParticipantByID(ctx context.Context, id int64) (Participant,
 	return scanParticipant(row)
 }
 
-// UpdateParticipantPhoto permite ao organizador definir/corrigir a foto de um
+// AtualizarFotoDoParticipante permite ao organizador definir/corrigir a foto de um
 // participante (ex: participante pediu para atualizar por fora do link).
-func (s *Store) UpdateParticipantPhoto(ctx context.Context, participantID int64, photo string) error {
+func (s *Store) AtualizarFotoDoParticipante(ctx context.Context, participantID int64, photo string) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE participants SET photo = ? WHERE id = ?`, photo, participantID)
 	if err != nil {
 		return fmt.Errorf("store: atualizar foto do participante: %w", err)
@@ -147,8 +147,8 @@ func (s *Store) UpdateParticipantPhoto(ctx context.Context, participantID int64,
 	return nil
 }
 
-// ListParticipantsByEvent retorna os participantes de um evento, do mais antigo ao mais recente.
-func (s *Store) ListParticipantsByEvent(ctx context.Context, eventID int64) ([]Participant, error) {
+// ListarParticipantesPorEvento retorna os participantes de um evento, do mais antigo ao mais recente.
+func (s *Store) ListarParticipantesPorEvento(ctx context.Context, eventID int64) ([]Participant, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, event_id, email, name, photo, edit_token, created_at FROM participants WHERE event_id = ? ORDER BY created_at`,
 		eventID,

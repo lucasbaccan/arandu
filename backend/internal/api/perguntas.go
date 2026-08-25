@@ -64,12 +64,12 @@ func toQuestionDTO(q store.QuestionWithOptions) questionDTO {
 	}
 }
 
-func (a *API) handleListQuestions(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleListarPerguntas(w http.ResponseWriter, r *http.Request) {
 	id, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
 	}
-	questions, err := a.store.ListQuestionsByEvent(r.Context(), id)
+	questions, err := a.store.ListarPerguntasPorEvento(r.Context(), id)
 	if err != nil {
 		log.Printf("api: listar perguntas: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao listar perguntas.")
@@ -89,7 +89,7 @@ type createQuestionRequest struct {
 	Options    []string `json:"options"`
 }
 
-func (a *API) handleCreateQuestion(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleCriarPergunta(w http.ResponseWriter, r *http.Request) {
 	id, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -136,7 +136,7 @@ func (a *API) handleCreateQuestion(w http.ResponseWriter, r *http.Request) {
 		optionEnts = append(optionEnts, store.QuestionOption{ID: a.ids.NextID(), TextLabel: text})
 	}
 
-	question, err := a.store.CreateQuestion(r.Context(), store.Question{
+	question, err := a.store.CriarPergunta(r.Context(), store.Question{
 		ID:         a.ids.NextID(),
 		EventID:    id,
 		Title:      req.Title,
@@ -151,7 +151,7 @@ func (a *API) handleCreateQuestion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"question": toQuestionDTO(question)})
 }
 
-func (a *API) handleDeleteQuestion(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleRemoverPergunta(w http.ResponseWriter, r *http.Request) {
 	id, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -162,7 +162,7 @@ func (a *API) handleDeleteQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.store.DeleteQuestion(r.Context(), questionID, id); errors.Is(err, store.ErrNotFound) {
+	if err := a.store.RemoverPergunta(r.Context(), questionID, id); errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Pergunta não encontrada.")
 		return
 	} else if err != nil {
@@ -178,7 +178,7 @@ type updateQuestionRequest struct {
 	Options []string `json:"options"`
 }
 
-func (a *API) handleUpdateQuestion(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleAtualizarPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -205,7 +205,7 @@ func (a *API) handleUpdateQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := a.store.ListQuestionsByEvent(r.Context(), eventID)
+	existing, err := a.store.ListarPerguntasPorEvento(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: buscar pergunta para editar: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar a pergunta.")
@@ -234,7 +234,7 @@ func (a *API) handleUpdateQuestion(w http.ResponseWriter, r *http.Request) {
 		optionEnts = append(optionEnts, store.QuestionOption{ID: a.ids.NextID(), TextLabel: text})
 	}
 
-	question, err := a.store.UpdateQuestion(r.Context(), store.Question{
+	question, err := a.store.AtualizarPergunta(r.Context(), store.Question{
 		ID:         questionID,
 		EventID:    eventID,
 		Title:      req.Title,
@@ -263,7 +263,7 @@ type reorderQuestionsRequest struct {
 	QuestionIDs []string `json:"questionIds"`
 }
 
-func (a *API) handleReorderQuestions(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleReordenarPerguntas(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
 		return
@@ -275,7 +275,7 @@ func (a *API) handleReorderQuestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := a.store.ListQuestionsByEvent(r.Context(), eventID)
+	existing, err := a.store.ListarPerguntasPorEvento(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: listar perguntas para reordenar: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao reordenar perguntas.")
@@ -308,7 +308,7 @@ func (a *API) handleReorderQuestions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := a.store.ReorderQuestions(r.Context(), eventID, ids); errors.Is(err, store.ErrNotFound) {
+	if err := a.store.ReordenarPerguntas(r.Context(), eventID, ids); errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Pergunta não encontrada.")
 		return
 	} else if err != nil {
@@ -326,7 +326,7 @@ func (a *API) resolveEventOwner(w http.ResponseWriter, r *http.Request) (int64, 
 		return 0, false
 	}
 	ownerID := userIDFromContext(r.Context())
-	if _, err := a.store.FindEventByIDAndOwner(r.Context(), eventID, ownerID); err != nil {
+	if _, err := a.store.BuscarEventoPorIDEDono(r.Context(), eventID, ownerID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Evento não encontrado.")
 			return 0, false
