@@ -133,6 +133,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/public/events/{id}/live/stream", a.handleLiveStream)
 	mux.HandleFunc("POST /api/public/events/{id}/live/react", a.handleLiveReact)
 	mux.HandleFunc("POST /api/public/events/{id}/live/qa", a.handleLiveSubmitQA)
+	mux.HandleFunc("DELETE /api/public/events/{id}/live/qa/{messageId}", a.handleLiveDeleteQA)
 	mux.HandleFunc("GET /api/photos/{participantId}", a.handleParticipantPhoto)
 	mux.HandleFunc("/api/", a.handleAPI404)
 

@@ -72,6 +72,37 @@ func TestDismissLiveQAMessageNotFound(t *testing.T) {
 	}
 }
 
+
+func TestDeleteLiveQAMessageByClient(t *testing.T) {
+	s, eventID := setupQuestionStore(t)
+	ctx := context.Background()
+
+	if _, err := s.CreateLiveQAMessage(ctx, LiveQAMessage{ID: 930, EventID: eventID, ClientID: "abc-123", Text: "minha pergunta"}); err != nil {
+		t.Fatalf("criar mensagem: %v", err)
+	}
+
+	// quem NÃO é dono do navegador não remove
+	if err := s.DeleteLiveQAMessageByClient(ctx, 930, "outro-navegador"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("esperava ErrNotFound pro clientID errado, got %v", err)
+	}
+
+	// o dono remove; a mensagem some da lista (dismissed)
+	if err := s.DeleteLiveQAMessageByClient(ctx, 930, "abc-123"); err != nil {
+		t.Fatalf("remover pelo dono: %v", err)
+	}
+	list, err := s.ListLiveQAMessagesByEvent(ctx, eventID)
+	if err != nil {
+		t.Fatalf("listar mensagens: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("esperava lista vazia após remover, got %+v", list)
+	}
+
+	// remover de novo dá ErrNotFound (já foi)
+	if err := s.DeleteLiveQAMessageByClient(ctx, 930, "abc-123"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("esperava ErrNotFound na segunda remoção, got %v", err)
+	}
+}
 func TestListLiveQAMessagesScopedToEvent(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()

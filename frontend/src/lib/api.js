@@ -140,10 +140,15 @@ export const api = {
             method: 'POST',
             body: { emoji }
           }),
-        submitQuestion: (id, token, text) =>
+        submitQuestion: (id, token, text, clientId) =>
           request(`/api/public/events/${id}/live/qa?token=${encodeURIComponent(token)}`, {
             method: 'POST',
-            body: { text }
+            body: { text, clientId }
+          }),
+        deleteQuestion: (id, token, messageId, clientId) =>
+          request(`/api/public/events/${id}/live/qa/${messageId}?token=${encodeURIComponent(token)}`, {
+            method: 'DELETE',
+            body: { clientId }
           })
       }
     }

@@ -393,6 +393,60 @@ func (a *API) handleLiveDismissQA(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// handleLiveDeleteQA deixa QUEM PERGUNTOU remover a própria pergunta: o
+// navegador envia o mesmo clientId usado no envio (identificador persistido
+// pelo frontend) e a mensagem só é removida se o clientId bater e pertencer
+// ao evento da URL. Qualquer divergência responde "não encontrada" pra não
+// revelar a existência da mensagem a terceiros.
+func (a *API) handleLiveDeleteQA(w http.ResponseWriter, r *http.Request) {
+	eventID, _, ok := a.resolveLiveViewer(w, r)
+	if !ok {
+		return
+	}
+	messageID, err := strconv.ParseInt(r.PathValue("messageId"), 10, 64)
+	if err != nil || messageID <= 0 {
+		writeError(w, http.StatusBadRequest, "ID de mensagem inválido.")
+		return
+	}
+	var req struct {
+		ClientID string `json:"clientId"`
+	}
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	clientID := strings.TrimSpace(req.ClientID)
+	if clientID == "" {
+		writeError(w, http.StatusBadRequest, "Identificador do navegador ausente.")
+		return
+	}
+	msg, err := a.store.FindLiveQAMessageByID(r.Context(), messageID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar mensagem de q&a: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	if msg.EventID != eventID || msg.ClientID != clientID {
+		writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
+		return
+	}
+	if err := a.store.DeleteLiveQAMessageByClient(r.Context(), messageID, clientID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "Mensagem não encontrada.")
+			return
+		}
+		log.Printf("api: remover mensagem de q&a: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+	a.live.Touch(eventID)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 // handleLiveAdminState é o equivalente autenticado de handleLiveState — deixa
 // buscar o snapshot do organizador sem abrir SSE (útil pra testes e como
 // fallback), espelhando o par state/stream que já existe pro público.
@@ -661,6 +715,9 @@ func (a *API) handleLiveReact(w http.ResponseWriter, r *http.Request) {
 
 type liveSubmitQARequest struct {
 	Text string `json:"text"`
+	// ClientID identifica o navegador que mandou (UUID persistido pelo
+	// frontend) — é o que permite a própria pessoa remover a pergunta depois.
+	ClientID string `json:"clientId"`
 }
 
 // handleLiveSubmitQA grava uma pergunta/recado de um participante pro
@@ -685,6 +742,14 @@ func (a *API) handleLiveSubmitQA(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Mensagem muito longa (máximo "+strconv.Itoa(maxLiveQATextLength)+" caracteres).")
 		return
 	}
+	// clientID é opcional (mensagens antigas/outros clientes não têm); se vier,
+	// só precisa ser curto — o dono do navegador usa pra remover a própria
+	// pergunta (ver handleLiveDeleteQA).
+	clientID := strings.TrimSpace(req.ClientID)
+	if len(clientID) > 64 {
+		writeError(w, http.StatusBadRequest, "Identificador do navegador inválido.")
+		return
+	}
 	event, err := a.store.FindEventByID(r.Context(), eventID)
 	if err != nil {
 		log.Printf("api: buscar evento para q&a: %v", err)
@@ -700,10 +765,12 @@ func (a *API) handleLiveSubmitQA(w http.ResponseWriter, r *http.Request) {
 	if claims.Role == auth.LiveRoleParticipant && claims.ParticipantID != "" {
 		participantID, _ = strconv.ParseInt(claims.ParticipantID, 10, 64)
 	}
+	messageID := a.ids.NextID()
 	if _, err := a.store.CreateLiveQAMessage(r.Context(), store.LiveQAMessage{
-		ID:            a.ids.NextID(),
+		ID:            messageID,
 		EventID:       eventID,
 		ParticipantID: participantID,
+		ClientID:      clientID,
 		Text:          text,
 	}); err != nil {
 		log.Printf("api: gravar mensagem de q&a: %v", err)
@@ -711,7 +778,9 @@ func (a *API) handleLiveSubmitQA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.live.Touch(eventID)
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	// Devolve o id e o texto pra o próprio navegador poder listar/remover a
+	// pergunta dele (o snapshot público não expõe a caixa de entrada).
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "messageId": strconv.FormatInt(messageID, 10), "text": text})
 }
 
 // resolveLiveViewer valida o token de visitante (query param) e confere que

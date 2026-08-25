@@ -541,6 +541,61 @@ func TestLiveDismissQARejectsMessageFromAnotherEvent(t *testing.T) {
 	}
 }
 
+
+func TestLiveDeleteQAOnlyOwnerCanRemove(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, _, _, _, pin, _, _ := setupLiveEvent(t, h)
+	token, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+
+	// envio com o identificador de navegador; a resposta traz o id da mensagem
+	rec := doJSON(t, h, http.MethodPost, "/api/public/events/"+eventID+"/live/qa?token="+token, map[string]any{"text": "minha pergunta", "clientId": "browser-abc"}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit qa: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var submitted struct {
+		MessageID string `json:"messageId"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &submitted); err != nil {
+		t.Fatalf("parse da resposta do submit: %v", err)
+	}
+	if submitted.MessageID == "" {
+		t.Fatal("esperava messageId na resposta do submit")
+	}
+
+	snap := getLiveAdminState(t, h, eventID, cookie)
+	if len(snap.QAInbox) != 1 {
+		t.Fatalf("esperava 1 mensagem na caixa, got %+v", snap.QAInbox)
+	}
+	messageID := snap.QAInbox[0].ID
+
+	// sem clientId → 400
+	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{}, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("sem clientId: status esperado 400, got %d", rec.Code)
+	}
+
+	// outro navegador (clientId diferente) não remove → 404 (não revela a msg)
+	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{"clientId": "browser-outro"}, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("clientId errado: status esperado 404, got %d", rec.Code)
+	}
+
+	// o dono do navegador remove — some da caixa do organizador
+	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{"clientId": "browser-abc"}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete do dono: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	snap = getLiveAdminState(t, h, eventID, cookie)
+	if len(snap.QAInbox) != 0 {
+		t.Fatalf("esperava caixa vazia apos remover, got %+v", snap.QAInbox)
+	}
+
+	// remover de novo → 404 (já foi)
+	rec = doJSON(t, h, http.MethodDelete, "/api/public/events/"+eventID+"/live/qa/"+messageID+"?token="+token, map[string]string{"clientId": "browser-abc"}, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("segunda remoção: status esperado 404, got %d", rec.Code)
+	}
+}
 // readSSEFrame lê um bloco de evento SSE (linhas "event:"/"data:" seguidas de
 // linha em branco) e devolve o nome do evento (vazio pro default) e o
 // payload de data. Complementa o readEvent local de TestLiveStreamPushesUpdates,
