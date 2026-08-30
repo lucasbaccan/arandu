@@ -340,7 +340,7 @@ describe('Preview da apresentação', () => {
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
-    const smartBtn = view.getByRole('button', { name: 'Modo apresentação — Smart' });
+    const smartBtn = view.getByRole('button', { name: 'Modo de visualização — Amplo' });
     await fireEvent.click(smartBtn);
 
     // muda o estado no servidor — quem já tiver /apresentar ou /plateia
@@ -350,7 +350,7 @@ describe('Preview da apresentação', () => {
     expect(openSpy).toHaveBeenCalledTimes(1);
     expect(smartBtn).toHaveAttribute('aria-pressed', 'true');
 
-    const cols2Btn = view.getByRole('button', { name: 'Modo apresentação — 2 colunas' });
+    const cols2Btn = view.getByRole('button', { name: 'Modo de visualização — 2 colunas' });
     await fireEvent.click(cols2Btn);
 
     expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', '2');

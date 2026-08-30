@@ -1,7 +1,7 @@
 <script>
   export let id = '';
 
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { questionKindInfo } from '../lib/eventStatus.js';
@@ -24,6 +24,19 @@
   let questions = [];
   let participants = [];
   let currentIndex = 0;
+
+  // Preview do placar: em telas pequenas usa o layout 'compact' do
+  // PresentationStage (linhas legíveis) em vez da escala de projetor.
+  let isCompact = false;
+
+  onMount(() => {
+    // Cobre retrato de celular E landscape (largura >640px com altura baixa).
+    const mq = window.matchMedia('(max-width: 640px), (max-height: 480px)');
+    isCompact = mq.matches;
+    const onChange = (e) => (isCompact = e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  });
 
   let blanked = false;
   let answersHidden = false;
@@ -99,10 +112,11 @@
   // blanked/answersHidden) — quem já estiver com /apresentar ou /plateia
   // abertos vê a densidade trocar ao vivo, sem precisar recarregar nem
   // alternar pra tela do projetor. `mode` é o valor exato que o servidor
-  // espera (ver validPresentDensityModes no backend).
+  // espera (ver validPresentDensityModes no backend). Ícones dos dois
+  // primeiros vêm do Material (.msr); os demais são os números de colunas.
   const MODOS_APRESENTACAO = [
-    { mode: '', label: 'Automático', icon: 'A' },
-    { mode: 'smart', label: 'Smart', icon: '★' },
+    { mode: '', label: 'Compacto', icon: 'close_fullscreen', font: true },
+    { mode: 'smart', label: 'Amplo', icon: 'open_in_full', font: true },
     { mode: '1', label: '1 coluna', icon: '1' },
     { mode: '2', label: '2 colunas', icon: '2' },
     { mode: '3', label: '3 colunas', icon: '3' },
@@ -518,7 +532,7 @@
         dot
         label={`${participants.length} na sala`}
         tint="var(--tint-cyan)"
-        color="var(--cyan-hover)"
+        color="var(--cyan-text)"
       />
       <svelte:fragment slot="actions">
         <PinChip pin={event.pinCode} variant="boxed" />
@@ -570,7 +584,7 @@
             </div>
 
             <PresentationStage
-              layout="screen"
+              layout={isCompact ? 'compact' : 'screen'}
               {pending}
               {groups}
               onFaceClick={reveal}
@@ -603,7 +617,7 @@
                 aria-label="Pergunta anterior"
                 disabled={currentIndex === 0}
                 on:click={goPrev}
-              >←</button>
+              ><span class="msr nav-btn-glyph">arrow_back</span></button>
               <span class="dock-counter">{currentIndex + 1} / {questions.length}</span>
               <button
                 type="button"
@@ -611,22 +625,25 @@
                 aria-label="Próxima pergunta"
                 disabled={currentIndex === questions.length - 1}
                 on:click={goNext}
-              >→</button>
+              ><span class="msr nav-btn-glyph">arrow_forward</span></button>
             </div>
 
-            <div class="dock-right">
+            <div class="view-modes">
               <div class="modos-apresentacao">
-                {#each MODOS_APRESENTACAO as mode (mode.mode)}
-                  <button
-                    type="button"
-                    class="mode-btn"
-                    class:active={modoDensidadeApresentacao === mode.mode}
-                    title={`Modo apresentação — ${mode.label}`}
-                    aria-label={`Modo apresentação — ${mode.label}`}
-                    aria-pressed={modoDensidadeApresentacao === mode.mode}
-                    on:click={() => selectPresentMode(mode.mode)}
-                  >{mode.icon}</button>
-                {/each}
+                <span class="modos-label">Modos de visualização das perguntas</span>
+                <div class="modos-btn-row">
+                  {#each MODOS_APRESENTACAO as mode (mode.mode)}
+                    <button
+                      type="button"
+                      class="mode-btn"
+                      class:active={modoDensidadeApresentacao === mode.mode}
+                      title={`Modo de visualização — ${mode.label}`}
+                      aria-label={`Modo de visualização — ${mode.label}`}
+                      aria-pressed={modoDensidadeApresentacao === mode.mode}
+                      on:click={() => selectPresentMode(mode.mode)}
+                    >{#if mode.font}<span class="msr mode-btn-glyph">{mode.icon}</span>{:else}{mode.icon}{/if}</button>
+                  {/each}
+                </div>
               </div>
             </div>
           </div>
@@ -650,6 +667,7 @@
                   type="button"
                   class="question-row"
                   class:active={i === currentIndex}
+                  title={q.title}
                   on:click={() => jumpToQuestion(i)}
                 >
                   <span class="question-n">{i + 1}</span>
@@ -827,7 +845,7 @@
     justify-self: center;
   }
 
-  .dock-right {
+  .view-modes {
     display: flex;
     justify-content: flex-end;
     min-width: 0;
@@ -855,6 +873,11 @@
     background: var(--surface-muted);
   }
 
+  .nav-btn-glyph {
+    font-size: 20px;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
+
   .nav-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -870,14 +893,28 @@
 
   .modos-apresentacao {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .modos-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .modos-btn-row {
+    display: flex;
     align-items: center;
     gap: 6px;
   }
 
   .mode-btn {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-control);
     border: 1px solid var(--border);
     background: transparent;
@@ -886,10 +923,16 @@
     align-items: center;
     justify-content: center;
     font-family: var(--font-ui);
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 800;
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mode-btn-glyph {
+    font-size: 18px;
+    line-height: 1;
+    font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 20;
   }
 
   .mode-btn:hover {
@@ -976,8 +1019,83 @@
       justify-items: center;
     }
 
-    .dock-right {
+    .view-modes {
       justify-content: center;
+    }
+  }
+
+  /* Mobile: o shell travado em 100dvh + trilho de 60vh esmagavam o painel
+     (preview do placar virava uma tira de ~0-77px em 375×667). A página
+     rola naturalmente; o trilho solta o cap (o chrome fixo dele — tabs +
+     switches + footer ≈ 296px — comia os 45vh) e quem ganha limite é só o
+     painel interno. */
+  @media (max-width: 640px) {
+    .shell {
+      height: auto;
+    }
+
+    .palco-rail {
+      max-height: none;
+    }
+
+    .rail-panel {
+      max-height: 45vh;
+    }
+
+    .palco-main {
+      min-height: 0;
+    }
+
+    .nav-btn,
+    .mode-btn {
+      min-width: 40px;
+      min-height: 40px;
+    }
+    .qa-dismiss {
+      min-height: 44px;
+      padding: 10px 14px;
+      font-size: 0.8125rem;
+    }
+
+    .modos-apresentacao {
+      align-items: center;
+      gap: 4px;
+    }
+
+    .modos-label {
+      white-space: nowrap;
+    }
+
+    .palco-dock {
+      padding: 14px 24px max(14px, env(safe-area-inset-bottom));
+    }
+
+    .rail-footer {
+      padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    }
+  }
+
+  /* 6 botões de modo (6×40 + 5×6 = 270px) em telas bem estreitas. */
+  @media (max-width: 360px) {
+    .modos-btn-row {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }
+
+  /* "💡 Dicas" é exclusivo de hover (tooltips não abrem em touch) — some em
+     dispositivos sem hover. */
+  @media (hover: none) {
+    .hint-toggle {
+      display: none;
+    }
+  }
+
+  /* "Reiniciar tudo" é ação rara; escondê-la no mobile reduz o CrumbBar a
+     2 linhas (chip+PIN / ação principal). */
+  @media (max-width: 480px) {
+    :global(.crumbbar .btn-secondary) {
+      display: none;
     }
   }
 
@@ -1026,7 +1144,7 @@
     flex-shrink: 0;
     font-size: 0.75rem;
     font-weight: 800;
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
 
   .question-info {
@@ -1064,7 +1182,7 @@
 
   .qa-item-author {
     font-size: 0.6875rem;
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
 
   .qa-item-text {
