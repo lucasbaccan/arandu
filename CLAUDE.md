@@ -142,3 +142,4 @@ parsed from the URL.
 | `/tela` | `Tela.svelte` | Internal component/design-system showcase (buttons, inputs, selects, switches, cards, toasts, etc.) — not part of the product flow. |
 | `/mapa-do-site` | `MapaDoSite.svelte` | Internal site map — every URL of the app grouped by flow; static routes are clickable links, dynamic ones (`{id}`) shown as patterns. Linked from `HelpButton`'s "Mapa do site" and from `/debug`. |
 | `/debug` | `Debug.svelte` | Internal developer screen — quick links to `/mapa-do-site` (site map) and `/tela` (design reference), plus current app state (route, theme, user, window). |
+| `/icones` | `Icones.svelte` | Internal decision page — 10 chevron/arrow options for the Painel event row, each in a mini card comparing web (grid) and mobile (stacked card) renderings side by side. |

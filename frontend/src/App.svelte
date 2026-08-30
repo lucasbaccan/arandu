@@ -21,6 +21,7 @@
   import Tela from './views/Tela.svelte';
   import MapaDoSite from './views/MapaDoSite.svelte';
   import Debug from './views/Debug.svelte';
+  import Icones from './views/Icones.svelte';
 
   onMount(initAuth);
 
@@ -73,6 +74,8 @@
     <MapaDoSite />
   {:else if $route === '/debug'}
     <Debug />
+  {:else if $route === '/icones'}
+    <Icones />
   {:else if $route === '/como-funciona'}
     <ComoFunciona />
   {:else if $route === '/privacidade'}
