@@ -90,7 +90,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* safe center: com overflow (telas baixas/landscape) o topo fica
+       acessível em vez de cortado pelo centering. */
+    justify-content: safe center;
     gap: 24px;
     padding: 72px 24px 40px;
   }
@@ -105,5 +107,26 @@
     max-width: 100%;
     display: flex;
     flex-direction: column;
+  }
+
+  /* Alvo de toque mínimo em telas de toque. */
+  @media (pointer: coarse) {
+    .corner-back {
+      min-height: 44px;
+      padding: 10px 16px;
+    }
+  }
+
+  /* Telas baixas (ex.: iPhone SE em retrato): menos rolagem, logo menor.
+     60px (não 56) para o logo não roçar nos controles de canto em 320px. */
+  @media (max-height: 700px) {
+    .public-center {
+      padding-top: 60px;
+      gap: 16px;
+    }
+
+    .public-logo {
+      width: 120px;
+    }
   }
 </style>

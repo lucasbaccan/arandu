@@ -56,6 +56,7 @@
 
 <style>
   .copy-btn {
+    position: relative;
     width: 26px;
     height: 26px;
     flex-shrink: 0;
@@ -79,5 +80,12 @@
   .copy-btn svg {
     width: 14px;
     height: 14px;
+  }
+
+  /* Alvo de toque de ~40px sem mudar o visual (26px reais + 7px de folga). */
+  .copy-btn::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
   }
 </style>

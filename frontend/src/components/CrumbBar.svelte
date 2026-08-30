@@ -83,4 +83,23 @@
   .crumb-spacer {
     flex: 1;
   }
+
+  /* Mobile: a faixa não cabe em uma linha (chip + PIN + ações). Quebra em
+     duas: migalhas na primeira, status/ações na segunda. */
+  @media (max-width: 640px) {
+    .crumbbar {
+      flex-wrap: wrap;
+      min-height: auto;
+      padding: 6px 12px;
+      gap: 6px 10px;
+    }
+
+    .crumbs {
+      width: 100%;
+    }
+
+    .crumb-spacer {
+      display: none;
+    }
+  }
 </style>

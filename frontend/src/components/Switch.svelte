@@ -39,6 +39,14 @@
     transition: background 0.15s ease, border-color 0.15s ease;
   }
 
+  /* Área de toque estendida verticalmente (24px -> ~44px) sem mudar o visual. */
+  .switch::before {
+    content: '';
+    position: absolute;
+    inset: -10px 0;
+    border-radius: 999px;
+  }
+
   .switch.on {
     background: var(--accent);
     border-color: var(--accent);

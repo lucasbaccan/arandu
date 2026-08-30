@@ -17,7 +17,7 @@
   }
 </script>
 
-<div class="reaction-bar">
+<div class="reaction-bar" class:compact>
   {#each emojis as emoji (emoji)}
     <button
       type="button"
@@ -82,13 +82,21 @@
 
   @media (max-width: 480px) {
     .reaction-bar.compact {
-      gap: 6px;
+      gap: 8px;
     }
 
     .reaction-bar.compact .reaction-btn {
-      width: 36px;
-      height: 36px;
-      font-size: 1.125rem;
+      width: 44px;
+      height: 44px;
+      font-size: 1.25rem;
+    }
+
+    /* Variante padrão (56px) também encolhe em telas estreitas para caber
+       em uma linha (ex.: demo do /tela). */
+    .reaction-bar .reaction-btn {
+      width: 44px;
+      height: 44px;
+      font-size: 1.25rem;
     }
   }
 </style>

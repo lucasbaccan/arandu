@@ -41,7 +41,7 @@
 <header class="topbar">
   <img class="topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
   <span class="topbar-sep"></span>
-  <span class="topbar-area">{area}</span>
+  <span class="topbar-area" title={area}>{area}</span>
   <span class="topbar-spacer"></span>
   <slot name="extra" />
   <ThemeToggle />

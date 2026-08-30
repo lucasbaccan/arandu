@@ -71,6 +71,13 @@
     padding: 14px 2px 11px;
   }
 
+  /* Alvo de toque das abas (~30px -> ~42px) em telas de toque. */
+  @media (pointer: coarse) {
+    .tab {
+      padding: 12px 2px 14px;
+    }
+  }
+
   .tab:hover {
     color: var(--text);
   }
@@ -87,5 +94,13 @@
 
   .tabs-spacer {
     flex: 1;
+  }
+
+  /* Mobile: abas + ação em uma linha estouram; deixa quebrar. */
+  @media (max-width: 640px) {
+    .tabs {
+      flex-wrap: wrap;
+      gap: 8px 16px;
+    }
   }
 </style>

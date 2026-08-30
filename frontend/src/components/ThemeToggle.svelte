@@ -44,4 +44,12 @@
     border-color: var(--border-strong);
     background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
   }
+
+  /* Alvo de toque mínimo em telas de toque (34px -> 44px). */
+  @media (pointer: coarse) {
+    .theme-toggle {
+      width: 44px;
+      height: 44px;
+    }
+  }
 </style>

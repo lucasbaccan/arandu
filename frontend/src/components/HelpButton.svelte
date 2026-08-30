@@ -101,7 +101,7 @@
     top: calc(100% + 8px);
     right: 0;
     z-index: 30;
-    width: 280px;
+    width: min(280px, calc(100vw - 64px));
     padding: 14px 16px;
     background: var(--bg-elev);
     border: 1px solid var(--border);
@@ -138,5 +138,13 @@
   .help-foot {
     margin: 10px 0 0;
     font-size: 0.75rem;
+  }
+
+  /* Alvo de toque mínimo em telas de toque (34px -> 44px). */
+  @media (pointer: coarse) {
+    .help-btn {
+      width: 44px;
+      height: 44px;
+    }
   }
 </style>

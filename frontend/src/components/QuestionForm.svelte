@@ -50,6 +50,7 @@
     bind:value={title}
     placeholder="Ex: Qual é o seu prato favorito?"
     hint="Máximo de 300 caracteres"
+    textarea
   />
 
   <div class="field">
@@ -215,5 +216,17 @@
   .open-text-note {
     margin: -6px 0 0;
     font-size: 0.85rem;
+  }
+
+  /* Em 375px as duas opções lado a lado truncam o rótulo ("Múltipla es…");
+     empilha e deixa o texto quebrar. */
+  @media (max-width: 480px) {
+    .type-toggle {
+      flex-direction: column;
+    }
+
+    .type-text {
+      white-space: normal;
+    }
   }
 </style>

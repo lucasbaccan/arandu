@@ -63,4 +63,11 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  /* Alvo de toque (~36px -> ~44px) em telas de toque. */
+  @media (pointer: coarse) {
+    .segmented-option {
+      padding: 12px 16px;
+    }
+  }
 </style>

@@ -2,9 +2,22 @@
   import { createEventDispatcher } from 'svelte';
   import Button from './Button.svelte';
 
-  const STAGE_SIZE = 280;
+  // Em telas < 480px o stage fixo de 280px estourava o card do modal (ex.:
+  // EventoEditar em 375px, onde o conteúdo útil tem ~263px). Deriva do
+  // viewport e REAGE a resize/rotação (svelte:window on:resize) — o círculo
+  // de corte continua 200px, que cabe em qualquer stage.
   const CROP_SIZE = 200;
-  const CROP_OFFSET = (STAGE_SIZE - CROP_SIZE) / 2;
+  let STAGE_SIZE = 280;
+
+  function computeStageSize() {
+    STAGE_SIZE =
+      typeof window !== 'undefined' && window.innerWidth < 480
+        ? Math.max(200, window.innerWidth - 130)
+        : 280;
+  }
+  computeStageSize();
+
+  $: CROP_OFFSET = (STAGE_SIZE - CROP_SIZE) / 2;
   const OUTPUT_SIZE = 320;
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 3;
@@ -141,6 +154,8 @@
     dispatch('change', '');
   }
 </script>
+
+<svelte:window on:resize={computeStageSize} />
 
 <div class="avatar-cropper" class:compact>
   <input
@@ -376,7 +391,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    width: 200px;
+    width: min(200px, 100%);
     font-size: 0.8rem;
   }
 
