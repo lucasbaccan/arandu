@@ -34,7 +34,10 @@
   onMount(() => {
     pathname = window.location.pathname;
     search = window.location.search;
-    size = `${window.innerWidth}×${window.innerHeight}`;
+    const updateSize = () => (size = `${window.innerWidth}×${window.innerHeight}`);
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
   });
 
   $: userLine = $user ? `${$user.name} <${$user.email}>` : 'deslogado';
@@ -94,6 +97,12 @@
   </section>
 
   <footer class="dbg-footer">
+    <button
+      type="button"
+      class="dbg-back"
+      on:click={() => (history.length > 1 ? history.back() : navigate('/mapa-do-site'))}
+    >‹ Voltar</button>
+    <span class="dbg-footer-sep" aria-hidden="true">·</span>
     <a href="/mapa-do-site" on:click={go('/mapa-do-site')}>Ver mapa completo do site ›</a>
   </footer>
 </main>
@@ -130,7 +139,7 @@
 
   .dbg-shortcuts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
     gap: 14px;
   }
 
@@ -191,7 +200,7 @@
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
 
   .dbg-state-row dd {
@@ -206,17 +215,42 @@
 
   .dbg-footer {
     display: flex;
+    align-items: center;
     justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    gap: 10px;
     font-size: 0.8125rem;
     font-weight: 700;
   }
 
-  .dbg-footer a {
+  .dbg-footer a,
+  .dbg-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    background: transparent;
     color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
   }
 
-  .dbg-footer a:hover {
+  .dbg-footer a:hover,
+  .dbg-back:hover {
     color: var(--accent);
+  }
+
+  .dbg-back:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .dbg-footer-sep {
+    color: var(--border-strong);
   }
 
   @media (max-width: 520px) {

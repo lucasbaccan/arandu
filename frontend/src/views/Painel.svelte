@@ -109,7 +109,6 @@
         <span class="col-title">Evento</span>
         <span class="col-status">Situação</span>
         <span class="col-pin">PIN</span>
-        <span class="col-responses">Respostas</span>
         <span class="col-created">Criado</span>
         <span class="col-chevron"></span>
       </div>
@@ -128,10 +127,15 @@
               on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && abrirEvento(ev.id)}
             >
               <div class="col-title evento-title-cell">
-                <span class="evento-title-text">{ev.title}</span>
-                <span class="text-muted evento-question-count">
-                  {ev.questionCount} pergunta{ev.questionCount === 1 ? '' : 's'}
-                </span>
+                <span class="evento-title-text" title={ev.title}>{ev.title}</span>
+                <div class="evento-counts">
+                  <span class="text-muted evento-question-count">
+                    {ev.questionCount} pergunta{ev.questionCount === 1 ? '' : 's'}
+                  </span>
+                  <span class="evento-responses">
+                    {ev.participantCount} respost{ev.participantCount === 1 ? 'a' : 'as'}
+                  </span>
+                </div>
               </div>
               <span class="col-status">
                 <Chip
@@ -141,12 +145,13 @@
                   color={statusInfo(ev.status).color}
                 />
               </span>
-              <span class="col-pin">
-                <PinChip pin={ev.pinCode} />
+              <span class="meta-group">
+                <span class="col-pin">
+                  <PinChip pin={ev.pinCode} />
+                </span>
               </span>
-              <span class="col-responses evento-people">{ev.participantCount}</span>
               <span class="col-created text-muted">{formatDate(ev.createdAt)}</span>
-              <span class="col-chevron evento-chevron">›</span>
+              <span class="col-chevron evento-chevron">❯</span>
             </div>
           {/each}
         </div>
@@ -217,11 +222,12 @@
 
   .filters {
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
 
   .filter {
-    padding: 6px 12px;
+    min-height: 40px;
+    padding: 9px 12px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--bg-elev);
@@ -245,10 +251,10 @@
 
   .eventos-table-head {
     display: grid;
-    grid-template-columns: minmax(160px, 1fr) 170px 140px 100px 110px 24px;
+    grid-template-columns: minmax(160px, 1fr) 170px 140px 110px 24px;
     gap: 16px;
     padding: 0 18px;
-    color: var(--text-subtle);
+    color: var(--text-muted);
     font-size: 0.6875rem;
     font-weight: 800;
     letter-spacing: 0.1em;
@@ -259,9 +265,11 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
+    /* Sem overflow próprio: a lista cresce com o conteúdo e a página rola
+       como um todo — scrollbar do navegador na borda, não uma barra flutuando
+       no meio da tela. flex: none impede o flex-shrink do pai (shell-body)
+       de comprimir a lista quando o conteúdo passa da altura da janela. */
+    flex: none;
   }
 
   .eventos-empty-search {
@@ -272,10 +280,13 @@
      legível de relance na lista inteira. */
   .evento-row {
     display: grid;
-    grid-template-columns: minmax(160px, 1fr) 170px 140px 100px 110px 24px;
+    grid-template-columns: minmax(160px, 1fr) 170px 140px 110px 24px;
     gap: 16px;
     align-items: center;
     min-height: 64px;
+    /* flex-shrink: 0 — a linha é item de .eventos-table-body (coluna flex).
+       O card nunca comprime abaixo da altura do conteúdo. */
+    flex-shrink: 0;
     padding: 12px 18px;
     background: var(--bg-elev);
     border: 1px solid var(--border);
@@ -316,8 +327,15 @@
     font-size: 0.75rem;
   }
 
-  .evento-people {
-    font-size: 0.9375rem;
+  .evento-counts {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .evento-counts .evento-responses {
+    flex-shrink: 0;
+    font-size: 0.75rem;
     font-weight: 700;
   }
 
@@ -326,7 +344,7 @@
   }
 
   .evento-chevron {
-    color: var(--text-subtle);
+    color: var(--text-muted);
     font-size: 1.125rem;
     text-align: right;
   }
@@ -342,9 +360,112 @@
     }
 
     .col-pin,
-    .col-responses,
     .col-created {
       display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    /* A busca volta no mobile (o CrumbBar quebra em 2 linhas nessa faixa):
+       linha própria ao lado do botão "Novo evento". */
+    .search {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* 16px evita o zoom automático do iOS ao focar (a busca não é .field). */
+    .search input {
+      font-size: 1rem;
+    }
+  }
+
+  /* Chip de status longo ("Coletando respostas") cabe na coluna de 150px da
+     tabela 3 colunas (521-900px): trunca em vez de encostar no chevron. */
+  .col-status {
+    min-width: 0;
+  }
+
+  .col-status :global(.chip) {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Filtros com alvo de toque de 44px em telas de toque. */
+  @media (pointer: coarse) {
+    .filter {
+      min-height: 44px;
+    }
+  }
+
+  /* Telefone: o grid de 3 colunas estoura (mínimo intrínseco 362px vs
+     296-350px disponíveis em 360-414px). A linha vira um card empilhado com
+     PIN de volta — dado essencial para o organizador ao vivo. Perguntas e
+     respostas ficam juntas na segunda linha do título.
+     Vai até 640px: em 521-640px o grid de 3 colunas deixava o título estreito
+     e o chevron em posição errada. */
+  @media (max-width: 640px) {
+    .eventos-table-head {
+      display: none;
+    }
+
+    .evento-row {
+      position: relative;
+      display: flex;
+      flex-flow: row wrap;
+      align-items: center;
+      gap: 6px 10px;
+      min-height: 0;
+      padding: 12px 40px 12px 16px;
+    }
+
+    .evento-row .col-title {
+      flex: 1 1 100%;
+      min-width: 0;
+      padding-right: 30px;
+    }
+
+    .evento-title-text {
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .evento-chevron {
+      position: absolute;
+      top: 50%;
+      right: 14px;
+      transform: translateY(-50%);
+      font-size: 1.125rem;
+      color: var(--text-muted);
+    }
+
+    /* Com PIN longo, o valor trunca com ellipsis sem quebrar a linha. */
+    .evento-row .meta-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 0;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .evento-row .meta-group .col-pin {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .evento-row .col-pin::before {
+      content: 'PIN';
+      font-size: 0.6875rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-right: 6px;
     }
   }
 </style>

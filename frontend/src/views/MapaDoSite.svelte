@@ -224,22 +224,26 @@
 
   .sm-access.ok {
     background: var(--tint-success);
-    color: var(--success);
+    color: var(--success-text);
   }
 
+  /* --cyan/-purple/-yellow como cor de TEXTO quebram o contraste (--purple
+     nem é redefinido no tema escuro: ~1.2:1). Usa os tokens tema-aware do
+     sistema: --cyan-hover (claro), --accent e a dupla --orange/--tint-orange
+     (mesma combinação do status 'Em preparação'). */
   .sm-access.cyan {
     background: var(--tint-cyan);
-    color: var(--cyan);
+    color: var(--cyan-text);
   }
 
   .sm-access.purple {
     background: var(--tint-purple);
-    color: var(--purple);
+    color: var(--purple-text);
   }
 
   .sm-access.warn {
-    background: var(--tint-yellow);
-    color: var(--yellow);
+    background: var(--tint-orange);
+    color: var(--orange-text);
   }
 
   .sm-table {
@@ -262,7 +266,7 @@
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--text-subtle);
+    color: var(--text-muted);
     padding-bottom: 6px;
   }
 
@@ -320,6 +324,21 @@
 
     .sm-row-head {
       display: none;
+    }
+
+    /* Links de rota e do rodapé: alvo de toque de 44px (padrão do Debug). */
+    .sm-route a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 2px;
+    }
+
+    .sm-footer a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 8px;
     }
   }
 </style>

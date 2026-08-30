@@ -1,7 +1,7 @@
 <script>
   export let id = '';
 
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { api } from '../lib/api.js';
   import PresentationStage from '../components/PresentationStage.svelte';
   import ReactionBurstLayer from '../components/ReactionBurstLayer.svelte';
@@ -16,6 +16,22 @@
   let error = '';
   let snapshot = null;
   let eventSource = null;
+
+  // Em telas pequenas o placar usa o layout 'compact' do PresentationStage
+  // (linhas legíveis) em vez da escala de projetor; o layout 'screen' segue
+  // para o telão. A fila de pendentes em compact mostra todos os rostos —
+  // a media query do componente (≤640px) os quebra em linhas.
+  let compact = false;
+
+  onMount(() => {
+    // Cobre retrato de celular E landscape (largura >640px com altura baixa):
+    // um celular deitado não pode cair no layout de projetor.
+    const mq = window.matchMedia('(max-width: 640px), (max-height: 480px)');
+    compact = mq.matches;
+    const onChange = (e) => (compact = e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  });
 
   onDestroy(() => {
     if (eventSource) eventSource.close();
@@ -84,7 +100,7 @@
   {:else}
     <div class="apresentar-head">
       <img class="apresentar-logo" src="/img/arandu-logo.png" alt="Arandu" />
-      <span class="apresentar-event">{snapshot.eventTitle || ''}</span>
+      <span class="apresentar-event" title={snapshot.eventTitle || ''}>{snapshot.eventTitle || ''}</span>
     </div>
 
     {#if snapshot.message}
@@ -104,7 +120,7 @@
       </h1>
       <div class="apresentar-zones">
         <PresentationStage
-          layout="screen"
+          layout={compact ? 'compact' : 'screen'}
           {forceCols}
           smart={isSmart}
           pending={snapshot.pending || []}
@@ -114,6 +130,10 @@
         />
       </div>
     {/if}
+  {/if}
+
+  {#if compact}
+    <p class="apresentar-hint">💡 Abra num telão para o melhor efeito.</p>
   {/if}
 
   <ReactionBurstLayer />
@@ -149,14 +169,20 @@
     display: flex;
     align-items: center;
     gap: 14px;
+    min-width: 0;
   }
 
   .apresentar-logo {
     height: 28px;
     width: auto;
+    flex-shrink: 0;
   }
 
   .apresentar-event {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 1.125rem;
     font-weight: 700;
     color: var(--text-muted);
@@ -224,11 +250,44 @@
     border: 1px solid var(--border);
     border-radius: 14px;
     text-align: center;
+    /* Mensagens longas nunca devem ficar cortadas sem acesso. */
+    overflow-y: auto;
   }
 
   .apresentar-overlay p {
     margin: 0;
     font-size: 2rem;
     font-weight: 700;
+  }
+
+  .apresentar-hint {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 95;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    padding: 8px 14px;
+    border-radius: var(--radius-control);
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* Mobile: fonte da mensagem menor (2rem em 375px dá ~13 caracteres/linha)
+     e a página rola (o placar compacto mostra todos os participantes — cortar
+     sem scroll deixaria zonas inacessíveis). */
+  @media (max-width: 640px) {
+    .apresentar-overlay p {
+      font-size: 1.375rem;
+    }
+
+    .apresentar-page {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
   }
 </style>

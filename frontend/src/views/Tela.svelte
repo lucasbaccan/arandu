@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { theme } from '../lib/themeStore.js';
   import { showToast } from '../lib/toastStore.js';
   import Button from '../components/Button.svelte';
   import Input from '../components/Input.svelte';
@@ -61,7 +62,10 @@
   let resolvedColors = [];
   let resolvedTints = [];
 
-  onMount(() => {
+  // Re-resolve os hex quando o tema muda (o ThemeToggle do próprio demo
+  // alterna claro/escuro — antes os swatches ficavam congelados no tema
+  // inicial até recarregar).
+  function resolveTokens() {
     const styles = getComputedStyle(document.documentElement);
     resolvedColors = colorTokens.map((c) => ({
       ...c,
@@ -71,7 +75,9 @@
       ...c,
       hex: styles.getPropertyValue(c.name).trim()
     }));
-  });
+  }
+
+  $: if ($theme) resolveTokens();
 
   const components = [
     { name: 'Button', file: 'components/Button.svelte', desc: 'Botão com variantes primary/secondary/ghost/danger, largura total (block) e estado desabilitado.' },
@@ -365,9 +371,11 @@
       <ThemeToggle />
       <span class="text-muted">Alternar tema (claro/escuro) — presente nos dois shells</span>
     </div>
-    <div class="sg-row" style="margin-top: 12px;">
-      <HelpButton />
+    <!-- Alinhado à direita: o popover do HelpButton ancora right:0 e, com o
+         botão no canto esquerdo, abriria ~70% fora do viewport. -->
+    <div class="sg-row" style="margin-top: 12px; justify-content: flex-end;">
       <span class="text-muted">Ajuda</span>
+      <HelpButton />
     </div>
   </section>
 
@@ -475,13 +483,13 @@
 
   .sg-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 16px;
   }
 
   .sg-swatches {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
     gap: 12px;
   }
 
@@ -570,6 +578,14 @@
 
   .sg-table-desc {
     min-width: 0;
+  }
+
+  /* Seção mais folgada em telas estreitas (a ReactionBar de 252px com os
+     botões de 44px cabia só a partir de ~336px de conteúdo). */
+  @media (max-width: 480px) {
+    .sg-section {
+      padding: 20px 16px;
+    }
   }
 
   @media (max-width: 720px) {
