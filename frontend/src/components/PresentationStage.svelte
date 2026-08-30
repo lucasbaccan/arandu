@@ -549,13 +549,13 @@
 
 <svelte:window on:resize={clearHover} />
 
-{#if layout === 'screen' && pending.length === 0}
+{#if (layout === 'screen' || layout === 'compact') && pending.length === 0}
   <!-- Sem ninguém na fila a faixa vira uma linha de texto: no telão, aqueles
        76px de card vazio empurram a última zona para fora da tela. -->
   <p class="text-muted present-empty pending-note">
     {totalParticipants === 0 ? 'Ninguém respondeu ainda.' : 'Todas as respostas foram reveladas.'}
   </p>
-{:else if layout === 'screen'}
+{:else if layout === 'screen' || layout === 'compact'}
   <div
     class="pending-row"
     class:tight={pendingTight}
@@ -857,6 +857,36 @@
     gap: 10px;
   }
 
+  /* Mobile (ex.: janela de projeção aberta num celular): a fila cortava os
+     pendentes — em 375px cabiam ~4 de 14 rostos, sem scroll e sem o chip
+     "+N" visível. Em telas pequenas a fila quebra em linhas com rostos
+     menores. A variante .scroll (painel do organizador) mantém a rolagem
+     horizontal, só com rostos menores. */
+  @media (max-width: 640px) {
+    .pending-row:not(.scroll) {
+      flex-wrap: wrap;
+      overflow: visible;
+      justify-content: flex-start;
+      min-height: 0;
+      padding: 10px 12px;
+      gap: 10px;
+    }
+
+    .pending-row .face-wrap {
+      width: 56px;
+    }
+
+    .pending-row .face {
+      width: 44px;
+      height: 44px;
+    }
+
+    .pending-row .face-name {
+      max-width: 56px;
+      font-size: 0.8125rem;
+    }
+  }
+
   .pending-row.tight .face-wrap {
     width: 56px;
     gap: 4px;
@@ -1051,6 +1081,13 @@
     font-size: 20px;
     font-weight: 800;
     color: var(--zone-color);
+  }
+
+  /* As cores de zona (amarelo #fcd000 ≈1.4:1, ciano #00c3fd ≈1.9:1) são
+     claras demais sobre o fundo branco do tema claro — escurece só no claro
+     (no escuro as mesmas cores passam sobre o fundo escuro). */
+  :global(:root:not([data-theme='dark'])) .zone-count {
+    filter: brightness(0.55) saturate(0.85);
   }
 
   .zone-people {
