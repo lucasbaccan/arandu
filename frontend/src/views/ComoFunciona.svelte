@@ -142,13 +142,20 @@
     flex-shrink: 0;
     display: flex;
     justify-content: center;
-    gap: 24px;
+    flex-wrap: wrap;
+    /* row-gap 4px entre linhas quebradas; 20px de coluna (24 fazia o rodapé
+       estourar os 375px por 1px). */
+    gap: 4px 20px;
     padding: 20px 24px;
     border-top: 1px solid var(--border);
     background: var(--bg-elev);
   }
 
   .como-footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 4px 8px;
     font-size: 0.8125rem;
     font-weight: 700;
     color: var(--text-muted);
@@ -156,5 +163,10 @@
 
   .como-footer a:hover {
     color: var(--accent);
+  }
+
+  .como-section a {
+    display: inline-block;
+    padding: 6px 0;
   }
 </style>

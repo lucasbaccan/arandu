@@ -292,6 +292,10 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
+    /* Acima da camada fixa de reações (z-0): emojis não flutuam sobre o card
+       de erro/carregando/identificação. */
+    position: relative;
+    z-index: 1;
   }
 
   .join-card {
@@ -312,6 +316,8 @@
 
   .error-actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 10px;
   }
 
@@ -400,6 +406,7 @@
     margin: 0;
     font-size: clamp(1.25rem, 2vw + 0.5rem, 2rem);
     font-weight: 700;
+    overflow-wrap: anywhere;
   }
 
   /* Rodapé: reações e pergunta ao apresentador na MESMA linha. */
@@ -408,7 +415,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 12px 16px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
     background: var(--bg-elev);
     border-top: 1px solid var(--border);
   }
@@ -449,7 +456,8 @@
     outline: none;
     background: transparent;
     font-family: var(--font-ui);
-    font-size: 0.875rem;
+    /* 1rem incondicional: 14px em landscape (568-640px) disparava zoom iOS. */
+    font-size: 1rem;
     color: var(--text);
   }
 
@@ -470,6 +478,9 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    /* Com 10+ itens o dock (flex-shrink:0) empurrava o form abaixo da dobra. */
+    max-height: 40vh;
+    overflow-y: auto;
   }
 
   .my-question {
@@ -493,8 +504,9 @@
 
   .my-question-remove {
     flex-shrink: 0;
-    width: 26px;
-    height: 26px;
+    position: relative;
+    width: 32px;
+    height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -502,15 +514,39 @@
     border: 1px solid var(--border);
     background: transparent;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     line-height: 1;
     cursor: pointer;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  /* Área de toque ~44px sem mudar o visual (padrão do CopyButton). */
+  .my-question-remove::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
   }
 
   .my-question-remove:hover {
     color: var(--danger);
     border-color: var(--danger);
     background: var(--surface-muted);
+  }
+
+  /* Mobile: a linha única do dock colapsa a caixa de pergunta (reações
+     fixas ~252px com botões de 44px + botão Enviar ~71px deixam ~0-22px pro
+     input). Empilha: reações espalhadas na largura, caixa de pergunta em
+     linha própria. */
+  @media (max-width: 520px) {
+    .dock-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .dock-row :global(.reaction-bar.compact) {
+      justify-content: space-between;
+    }
   }
 </style>

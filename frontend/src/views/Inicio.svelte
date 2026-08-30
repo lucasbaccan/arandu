@@ -22,7 +22,12 @@
       const { id } = await api.publico.eventos.resolverPin(trimmed);
       navigate(`/plateia/${id}?pin=${encodeURIComponent(trimmed)}`);
     } catch (e) {
-      codeError = e.status === 404 ? 'Código não encontrado.' : e.message;
+      codeError =
+        e.status === 404
+          ? 'Código não encontrado.'
+          : !e.status
+            ? 'Sem conexão com o servidor. Tente novamente.'
+            : e.message;
     } finally {
       checking = false;
     }
@@ -45,12 +50,15 @@
           placeholder="DEV-TEAM"
           aria-label="Código do evento"
           autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          autocorrect="off"
         />
         <button type="submit" class="btn btn-primary" disabled={checking || codeEmpty}>
           {checking ? '…' : 'Entrar'}
         </button>
       </div>
-      <p class="code-note" class:error={!!codeError}>
+      <p class="code-note" class:error={!!codeError} aria-live="polite">
         {codeError || 'Recebeu um link? Ele já leva você direto ao evento.'}
       </p>
     </form>
@@ -82,6 +90,8 @@
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.15;
+    /* Em 320px o título quebra em 3 linhas desequilibradas. */
+    text-wrap: balance;
   }
 
   .entry-sub {
@@ -134,7 +144,7 @@
   }
 
   .code-input::placeholder {
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
 
   .code-pill .btn {
@@ -148,8 +158,28 @@
   }
 
   .code-note.error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     color: var(--danger);
     font-weight: 700;
+  }
+
+  /* Erro com ícone + peso 700, como o .form-error do design system. */
+  .code-note.error::before {
+    content: '!';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 800;
   }
 
   .divider {

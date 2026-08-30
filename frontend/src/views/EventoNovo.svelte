@@ -89,7 +89,7 @@
               on:click={() => (pinMode = 'custom')}
             >
               <span class="pin-choice-title">Personalizado</span>
-              <span class="pin-choice-value mono-pin">{pinCode.toUpperCase() || 'DEV-TEAM'}</span>
+              <span class="pin-choice-value mono-pin" title={pinCode.toUpperCase() || 'DEV-TEAM'}>{pinCode.toUpperCase() || 'DEV-TEAM'}</span>
             </button>
           </div>
           {#if pinMode === 'custom'}
@@ -210,7 +210,7 @@
   .pin-choice-value {
     font-size: 1.25rem;
     letter-spacing: 0.1em;
-    color: var(--text-subtle);
+    color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -230,6 +230,13 @@
   @media (max-width: 560px) {
     .pin-choices {
       flex-direction: column;
+    }
+
+    /* "Criar evento" + "Cancelar" lado a lado não cabem em 375px (folga zero)
+       e em 360px o texto quebra dentro do botão. Empilha em largura total. */
+    .form-actions {
+      flex-direction: column;
+      align-items: stretch;
     }
   }
 </style>

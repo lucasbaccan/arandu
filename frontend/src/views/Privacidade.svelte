@@ -77,6 +77,7 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .content {
@@ -128,7 +129,7 @@
     width: 100%;
     max-width: 640px;
     margin-top: 24px;
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 
@@ -136,13 +137,19 @@
     flex-shrink: 0;
     display: flex;
     justify-content: center;
-    gap: 24px;
+    flex-wrap: wrap;
+    /* row-gap 4px entre linhas quebradas; 20px de coluna. */
+    gap: 4px 20px;
     padding: 20px 24px;
     border-top: 1px solid var(--border);
     background: var(--bg-elev);
   }
 
   .como-footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 4px 8px;
     font-size: 0.8125rem;
     font-weight: 700;
     color: var(--text-muted);

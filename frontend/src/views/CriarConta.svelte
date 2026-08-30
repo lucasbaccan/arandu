@@ -39,6 +39,13 @@
     return errors;
   }
 
+  // Erro de campo some assim que o usuário digita de novo — sem isso, após
+  // um submit falho o erro antigo "gruda" e a barra de força fica oculta
+  // (class:hidden) exatamente quando o usuário está corrigindo.
+  function clearFieldErrors() {
+    if (Object.keys(fieldErrors).length) fieldErrors = {};
+  }
+
   async function handleSubmit() {
     error = '';
     fieldErrors = validate();
@@ -62,7 +69,7 @@
         <h1>Criar conta de organizador</h1>
         <p class="card-sub">Participantes não precisam de conta — só do código.</p>
       </div>
-      <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
+      <form class="form" novalidate on:submit|preventDefault={handleSubmit} on:input={clearFieldErrors}>
         <Input
           label="Nome completo"
           bind:value={name}

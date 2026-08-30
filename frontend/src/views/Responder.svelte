@@ -288,7 +288,7 @@
       </Card>
     </div>
   {:else if step === 'identify'}
-    <PublicShell>
+    <PublicShell backLabel="Início">
       <div class="identify-head">
         <span class="chip event-chip">{event.title}</span>
         <h1 class="entry-title">
@@ -392,7 +392,7 @@
           <span class="me-avatar">
             {#if photo}<img src={photo} alt="" />{:else}{initial}{/if}
           </span>
-          <span class="me-name">{(name.trim() || email).split(' ')[0]}</span>
+          <span class="me-name" title={name.trim() || email}>{(name.trim() || email).split(' ')[0]}</span>
         </button>
       </TopBar>
 
@@ -429,6 +429,7 @@
                 bind:value={answers[currentQuestion.id].text}
                 placeholder="Escreva sua resposta"
                 rows="5"
+                enterkeyhint="done"
               ></textarea>
               <span class="q-text-count text-muted">
                 {answers[currentQuestion.id].text.length} caracteres
@@ -478,7 +479,7 @@
           <span class="me-avatar">
             {#if photo}<img src={photo} alt="" />{:else}{initial}{/if}
           </span>
-          <span class="me-name">{(name.trim() || email).split(' ')[0]}</span>
+          <span class="me-name" title={name.trim() || email}>{(name.trim() || email).split(' ')[0]}</span>
         </button>
       </TopBar>
 
@@ -593,7 +594,11 @@
   }
 
   .link-btn {
-    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 8px 4px;
+    margin: -8px -4px;
     border: none;
     background: transparent;
     color: var(--accent);
@@ -619,7 +624,10 @@
 
   .event-chip {
     background: var(--tint-cyan);
-    color: var(--cyan-hover);
+    color: var(--success-text);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
     padding: 4px 12px;
   }
 
@@ -669,7 +677,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 10px 4px 4px;
+    padding: 9px 12px 9px 6px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: transparent;
@@ -734,24 +742,45 @@
   .segments {
     flex: 1;
     display: flex;
+    align-items: stretch;
     gap: 4px;
+    /* Estica até os 44px da faixa: sem isso (.progress-bar tem align-items:
+       center) o contêiner fica com a altura do conteúdo e o botão vazio
+       renderiza ~16px de área clicável. */
+    align-self: stretch;
   }
 
+  /* O botão ocupa a altura toda da faixa (44px — alvo de toque real); o
+     traço visual de 4px é um ::before centralizado. */
   .segment {
     flex: 1;
-    height: 4px;
+    height: auto;
+    align-self: stretch;
+    position: relative;
     padding: 0;
     border: none;
     border-radius: 999px;
-    background: var(--border);
+    background: transparent;
     cursor: pointer;
   }
 
-  .segment.done {
+  .segment::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 4px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: var(--border);
+  }
+
+  .segment.done::before {
     background: color-mix(in srgb, var(--accent) 55%, var(--bg-elev));
   }
 
-  .segment.current {
+  .segment.current::before {
     background: var(--accent);
   }
 
@@ -766,7 +795,7 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    justify-content: center;
+    justify-content: safe center;
     padding: 40px 32px 24px;
     overflow-y: auto;
   }
@@ -790,6 +819,7 @@
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.2;
+    overflow-wrap: anywhere;
   }
 
   .q-options {
@@ -829,6 +859,7 @@
 
   .q-option-text {
     flex: 1;
+    overflow-wrap: anywhere;
   }
 
   .q-option-check {
@@ -957,6 +988,10 @@
     font-weight: 700;
   }
 
+  .review-identity-text span {
+    overflow-wrap: anywhere;
+  }
+
   .review-edit-label {
     flex-shrink: 0;
     padding: 8px 14px;
@@ -1034,7 +1069,7 @@
   .privacidade-body {
     flex: 1;
     display: flex;
-    justify-content: center;
+    justify-content: safe center;
     padding: 32px 24px 56px;
     overflow-y: auto;
   }
@@ -1188,7 +1223,7 @@
     }
 
     .dock {
-      padding: 14px 20px 24px;
+      padding: 14px 20px calc(24px + env(safe-area-inset-bottom));
     }
 
     .dock-hint {
