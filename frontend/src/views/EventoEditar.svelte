@@ -389,6 +389,27 @@
     navigate(`/palco/${id}`);
   }
 
+  let deletingEvent = false;
+
+  async function deleteEvent() {
+    if (
+      !window.confirm(
+        `Excluir o evento "${title}"? Todas as perguntas, respostas e fotos serão apagadas. Essa ação não pode ser desfeita.`
+      )
+    ) {
+      return;
+    }
+    deletingEvent = true;
+    try {
+      await api.eventos.deletar(id);
+      showToast('Evento excluído.');
+      navigate('/painel');
+    } catch (e) {
+      showToast(e.message, 'error');
+      deletingEvent = false;
+    }
+  }
+
   // Recarrega as respostas sempre que a aba é aberta, para refletir
   // participações novas desde o carregamento inicial da página.
   $: if (activeTab === 'responses' && !loading) {
@@ -564,6 +585,8 @@
                 {submitting}
                 {toggleAnswersOpen}
                 {handleSubmit}
+                onDeleteEvent={deleteEvent}
+                {deletingEvent}
               />
             </div>
           {:else if activeTab === 'responses'}
@@ -953,6 +976,8 @@
               {submitting}
               {toggleAnswersOpen}
               {handleSubmit}
+              onDeleteEvent={deleteEvent}
+              {deletingEvent}
             />
           </div>
         {/if}

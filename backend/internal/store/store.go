@@ -189,6 +189,16 @@ func Migrate(db *sql.DB) error {
 		}
 	}
 
+	// Os modos de densidade mudaram de nome: 'smart' virou 'modo_amplo' e
+	// 'auto' virou 'modo_compacto'. Atualiza valores antigos persistidos pra
+	// não cair no comportamento errado (idempotente: roda de novo sem efeito).
+	if _, err := db.Exec(`UPDATE event_live_state SET present_density_mode = 'modo_amplo' WHERE present_density_mode = 'smart'`); err != nil {
+		return fmt.Errorf("store: migração (modo_amplo): %w", err)
+	}
+	if _, err := db.Exec(`UPDATE event_live_state SET present_density_mode = 'modo_compacto' WHERE present_density_mode = 'auto'`); err != nil {
+		return fmt.Errorf("store: migração (modo_compacto): %w", err)
+	}
+
 	// client_id identifica o navegador que mandou a pergunta de Q&A — quem
 	// perguntou pode remover a própria mensagem (ver RemoverPerguntaAoVivoPorCliente).
 	// Bancos antigos ficam com '' (mensagem sem dono de navegador, não removível

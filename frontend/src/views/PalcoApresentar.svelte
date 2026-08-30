@@ -86,10 +86,12 @@
   // PresentationStage.svelte) — vem do snapshot ao vivo, não da URL: os
   // botões de modo no rodapé de Palco.svelte mudam isso no servidor, e essa
   // janela só reflete o que chega por SSE, em tempo real, sem navegar.
-  // '' = automático, 'smart', ou '1'..'4' colunas forçadas.
+  // 'modo_amplo' = Amplo (padrão — ''/nunca escolhido também cai nele),
+  // 'modo_compacto' = Compacto, ou '1'..'4' colunas forçadas.
   $: densityMode = (snapshot && snapshot.presentDensityMode) || '';
-  $: isSmart = densityMode === 'smart';
-  $: forceCols = isSmart ? 0 : Number(densityMode) || 0;
+  $: effectiveMode = densityMode || 'modo_amplo';
+  $: isAmplo = effectiveMode === 'modo_amplo';
+  $: forceCols = isAmplo ? 0 : Number(effectiveMode) || 0;
 </script>
 
 <main class="apresentar-page" class:apresentar-center={loading || error || !snapshot}>
@@ -110,6 +112,9 @@
     {:else if snapshot.questions.length === 0}
       <div class="apresentar-overlay"><p class="text-muted">Este evento ainda não tem perguntas.</p></div>
     {:else if currentQuestion}
+      {#if compact}
+        <p class="apresentar-hint">💡 Abra numa tela maior para uma experiencia melhor</p>
+      {/if}
       <h1 class="apresentar-question" bind:this={questionWrapEl}>
         <span
           class="apresentar-question-inner"
@@ -122,7 +127,7 @@
         <PresentationStage
           layout={compact ? 'compact' : 'screen'}
           {forceCols}
-          smart={isSmart}
+          amplo={isAmplo}
           pending={snapshot.pending || []}
           groups={snapshot.groups || []}
           hideZones={snapshot.answersHidden}
@@ -130,10 +135,6 @@
         />
       </div>
     {/if}
-  {/if}
-
-  {#if compact}
-    <p class="apresentar-hint">💡 Abra num telão para o melhor efeito.</p>
   {/if}
 
   <ReactionBurstLayer />
@@ -155,7 +156,7 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 1.75vh 3vw 1.75vh;
+    padding: 2.5vh 3vw 1.25vh;
     box-sizing: border-box;
   }
 
@@ -261,13 +262,9 @@
   }
 
   .apresentar-hint {
-    position: fixed;
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
-    z-index: 95;
-    width: auto;
-    max-width: calc(100vw - 24px);
+    flex-shrink: 0;
+    align-self: center;
+    margin: 1.25vh 0 0;
     padding: 8px 14px;
     border-radius: var(--radius-control);
     background: var(--bg-elev);

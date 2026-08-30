@@ -214,7 +214,15 @@
          rodapé, reações + pergunta ao apresentador numa linha só. -->
     <div class="live">
       <header class="live-head">
-        <img class="live-logo" src="/img/arandu-logo.png" alt="Arandu" />
+        <button
+          type="button"
+          class="live-logo-btn"
+          title="Ir para o início"
+          aria-label="Ir para o início"
+          on:click={() => navigate('/')}
+        >
+          <img class="live-logo" src="/img/arandu-logo.png" alt="Arandu" />
+        </button>
         <span class="live-event">{snapshot.eventTitle}</span>
         {#if !connected}<span class="text-muted live-reconnect">Reconectando…</span>{/if}
         <span class="live-spacer"></span>
@@ -343,6 +351,15 @@
     padding: 0 16px;
     background: var(--bg-elev);
     border-bottom: 1px solid var(--border);
+  }
+
+  .live-logo-btn {
+    padding: 0;
+    border: none;
+    background: none;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
   }
 
   .live-logo {

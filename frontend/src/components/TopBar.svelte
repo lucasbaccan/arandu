@@ -39,7 +39,15 @@
 <svelte:window on:mousedown={handleWindowMousedown} />
 
 <header class="topbar">
-  <img class="topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
+  <button
+    type="button"
+    class="topbar-logo-btn"
+    title="Ir para o início"
+    aria-label="Ir para o início"
+    on:click={() => navigate('/')}
+  >
+    <img class="topbar-logo" src="/img/arandu-logo.png" alt="Arandu" />
+  </button>
   <span class="topbar-sep"></span>
   <span class="topbar-area" title={area}>{area}</span>
   <span class="topbar-spacer"></span>
@@ -86,6 +94,16 @@
     padding: 0 20px;
     background: var(--bg-elev);
     border-bottom: 1px solid var(--border);
+  }
+
+  .topbar-logo-btn {
+    padding: 0;
+    border: none;
+    background: none;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
   }
 
   .topbar-logo {

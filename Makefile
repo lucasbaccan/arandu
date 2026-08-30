@@ -1,4 +1,4 @@
-.PHONY: dev backend-dev frontend-dev frontend-watch frontend-clean run build build-windows test clean stop tools deps seed
+.PHONY: dev backend-dev frontend-dev frontend-watch frontend-clean run build build-windows docker test clean stop tools deps seed
 
 GOBIN := $(shell go env GOBIN 2>/dev/null)
 AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
@@ -77,6 +77,11 @@ build-windows: ## Compila o frontend e o backend para Windows (arandu.exe) — r
 	@echo "💡 Para rodar no Windows: backend\\bin\\arandu.exe  (ou os comandos manuais:)"
 	@echo "   cd frontend && npm run build"
 	@echo "   cd backend && GOOS=windows GOARCH=amd64 go build -o bin/arandu.exe ./cmd/server"
+
+docker: ## Builda a imagem Docker de produção (arandu:latest)
+	@echo "🐳 Buildando a imagem Docker (arandu:latest)..."
+	@docker build -t arandu:latest .
+	@echo "✅ Imagem pronta! Rode com: docker run -p 8080:8080 -v arandu_data:/app/data arandu:latest"
 
 test: ## Testes de backend e frontend
 	@echo "🧪 Rodando testes do backend..."

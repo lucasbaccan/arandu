@@ -33,7 +33,15 @@
 
   <div class="public-center">
     {#if showLogo}
-      <img class="public-logo" src="/img/arandu-completo.png" alt="Arandu" />
+      <button
+        type="button"
+        class="public-logo-btn"
+        title="Ir para o início"
+        aria-label="Ir para o início"
+        on:click={() => navigate('/')}
+      >
+        <img class="public-logo" src="/img/arandu-completo.png" alt="Arandu" />
+      </button>
     {/if}
     <div class="public-col" style="width: {width}">
       <slot />
@@ -95,6 +103,13 @@
     justify-content: safe center;
     gap: 24px;
     padding: 72px 24px 40px;
+  }
+
+  .public-logo-btn {
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
   }
 
   .public-logo {

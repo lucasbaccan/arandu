@@ -246,6 +246,24 @@ func (a *API) handleAtualizarEvento(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"event": toEventDTO(ev)})
 }
 
+func (a *API) handleDeletarEvento(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	ownerID := userIDFromContext(r.Context())
+	if err := a.store.DeletarEvento(r.Context(), id, ownerID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "Evento não encontrado.")
+			return
+		}
+		log.Printf("api: deletar evento: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao excluir o evento.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func parseEventID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {

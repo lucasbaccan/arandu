@@ -14,6 +14,7 @@ vi.mock('../lib/api.js', () => ({
     eventos: {
       buscar: vi.fn(),
       atualizar: vi.fn(),
+      deletar: vi.fn(),
       perguntas: {
         listar: vi.fn(),
         criar: vi.fn(),
@@ -173,6 +174,35 @@ describe('Editar evento', () => {
     expect(
       await view.findByText('Este PIN já está em uso. Escolha outro.')
     ).toBeInTheDocument();
+  });
+
+  it('exclui o evento após confirmação e volta pro painel', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.deletar.mockResolvedValue({ ok: true });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const view = mount();
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+
+    await fireEvent.click(view.getByRole('button', { name: 'Excluir evento' }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Conecta DevOps'));
+    await waitFor(() => expect(api.eventos.deletar).toHaveBeenCalledWith('42'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/painel'));
+    confirmSpy.mockRestore();
+  });
+
+  it('não exclui o evento quando o usuário cancela a confirmação', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const view = mount();
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+
+    await fireEvent.click(view.getByRole('button', { name: 'Excluir evento' }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(api.eventos.deletar).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 
   it('mostra tela de não encontrado quando o evento não existe', async () => {

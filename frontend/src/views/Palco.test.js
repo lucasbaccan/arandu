@@ -334,9 +334,8 @@ describe('Preview da apresentação', () => {
     openSpy.mockRestore();
   });
 
-  it('os botões de modo no rodapé mudam a densidade ao vivo (sem navegar) e abrem/focam a janela de apresentação', async () => {
-    const fakeWindow = { closed: false, focus: vi.fn() };
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => fakeWindow);
+  it('os botões de modo no rodapé mudam a densidade ao vivo (sem navegar nem abrir a janela)', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => ({}));
     const view = mount();
     await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
 
@@ -345,22 +344,80 @@ describe('Preview da apresentação', () => {
 
     // muda o estado no servidor — quem já tiver /apresentar ou /plateia
     // abertos vê ao vivo, sem precisar recarregar nem trocar de URL.
-    expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', 'smart');
-    expect(openSpy).toHaveBeenCalledWith('/palco/42/apresentar', 'arandu-present-42', 'width=1366,height=768');
-    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', 'modo_amplo');
+    // só o botão "Modo apresentação" abre a janela — os de modo não
+    expect(openSpy).not.toHaveBeenCalled();
     expect(smartBtn).toHaveAttribute('aria-pressed', 'true');
 
     const cols2Btn = view.getByRole('button', { name: 'Modo de visualização — 2 colunas' });
     await fireEvent.click(cols2Btn);
 
     expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', '2');
-    // janela já aberta: só foca, não abre de novo
-    expect(openSpy).toHaveBeenCalledTimes(1);
-    expect(fakeWindow.focus).toHaveBeenCalledTimes(1);
+    expect(openSpy).not.toHaveBeenCalled();
     expect(cols2Btn).toHaveAttribute('aria-pressed', 'true');
     expect(smartBtn).toHaveAttribute('aria-pressed', 'false');
 
     openSpy.mockRestore();
+  });
+
+  it('Amplo é o modo padrão: aparece ativo já no carregamento e o Compacto manda "modo_compacto"', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    // sem modo escolhido no servidor (''), o padrão é Amplo — o botão nasce ativo
+    const smartBtn = view.getByRole('button', { name: 'Modo de visualização — Amplo' });
+    expect(smartBtn).toHaveAttribute('aria-pressed', 'true');
+    // Amplo vem primeiro na ordem dos modos
+    const modeBtns = view
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-label')?.startsWith('Modo de visualização'));
+    expect(modeBtns[0]).toHaveAttribute('aria-label', 'Modo de visualização — Amplo');
+    expect(modeBtns[1]).toHaveAttribute('aria-label', 'Modo de visualização — Compacto');
+
+    // Compacto (o automático antigo) agora é o sentinela 'modo_compacto', não ''
+    await fireEvent.click(view.getByRole('button', { name: 'Modo de visualização — Compacto' }));
+    expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', 'modo_compacto');
+    expect(view.getByRole('button', { name: 'Modo de visualização — Compacto' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(smartBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('o preview do placar em /palco segue o modo de visualização escolhido no rodapé', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    // sem modo definido, o placar fica na densidade automática (1 coluna)
+    expect(document.body.querySelector('.zones').classList.contains('multi')).toBe(false);
+
+    await fireEvent.click(view.getByRole('button', { name: 'Modo de visualização — 2 colunas' }));
+
+    // mesmo estado que /apresentar reflete: forçado a 2 colunas, o preview
+    // ganha o layout multi (grid) em vez da coluna única automática
+    expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', '2');
+    expect(document.body.querySelector('.zones').classList.contains('multi')).toBe(true);
+
+    await fireEvent.click(view.getByRole('button', { name: 'Modo de visualização — Compacto' }));
+
+    // de volta ao automático (Compacto): single column de novo
+    expect(api.eventos.aoVivo.definirModoDensidade).toHaveBeenCalledWith('42', 'modo_compacto');
+    expect(document.body.querySelector('.zones').classList.contains('multi')).toBe(false);
+  });
+
+  it('retoma o modo de visualização salvo no servidor ao carregar /palco', async () => {
+    api.eventos.aoVivo.estadoAdmin.mockResolvedValue({
+      ...adminSnapshot,
+      currentQuestionId: 'q1',
+      presentDensityMode: '3'
+    });
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const btn = view.getByRole('button', { name: 'Modo de visualização — 3 colunas' });
+    expect(btn).toHaveAttribute('aria-pressed', 'true');
+    // o preview já nasce seguindo o modo salvo (3 colunas), como /apresentar
+    expect(document.body.querySelector('.zones').classList.contains('multi')).toBe(true);
   });
 
   it('setas do teclado navegam entre perguntas', async () => {
@@ -667,6 +724,27 @@ describe('Preview da apresentação', () => {
     await waitFor(() =>
       expect(within(tip2).getByRole('button', { name: 'Revelar todos desta resposta' })).toBeDisabled()
     );
+  });
+
+  it('mantém o tooltip aberto na posição enquanto o mouse estiver sobre ele, mesmo se o rótulo sair de baixo do mouse', async () => {
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    const label = view.getByText('Go').closest('.zone-label');
+    await fireEvent.mouseEnter(label);
+    const tip = await view.findByRole('tooltip', {}, { timeout: 1500 });
+
+    // mouse entra no popup (fica sobre ele)…
+    await fireEvent.mouseEnter(tip);
+
+    // …e o rótulo da resposta sai de baixo do mouse (mouseleave), ex.: num
+    // recálculo do placar que move a resposta de lugar. Como o mouse está
+    // sobre o tooltip, ele NÃO fecha.
+    await fireEvent.mouseLeave(label);
+
+    await new Promise((r) => setTimeout(r, 350)); // passa do HIDE_DELAY (200ms)
+    expect(view.getByRole('tooltip')).toBeInTheDocument();
+    expect(within(view.getByRole('tooltip')).getByText('Go')).toBeInTheDocument();
   });
 
   it('com as dicas desligadas, o hover não mostra tooltip', async () => {

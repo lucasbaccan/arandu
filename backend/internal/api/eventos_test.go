@@ -365,3 +365,60 @@ func TestUpdateEventPINTaken(t *testing.T) {
 		t.Errorf("PIN duplicado: status esperado 409, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestDeleteEvent(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventAndGetID(t, h, cookie, "Vai ser excluído")
+
+	rec := doJSON(t, h, http.MethodDelete, "/api/eventos/"+id, nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// depois de excluído, o evento não existe mais
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos/"+id, nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("evento excluído deveria sumir (404), got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDeleteEventOwnership(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	other := registerUser2(t, h)
+	id := createEventAndGetID(t, h, cookie, "Evento do outro")
+
+	// outro usuário não pode excluir (nem descobre que o evento existe)
+	rec := doJSON(t, h, http.MethodDelete, "/api/eventos/"+id, nil, []*http.Cookie{other})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("excluir evento alheio: esperado 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// o dono ainda consegue
+	rec = doJSON(t, h, http.MethodDelete, "/api/eventos/"+id, nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Errorf("dono excluir o próprio evento: esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDeleteEventUnauthenticated(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventAndGetID(t, h, cookie, "Evento")
+
+	rec := doJSON(t, h, http.MethodDelete, "/api/eventos/"+id, nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("excluir sem login: esperado 401, got %d", rec.Code)
+	}
+}
+
+func TestDeleteEventNotFound(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+
+	rec := doJSON(t, h, http.MethodDelete, "/api/eventos/999999", nil, []*http.Cookie{cookie})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("excluir evento inexistente: esperado 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

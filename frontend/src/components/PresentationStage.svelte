@@ -39,14 +39,14 @@
    */
   export let forceCols = 0;
   /*
-   * smart: modo "Smart" do menu ⚙ (/apresentarsmart). Em vez de ficar com o
-   * menor nº de colunas que já cabe (comportamento padrão de forceCols=0),
-   * testa cada nº de colunas (1–4) e fica com o que render a MAIOR escala
-   * — às vezes isso pede mais colunas que o Auto escolheria, mas resulta em
-   * pílulas maiores. Cai pro mesmo corte com "+N" do modo padrão se nem a
+   * amplo: modo "Amplo" (modo_amplo). Em vez de ficar com o menor nº de
+   * colunas que já cabe (comportamento padrão de forceCols=0, o Compacto),
+   * testa cada nº de colunas (1–4) e fica com o que render a MAIOR escala —
+   * às vezes isso pede mais colunas que o Compacto escolheria, mas resulta
+   * em pílulas maiores. Cai pro mesmo corte com "+N" do modo padrão se nem a
    * escala mínima couber em nenhum candidato.
    */
-  export let smart = false;
+  export let amplo = false;
   /*
    * pendingScroll: no painel do organizador (/stage) a fila de pendentes
    * vira UMA linha com scroll horizontal mostrando todos (sem teto
@@ -151,15 +151,15 @@
    * pílulas expandem até o teto (MAX_SCALE) pra ocupar o espaço sobrando;
    * com muita, encolhem até o piso (MIN_SCALE) que ainda cabe tudo — cada
    * combinação de colunas tem a sua própria escala máxima (maxFeasibleScale).
-   * Auto e forçado (1–4) pegam o candidato certo e usam a escala máxima
-   * dele; Smart testa todos e fica com a maior escala entre eles (ver
-   * fitDensity). Só se nem a escala mínima coubesse em nenhum candidato
-   * (evento gigante) é que volta o chip "+N", com teto por zona. O
+   * Compacto (automático) e forçado (1–4) pegam o candidato certo e usam a
+   * escala máxima dele; Amplo testa todos e fica com a maior escala entre
+   * eles (ver fitDensity). Só se nem a escala mínima coubesse em nenhum
+   * candidato (evento gigante) é que volta o chip "+N", com teto por zona. O
    * overflow:hidden em .zone-people é a rede de segurança pra qualquer erro
    * de arredondamento.
    */
   const MIN_SCALE = 0.3;
-  // Teto do modo "smart" — alinhado ao rosto de 64px da fila de pendentes
+  // Teto do modo "amplo" — alinhado ao rosto de 64px da fila de pendentes
   // (avatar 46×MAX_SCALE ≈ 64px), pra não crescer além do resto do telão.
   const MAX_SCALE = 1.4;
   const MAX_COLS = 4;
@@ -271,7 +271,7 @@
     return lo;
   }
 
-  function fitDensity(gs, W, H, withName, forced, smart, scrollFallback) {
+  function fitDensity(gs, W, H, withName, forced, amplo, scrollFallback) {
     if (!W || !H || gs.length === 0) return null; // sem medida (1º frame/testes): CSS usa os fallbacks
     const labelW = Math.min(Math.max(200, W * 0.28), 460);
     const candidates = forced
@@ -282,21 +282,21 @@
     // — nunca fica travada no tamanho mínimo, seja qual for o modo. O que
     // muda de um modo pro outro é só QUAL(IS) nº de colunas entram na
     // disputa e como se escolhe entre eles:
-    if (smart) {
-      // Modo "Smart": testa todos os candidatos e fica com a combinação
+    if (amplo) {
+      // Modo "Amplo": testa todos os candidatos e fica com a combinação
       // (colunas × escala) que usa o MAIOR espaço possível, não importa
       // quantas colunas isso peça — as respostas crescem até o teto
       // MAX_SCALE, sempre repartidas em colunas de largura igual.
-      let bestSmart = null;
+      let bestAmplo = null;
       for (const cols of candidates) {
         const s = maxFeasibleScale(gs, W, H, withName, cols, labelW);
-        if (s !== null && (!bestSmart || s > bestSmart.s)) bestSmart = { s, cols, labelW, caps: null };
+        if (s !== null && (!bestAmplo || s > bestAmplo.s)) bestAmplo = { s, cols, labelW, caps: null };
       }
-      if (bestSmart) return bestSmart;
+      if (bestAmplo) return bestAmplo;
       // Nem a escala mínima coube em nenhum nº de colunas — cai pro mesmo
       // corte com "+N" do modo padrão, abaixo.
     } else {
-      // Auto (0 colunas forçadas) prefere o menor nº de colunas que já
+      // Compacto (0 colunas forçadas) prefere o menor nº de colunas que já
       // couber — testa 1, depois 2, etc., e fica no primeiro que tiver
       // alguma escala viável. Forçado (1–4) só tem esse candidato mesmo.
       // Em ambos os casos a escala desse nº de colunas é maximizada, não
@@ -357,7 +357,7 @@
   let zonesH = 0;
 
   $: metrics = layout === 'screen'
-    ? fitDensity(groups, zonesW, zonesH, showNames, forceCols, smart, scrollFallback)
+    ? fitDensity(groups, zonesW, zonesH, showNames, forceCols, amplo, scrollFallback)
     : null;
   $: cols = metrics ? metrics.cols : Math.max(1, forceCols || 1);
   $: zoneStyle = metrics
@@ -458,14 +458,24 @@
     clearTimers();
     hover = null;
     tipReady = false;
+    tipHovered = false;
   }
+
+  // Mouse está por cima do tooltip agora: qualquer pedido de fechar vindo de
+  // fora (ex.: mouseleave do rótulo quando o placar recalcula e a resposta
+  // muda de lugar) é ignorado enquanto isso — o tooltip só fecha quando o
+  // mouse sai DELE.
+  let tipHovered = false;
 
   // Mouse saiu do âncora/popup: espera HIDE_DELAY antes de fechar, pra quem
   // está indo pro popup (ou voltando dele) não ver o tooltip sumir no meio.
+  // Se o mouse já está sobre o tooltip, o pedido é descartado na hora.
   function scheduleHide() {
     clearTimers();
+    if (tipHovered) return;
     hideTimer = setTimeout(() => {
       hideTimer = null;
+      if (tipHovered) return;
       hover = null;
       tipReady = false;
     }, HIDE_DELAY);
@@ -474,6 +484,7 @@
   // Mouse entrou no popup: cancela o fechamento agendado (fica aberto pra
   // dar tempo de clicar nas pessoas).
   function keepOpen() {
+    tipHovered = true;
     if (hideTimer) {
       clearTimeout(hideTimer);
       hideTimer = null;
@@ -513,19 +524,18 @@
   // O tooltip de PESSOA ancora num rosto que pode sumir/mudar quando o placar
   // muda (revelar/desrevelar, trocar de pergunta, reiniciar) — fecha na hora
   // em vez de ficar flutuando num ponto órfão da tela. O tooltip de ZONA fica
-  // aberto (o rótulo da resposta não sai do lugar) e só se reancora. Compara
-  // uma assinatura do placar (ids da fila + ids das zonas) em vez das
-  // referências dos arrays, que o Svelte troca a cada re-render mesmo sem
-  // mudança real.
+  // ABERTO na posição em que estava (não reancora nem fecha): o rótulo pode
+  // ter mudado de lugar por um recálculo do placar, mas o tooltip não
+  // acompanha — permanece até o mouse sair dele. Compara uma assinatura do
+  // placar (ids da fila + ids das zonas) em vez das referências dos arrays,
+  // que o Svelte troca a cada re-render mesmo sem mudança real.
   let boardSig = null;
   $: {
     const sig =
       pending.map((p) => p.id).join(',') + '|' +
       groups.map((g) => g.participants.map((p) => p.id).join(',')).join(';');
     if (boardSig !== null && sig !== boardSig) {
-      if (hover && hover.kind === 'zone') {
-        if (hover.anchor) positionTip(hover.anchor);
-      } else if (hover && hover.kind === 'person') {
+      if (hover && hover.kind === 'person') {
         clearHover();
       }
     }
@@ -681,7 +691,10 @@
     style="left:{tipPos.left}px;top:{tipPos.top}px"
     bind:this={tipEl}
     on:mouseenter={keepOpen}
-    on:mouseleave={scheduleHide}
+    on:mouseleave={() => {
+      tipHovered = false;
+      scheduleHide();
+    }}
   >
     {#if hover.kind === 'person'}
       <div class="tip-person">
@@ -1116,6 +1129,20 @@
   .person-wrap {
     display: flex;
     min-width: 0;
+    /* Teto de altura das pílulas de resposta — menores que o padrão (que
+       chegava a ~80px no modo amplo). O nome nunca quebra linha, então quem
+       define a altura da pílula é o rosto; por isso o cap no .person-face
+       abaixo faz a pílula inteira encolher junto, sem cortar nada (50px =
+       rosto 34px + padding vertical máximo + bordas). */
+    max-height: 50px;
+  }
+
+  /* Rosto das pílulas capado pra caber no teto do .person-wrap acima: de
+     até 64px (modo amplo) passa a no máximo 34px — a pílula inteira
+     acompanha (avatar + nome + padding). */
+  .person-wrap .person-face {
+    max-width: 34px;
+    max-height: 34px;
   }
 
   /* Pílula de respondente: rosto + primeiro nome, lado a lado — bem mais

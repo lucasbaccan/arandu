@@ -46,8 +46,9 @@
   let messageDraft = '';
   let qaInbox = [];
   let adminEventSource = null;
-  // '' = automático, 'smart', ou '1'..'4' — ver PresentationStage.svelte
-  // (forceCols/smart). Estado do servidor, igual blanked/answersHidden: os
+  // '' = nunca escolhido (cai no padrão modo_amplo), 'modo_compacto',
+  // 'modo_amplo', ou '1'..'4' — ver PresentationStage.svelte
+  // (forceCols/amplo). Estado do servidor, igual blanked/answersHidden: os
   // botões de modo no rodapé mudam isso ao vivo pra quem já tiver a janela
   // de apresentação (ou a tela pública /plateia) aberta.
   let modoDensidadeApresentacao = '';
@@ -112,11 +113,13 @@
   // blanked/answersHidden) — quem já estiver com /apresentar ou /plateia
   // abertos vê a densidade trocar ao vivo, sem precisar recarregar nem
   // alternar pra tela do projetor. `mode` é o valor exato que o servidor
-  // espera (ver validPresentDensityModes no backend). Ícones dos dois
-  // primeiros vêm do Material (.msr); os demais são os números de colunas.
+  // espera (ver validPresentDensityModes no backend): 'modo_amplo' (Amplo) é
+  // o padrão, 'modo_compacto' (Compacto) é o automático antigo, '1'..'4'
+  // força o nº de colunas. Ícones dos dois primeiros vêm do Material (.msr);
+  // os demais são os números de colunas.
   const MODOS_APRESENTACAO = [
-    { mode: '', label: 'Compacto', icon: 'close_fullscreen', font: true },
-    { mode: 'smart', label: 'Amplo', icon: 'open_in_full', font: true },
+    { mode: 'modo_amplo', label: 'Amplo', icon: 'open_in_full', font: true },
+    { mode: 'modo_compacto', label: 'Compacto', icon: 'close_fullscreen', font: true },
     { mode: '1', label: '1 coluna', icon: '1' },
     { mode: '2', label: '2 colunas', icon: '2' },
     { mode: '3', label: '3 colunas', icon: '3' },
@@ -126,8 +129,19 @@
   function selectPresentMode(mode) {
     modoDensidadeApresentacao = mode;
     api.eventos.aoVivo.definirModoDensidade(id, mode).catch(() => {});
-    openPresentationWindow();
   }
+
+  // O preview do placar aqui em /palco segue o MESMO modo de visualização da
+  // janela de apresentação (/apresentar) — o estado é o do servidor
+  // (modoDensidadeApresentacao), então os botões de modo do rodapé mudam os
+  // dois ao mesmo tempo: quem está com /apresentar aberto vê ao vivo, e o
+  // painel do organizador reflete a mesma densidade (ver fitDensity em
+  // PresentationStage.svelte). Compacto (celular) ignora ambos.
+  // effectiveMode resolve o valor bruto do servidor pro modo efetivo: '' é
+  // "nunca escolhido" e cai no padrão — Amplo (modo_amplo).
+  $: effectiveMode = modoDensidadeApresentacao || 'modo_amplo';
+  $: isAmplo = effectiveMode === 'modo_amplo';
+  $: forceCols = isAmplo ? 0 : Number(effectiveMode) || 0;
 
   // Referência da janela de apresentação (somente leitura, sem clique, sem
   // controles de admin — só a pergunta, as opções e os participantes; feita
@@ -587,6 +601,8 @@
               layout={isCompact ? 'compact' : 'screen'}
               {pending}
               {groups}
+              {forceCols}
+              amplo={isAmplo}
               onFaceClick={reveal}
               showNames
               pendingScroll
@@ -636,10 +652,10 @@
                     <button
                       type="button"
                       class="mode-btn"
-                      class:active={modoDensidadeApresentacao === mode.mode}
+                      class:active={effectiveMode === mode.mode}
                       title={`Modo de visualização — ${mode.label}`}
                       aria-label={`Modo de visualização — ${mode.label}`}
-                      aria-pressed={modoDensidadeApresentacao === mode.mode}
+                      aria-pressed={effectiveMode === mode.mode}
                       on:click={() => selectPresentMode(mode.mode)}
                     >{#if mode.font}<span class="msr mode-btn-glyph">{mode.icon}</span>{:else}{mode.icon}{/if}</button>
                   {/each}

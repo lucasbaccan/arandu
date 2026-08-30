@@ -274,11 +274,14 @@ type liveSetPresentDensityModeRequest struct {
 	Mode string `json:"mode"`
 }
 
-// validPresentDensityModes: "" = automático, "smart" = testa todas as
-// colunas e fica com a maior escala, "1".."4" = força esse nº de colunas —
-// ver PresentationStage.svelte (forceCols/smart) e fitDensity lá.
+// validPresentDensityModes: "modo_amplo" = Amplo, o padrão (testa todas as
+// colunas e fica com a maior escala), "modo_compacto" = Compacto, o
+// automático antigo (menor nº de colunas que cabe), "1".."4" = força esse nº
+// de colunas — ver PresentationStage.svelte (forceCols/amplo) e fitDensity
+// lá. "" (legado) segue aceito e os clientes interpretam como o padrão
+// (modo_amplo).
 var validPresentDensityModes = map[string]bool{
-	"": true, "smart": true, "1": true, "2": true, "3": true, "4": true,
+	"": true, "modo_compacto": true, "modo_amplo": true, "1": true, "2": true, "3": true, "4": true,
 }
 
 // handleAoVivoDefinirModoDensidade escolhe o modo de densidade do placar de

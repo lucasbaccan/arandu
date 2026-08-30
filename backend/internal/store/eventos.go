@@ -177,6 +177,25 @@ func (s *Store) AtualizarEvento(ctx context.Context, e Event) (Event, error) {
 	return e, nil
 }
 
+// DeletarEvento apaga o evento — via ON DELETE CASCADE vão junto perguntas,
+// opções, participantes, respostas, mensagens de Q&A, revelações e o estado
+// ao vivo. Só o dono exclui: a cláusula owner_id garante isso; se não achar
+// o evento do dono, retorna ErrNotFound.
+func (s *Store) DeletarEvento(ctx context.Context, id, ownerID int64) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM events WHERE id = ? AND owner_id = ?`, id, ownerID)
+	if err != nil {
+		return fmt.Errorf("store: deletar evento: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("store: deletar evento: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // DefinirInteracoesHabilitadas liga/desliga emoji e Q&A pro evento. Separado de
 // AtualizarEvento de propósito: é um controle da apresentação ao vivo, não uma
 // configuração geral do evento, e não deve ser afetado pelo PATCH genérico.

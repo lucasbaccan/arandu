@@ -30,17 +30,24 @@ type EventState struct {
 	// organizador (/stage) sempre mostra os nomes, independente disso.
 	NamesHidden bool
 	// PresentDensityMode escolhe como o placar de respostas (fitDensity, em
-	// PresentationStage.svelte) decide colunas × escala das pílulas: ""
-	// (zero value) = automático, "smart" = testa todas as colunas e fica com
-	// a maior escala, "1".."4" = força esse nº de colunas. Escolhido pelos
-	// botões no rodapé de /stage e refletido em tempo real tanto na janela
-	// de apresentação (/stage/{id}/present) quanto na tela pública
-	// (/audience/{id}) — as duas usam o mesmo snapshot (buildLiveSnapshot).
+	// PresentationStage.svelte) decide colunas × escala das pílulas:
+	// "modo_amplo" (valor padrão de um evento novo) = Amplo, testa todas as
+	// colunas e fica com a maior escala, "modo_compacto" = Compacto (o
+	// automático antigo, menor nº de colunas que cabe), "1".."4" = força esse
+	// nº de colunas. Escolhido pelos botões no rodapé de /stage e refletido em
+	// tempo real tanto na janela de apresentação (/stage/{id}/present) quanto
+	// na tela pública (/audience/{id}) — as duas usam o mesmo snapshot
+	// (buildLiveSnapshot). "" pode chegar do banco (evento nunca configurado)
+	// e os clientes o interpretam como o padrão (modo_amplo) — ver o fallback
+	// em Palco.svelte e PalcoApresentar.svelte.
 	PresentDensityMode string
 }
 
 func newEventState() *EventState {
-	return &EventState{Revealed: make(map[int64]map[int64]bool)}
+	return &EventState{
+		Revealed:           make(map[int64]map[int64]bool),
+		PresentDensityMode: "modo_amplo",
+	}
 }
 
 func (s *EventState) clone() EventState {

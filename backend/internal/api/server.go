@@ -74,6 +74,12 @@ func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *li
 		if err != nil {
 			log.Printf("api: carregar estado ao vivo salvo do evento %d: %v", eventID, err)
 		}
+		mode := liveState.PresentDensityMode
+		if mode == "" {
+			// '' (banco criado antes do default / evento nunca configurado)
+			// cai no padrão atual: Amplo (modo_amplo) — ver newEventState.
+			mode = "modo_amplo"
+		}
 		return live.EventState{
 			CurrentQuestionID:  liveState.CurrentQuestionID,
 			Revealed:           revealed,
@@ -81,7 +87,7 @@ func New(cfg config.Config, st *store.Store, gen *ids.Generator, liveManager *li
 			Message:            liveState.Message,
 			AnswersHidden:      liveState.AnswersHidden,
 			NamesHidden:        liveState.NamesHidden,
-			PresentDensityMode: liveState.PresentDensityMode,
+			PresentDensityMode: mode,
 		}
 	})
 	return &API{cfg: cfg, store: st, ids: gen, live: liveManager, photos: photoStore}
@@ -99,6 +105,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/eventos", a.requireAuth(a.handleListarEventos))
 	mux.HandleFunc("GET /api/eventos/{id}", a.requireAuth(a.handleBuscarEvento))
 	mux.HandleFunc("PATCH /api/eventos/{id}", a.requireAuth(a.handleAtualizarEvento))
+	mux.HandleFunc("DELETE /api/eventos/{id}", a.requireAuth(a.handleDeletarEvento))
 	mux.HandleFunc("GET /api/eventos/{id}/perguntas", a.requireAuth(a.handleListarPerguntas))
 	mux.HandleFunc("POST /api/eventos/{id}/perguntas", a.requireAuth(a.handleCriarPergunta))
 	mux.HandleFunc("PUT /api/eventos/{id}/perguntas/ordem", a.requireAuth(a.handleReordenarPerguntas))

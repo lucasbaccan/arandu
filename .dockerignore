@@ -1,0 +1,15 @@
+.git
+.gitignore
+.vscode
+docs
+*.md
+.env
+.env.example
+data/
+backend/bin/
+backend/tmp/
+backend/data/
+backend/web/dist/
+frontend/node_modules/
+frontend/dist/
+*.log

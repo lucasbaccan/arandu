@@ -28,10 +28,10 @@
   $: eventoMatch = /^\/evento\/(\d+)$/.exec($route);
   $: responderMatch = /^\/responder\/(\d+)$/.exec($route);
   $: palcoMatch = /^\/palco\/(\d+)$/.exec($route);
-  // A densidade do placar (auto/smart/1–4 colunas) não é mais parte da
-  // rota — é estado ao vivo (modoDensidadeApresentacao), escolhido pelos
-  // botões de modo no rodapé de Palco.svelte e refletido em tempo real via
-  // SSE. Ver PresentationStage.svelte (props forceCols/smart) e
+  // A densidade do placar (modo_compacto/modo_amplo/1–4 colunas) não é mais
+  // parte da rota — é estado ao vivo (modoDensidadeApresentacao), escolhido
+  // pelos botões de modo no rodapé de Palco.svelte e refletido em tempo real
+  // via SSE. Ver PresentationStage.svelte (props forceCols/amplo) e
   // PalcoApresentar.svelte.
   $: palcoApresentarMatch = /^\/palco\/(\d+)\/apresentar$/.exec($route);
   $: plateiaMatch = /^\/plateia\/(\d+)$/.exec($route);

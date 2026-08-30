@@ -67,6 +67,7 @@ export const api = {
     listar: () => request('/api/eventos'),
     buscar: (id) => request(`/api/eventos/${id}`),
     atualizar: (id, body) => request(`/api/eventos/${id}`, { method: 'PATCH', body }),
+    deletar: (id) => request(`/api/eventos/${id}`, { method: 'DELETE' }),
     perguntas: {
       listar: (id) => request(`/api/eventos/${id}/perguntas`),
       criar: (id, body) => request(`/api/eventos/${id}/perguntas`, { method: 'POST', body }),

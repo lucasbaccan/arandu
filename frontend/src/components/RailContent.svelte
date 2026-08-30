@@ -18,6 +18,9 @@
   export let submitting = false;
   export let toggleAnswersOpen;
   export let handleSubmit;
+  // Função opcional de exclusão do evento: sem ela, a zona de perigo não renderiza.
+  export let onDeleteEvent = null;
+  export let deletingEvent = false;
 </script>
 
 <div
@@ -117,6 +120,18 @@
     </Button>
   </form>
 </div>
+
+{#if onDeleteEvent}
+  <div class="rail-card rail-section danger-zone">
+    <span class="overline">Zona de perigo</span>
+    <Button variant="danger" block disabled={deletingEvent} on:click={onDeleteEvent}>
+      {deletingEvent ? 'Excluindo…' : 'Excluir evento'}
+    </Button>
+    <p class="text-muted danger-note">
+      Apaga o evento inteiro: perguntas, respostas e fotos. Não tem volta.
+    </p>
+  </div>
+{/if}
 
 <style>
   .rail-card {
@@ -219,6 +234,16 @@
 
   .config-row-hint p {
     margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .danger-zone {
+    border-color: var(--tint-danger);
+  }
+
+  .danger-note {
+    margin: 0;
     font-size: 0.75rem;
     line-height: 1.35;
   }

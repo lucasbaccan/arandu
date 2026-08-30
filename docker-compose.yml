@@ -1,0 +1,25 @@
+services:
+  arandu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: arandu:latest
+    container_name: arandu
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      # Gere um segredo forte com: openssl rand -hex 32
+      JWT_SECRET: "${JWT_SECRET:-mude-este-segredo}"
+      SESSION_HOURS: "${SESSION_HOURS:-24}"
+      MIN_PASSWORD_LENGTH: "${MIN_PASSWORD_LENGTH:-3}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      COOKIE_SAMESITE: "${COOKIE_SAMESITE:-lax}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-}"
+      SNOWFLAKE_NODE: "${SNOWFLAKE_NODE:-0}"
+    volumes:
+      # Banco SQLite + fotos materializadas — sobrevivem a recreated do container.
+      - arandu_data:/app/data
+
+volumes:
+  arandu_data:

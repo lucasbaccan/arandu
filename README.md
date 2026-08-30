@@ -82,6 +82,31 @@ make seed          # popula o banco com dados fake (usuário demo@demo.com / sen
 ./arandu                    # sem flags/env: menu interativo pergunta host, porta e banco
 ```
 
+## 🐳 Docker
+
+A imagem é multi-stage (frontend → backend → runtime mínimo) e produz um único binário com o frontend embutido.
+
+```bash
+make docker                # docker build -t arandu:latest .
+docker compose up -d       # (ou apenas) sobe com volume de dados + env
+```
+
+Para produção, defina um segredo forte de sessão antes de subir:
+
+```bash
+export JWT_SECRET=$(openssl rand -hex 32)
+docker run -d --name arandu \
+  -p 8080:8080 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e COOKIE_SECURE=true \
+  -v arandu_data:/app/data \
+  arandu:latest
+```
+
+- O banco SQLite e as fotos materializadas ficam em `/app/data` (volume `arandu_data`) — sobrevivem a recriação do container.
+- Configuração é toda por env vars (mesmas da tabela abaixo); `HOST`/`PORT`/`DATABASE_PATH` já vêm com defaults próprios do container.
+- Rode atrás de um proxy HTTPS (Caddy/Nginx) e use `COOKIE_SECURE=true` + `COOKIE_SAMESITE=none` se o frontend estiver em outro domínio.
+
 ### Variáveis de ambiente
 
 | Variável            | Padrão           | Descrição                              |
