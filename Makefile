@@ -1,4 +1,4 @@
-.PHONY: dev backend-dev frontend-dev frontend-watch run build build-windows test clean stop tools deps seed
+.PHONY: dev backend-dev frontend-dev frontend-watch frontend-clean run build build-windows test clean stop tools deps seed
 
 GOBIN := $(shell go env GOBIN 2>/dev/null)
 AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
@@ -42,6 +42,20 @@ frontend-watch: ## Recompila o frontend a cada mudança (vite build --watch)
 frontend-dev: ## Frontend Svelte com HMR (vite; exposto em $(HOST)) — opcional
 	@echo "🎨 Frontend com HMR (vite) em http://localhost:$(FRONTEND_PORT) (e http://IP-da-rede:$(FRONTEND_PORT)) — proxy /api -> :$(PORT)"
 	@cd frontend && BACKEND_PORT=$(PORT) npm run dev -- --host $(HOST) --port $(FRONTEND_PORT)
+
+frontend-clean: ## Força a recompilação do frontend do zero (limpa cache do Vite e o dist)
+	@echo "🧹 Parando o dev server do frontend (se estiver rodando)..."
+	@-pkill -f "vite" 2>/dev/null; sleep 1
+	@echo "🧹 Removendo cache do Vite (frontend/node_modules/.vite)..."
+	@rm -rf frontend/node_modules/.vite
+	@echo "🧹 Removendo o dist embutido (backend/web/dist)..."
+	@rm -rf backend/web/dist
+	@echo "🏗️  Recompilando o frontend do zero (npm run build)..."
+	@cd frontend && npm run build
+	@echo "✅ Frontend recompilado do zero em backend/web/dist"
+	@echo "💡 Próximos passos:"
+	@echo "   • dev:              make dev            (ou make frontend-dev para HMR)"
+	@echo "   • binário compilado: make build && make run"
 
 run: ## Roda o binário compilado (API + frontend buildado)
 	@echo "▶️  Rodando o servidor compilado em http://$(HOST):$(PORT)"
