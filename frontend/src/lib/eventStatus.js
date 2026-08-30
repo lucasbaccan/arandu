@@ -4,10 +4,10 @@
  * Dashboard, Editar evento e Palco leem daqui — antes cada tela tinha o seu.
  */
 const META = {
-  PREPARATION: { label: 'Em preparação', tint: 'var(--tint-orange)', color: 'var(--orange)' },
-  OPEN_FOR_ANSWERS: { label: 'Coletando respostas', tint: 'var(--tint-cyan)', color: 'var(--cyan-hover)' },
+  PREPARATION: { label: 'Em preparação', tint: 'var(--tint-orange)', color: 'var(--orange-text)' },
+  OPEN_FOR_ANSWERS: { label: 'Coletando respostas', tint: 'var(--tint-cyan)', color: 'var(--cyan-text)' },
   CLOSED_FOR_ANSWERS: { label: 'Respostas encerradas', tint: 'var(--tint-neutral)', color: 'var(--text-muted)' },
-  PRESENTING: { label: 'Ao vivo', tint: 'var(--tint-success)', color: 'var(--success)' },
+  PRESENTING: { label: 'Ao vivo', tint: 'var(--tint-success)', color: 'var(--success-text)' },
   FINISHED: { label: 'Finalizado', tint: 'var(--tint-neutral)', color: 'var(--text-muted)' }
 };
 
@@ -22,10 +22,10 @@ export function statusLabel(status) {
 /* Tipo de pergunta usa o mesmo chip, em outra variante de cor. */
 export function questionKindInfo(type) {
   if (type === 'OPEN_TEXT') {
-    return { label: 'Resposta aberta', tint: 'var(--tint-orange)', color: 'var(--orange)' };
+    return { label: 'Resposta aberta', tint: 'var(--tint-orange)', color: 'var(--orange-text)' };
   }
   if (type === 'GROUP') {
-    return { label: 'Múltipla escolha', tint: 'var(--tint-cyan)', color: 'var(--cyan-hover)' };
+    return { label: 'Múltipla escolha', tint: 'var(--tint-cyan)', color: 'var(--cyan-text)' };
   }
-  return { label: 'Individual', tint: 'var(--tint-purple)', color: 'var(--accent)' };
+  return { label: 'Individual', tint: 'var(--tint-purple)', color: 'var(--purple-text)' };
 }

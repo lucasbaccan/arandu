@@ -24,8 +24,9 @@
   --accent-hover: #21008f;
   --accent-soft: #ece8fb;
   --on-accent: #ffffff;
-  --danger: #e5484d;
-  --danger-hover: #c33d41;
+  /* #d13c42: contraste 4.73:1 sobre branco (AA p/ texto normal; antes 3.9:1). */
+  --danger: #d13c42;
+  --danger-hover: #b93438;
   --success: #0091b3;
   --success-hover: #007b98;
   --purple: #2b00bb;
@@ -45,6 +46,13 @@
   --tint-success: rgba(0, 145, 179, 0.12);
   --tint-danger: rgba(229, 72, 77, 0.1);
   --tint-neutral: rgba(104, 103, 122, 0.12);
+
+  /* Cores de TEXTO sobre as tintas dos chips (passam AA no claro):
+     ciano #006d8c 5.34:1, verde-azulado #00728e 4.79:1, laranja #a84e00 4.94:1. */
+  --cyan-text: #006d8c;
+  --success-text: #00728e;
+  --orange-text: #a84e00;
+  --purple-text: #2b00bb;
 
   /* Raios: 10 em controles, 12 em linhas/listas, 16 em cards */
   --radius: 16px;
@@ -87,6 +95,13 @@
   --success: #22b8d8;
   --tint-purple: rgba(138, 107, 255, 0.16);
   --tint-neutral: rgba(163, 162, 184, 0.14);
+
+  /* Versões claras das cores de chip no escuro (contraste AA sobre --bg-elev):
+     roxo #a58bff 5.29:1; ciano/laranja mais luminosos p/ não virar pastel. */
+  --cyan-text: #4dd6ff;
+  --success-text: #22b8d8;
+  --orange-text: #ff8f3d;
+  --purple-text: #a58bff;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   --shadow-hover: 0 6px 18px rgba(138, 107, 255, 0.25);
 }
@@ -213,7 +228,8 @@ a:hover {
 
 .field input::placeholder,
 .field textarea::placeholder {
-  color: var(--text-subtle);
+  /* --text-subtle (~2.4:1 no claro) não passa AA; --text-muted sim. */
+  color: var(--text-muted);
 }
 
 .field input:focus,
@@ -298,6 +314,26 @@ a:hover {
 }
 
 /* --- Botões --- */
+
+/* Ícones Material Symbols Rounded (var font, com eixos FILL/wght/GRAD/opsz).
+   Uso: <span class="msr" aria-hidden="true">chevron_right</span> — o "conteúdo"
+   é o nome do glifo em ligatura, não o desenho. */
+.msr {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
 
 .icon-btn {
   width: 34px;
@@ -499,7 +535,8 @@ a:hover {
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-subtle);
+  /* --text-subtle (~2.3:1 no claro) não passa AA em 11px; --text-muted sim. */
+  color: var(--text-muted);
 }
 
 .mono-pin {
@@ -559,4 +596,59 @@ a:hover {
   accent-color: var(--accent);
   width: 16px;
   height: 16px;
+}
+
+/* --- Mobile: ajustes finos de toque e leitura --- */
+
+/* Zoom automático do Safari/iOS: campos com fonte < 16px ampliam a página ao
+   focar. Em telas pequenas (largura OU altura — cobre landscape de celular)
+   os campos passam a 16px (o pinch continua livre — o viewport não usa
+   user-scalable=no). */
+@media (max-width: 480px), (max-height: 480px) {
+  .field input,
+  .field textarea,
+  .field select {
+    font-size: 1rem;
+  }
+
+  /* Cards de entrada mais folgados em telas estreitas (antes: 32px). */
+  .card {
+    padding: 24px 20px;
+  }
+
+  /* Link de troca de tela (Entrar/CriarConta): área de toque ~44px sem mudar
+     o visual (padding/margem negativa se cancelam na altura da linha). */
+  .switch a {
+    display: inline-block;
+    padding: 12px 6px;
+    margin: -12px -6px;
+  }
+}
+
+/* Respiro horizontal do shell do organizador em telas estreitas (antes: 32px). */
+@media (max-width: 560px) {
+  .shell-body {
+    padding: 24px 20px;
+  }
+}
+
+/* Alvos de toque mínimos em telas de toque. */
+@media (pointer: coarse) {
+  .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Botões pequenos (dock do Palco, CrumbBar, actions): altura tocável de 44px. */
+  .btn-sm {
+    min-height: 44px;
+  }
+}
+
+/* Classe .page-wide usada por Tela/Debug/MapaDoSite mas nunca definida: o
+   layout dependia da ordem de injeção do CSS escopado. Agora é explícita. */
+.page-wide {
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
 }
