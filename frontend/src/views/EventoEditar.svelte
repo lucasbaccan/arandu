@@ -18,6 +18,7 @@
   import TopBar from '../components/TopBar.svelte';
   import QuestionForm, { MIN_OPTIONS, MAX_OPTIONS } from '../components/QuestionForm.svelte';
   import AvatarCropper from '../components/AvatarCropper.svelte';
+  import RailContent from '../components/RailContent.svelte';
 
   function formatTime(iso) {
     const d = new Date(iso);
@@ -28,9 +29,17 @@
 
   let loading = true;
   let error = '';
+  let loadError = '';
   let notFound = false;
-  let activeTab = 'questions'; // questions | responses
+  let activeTab = 'questions'; // questions | responses | settings
   let railCollapsed = false;
+  let isMobile = false;
+
+  $: tabsList = [
+    { value: 'questions', label: 'Perguntas', count: questions.length },
+    { value: 'responses', label: 'Respostas', count: participantCount },
+    ...(isMobile ? [{ value: 'settings', label: 'Configuração' }] : [])
+  ];
 
   $: linkResposta = `${window.location.origin}/responder/${id}`;
   $: linkPlateia = pinCode
@@ -138,7 +147,7 @@
       if (e.status === 404) {
         notFound = true;
       } else {
-        error = e.message;
+        loadError = e.message;
       }
     } finally {
       loading = false;
@@ -146,6 +155,14 @@
     }
   }
   load();
+
+  if (window.matchMedia) {
+    const mobileMq = window.matchMedia('(max-width: 980px)');
+    isMobile = mobileMq.matches;
+    mobileMq.addEventListener('change', (e) => {
+      isMobile = e.matches;
+    });
+  }
 
   function validate() {
     if (!title.trim()) return 'Informe o título do evento.';
@@ -495,8 +512,7 @@
     <CrumbBar
       crumbs={[
         { label: 'Eventos', href: '/painel' },
-        { label: title || 'Evento', href: `/evento/${id}` },
-        { label: 'Editar' }
+        { label: title || 'Evento', href: `/evento/${id}` }
       ]}
     >
       <Chip
@@ -512,14 +528,15 @@
       </svelte:fragment>
     </CrumbBar>
 
+    {#if loadError}
+      <p class="form-error edit-top-error">{loadError}</p>
+    {/if}
+
     <div class="edit-layout" class:rail-collapsed={railCollapsed}>
       <div class="questions-col">
         <Tabs
           bind:value={activeTab}
-          tabs={[
-            { value: 'questions', label: 'Perguntas', count: questions.length },
-            { value: 'responses', label: 'Respostas', count: participantCount }
-          ]}
+          tabs={tabsList}
         >
           <svelte:fragment slot="actions">
             {#if activeTab === 'questions' && questions.length > 0}
@@ -530,12 +547,31 @@
           </svelte:fragment>
         </Tabs>
 
-          {#if activeTab === 'responses'}
+          {#if isMobile && activeTab === 'settings'}
+            <div class="rail-mobile">
+              <RailContent
+                {status}
+                {statusBusy}
+                questionCount={questions.length}
+                {participantCount}
+                {linkResposta}
+                {linkPlateia}
+                bind:title
+                bind:pinCode
+                bind:showRanking
+                bind:allowEdit
+                {error}
+                {submitting}
+                {toggleAnswersOpen}
+                {handleSubmit}
+              />
+            </div>
+          {:else if activeTab === 'responses'}
             {#if participants.length === 0}
               <p class="text-muted empty-note">Ninguém respondeu ainda.</p>
             {:else}
               <div class="responses-split" bind:this={responsesSplitEl}>
-                <div class="people-col" style="flex-basis: {peopleColWidth}px">
+                <div class="people-col" style="--people-basis: {peopleColWidth}px">
                   <input
                     class="people-search"
                     type="text"
@@ -573,7 +609,7 @@
                             {/if}
                           </span>
                           <span class="person-info">
-                            <span class="person-name">{p.name || p.email}</span>
+                            <span class="person-name" title={p.name || p.email}>{p.name || p.email}</span>
                             <span class="person-meta text-muted">
                               <span class="person-order">#{p.order}</span>
                               <span class="person-meta-sep" aria-hidden="true">·</span>
@@ -617,7 +653,7 @@
                         <span class="detail-avatar-edit" aria-hidden="true">✎</span>
                       </button>
                       <div class="detail-identity">
-                        <strong class="detail-name">{selectedParticipant.name || selectedParticipant.email}</strong>
+                        <strong class="detail-name" title={selectedParticipant.name || selectedParticipant.email}>{selectedParticipant.name || selectedParticipant.email}</strong>
                         <div class="detail-meta">
                           {#if selectedParticipant.name}
                             <span>{selectedParticipant.email}</span>
@@ -793,7 +829,7 @@
                           aria-label="Mover pergunta para cima"
                           disabled={i === 0}
                           on:click={() => moveQuestion(i, i - 1)}
-                        >↑</button>
+                        ><span class="msr icon-btn-move-glyph">arrow_upward</span></button>
                         <button
                           type="button"
                           class="icon-btn icon-btn-move"
@@ -801,21 +837,21 @@
                           aria-label="Mover pergunta para baixo"
                           disabled={i === questions.length - 1}
                           on:click={() => moveQuestion(i, i + 1)}
-                        >↓</button>
+                        ><span class="msr icon-btn-move-glyph">arrow_downward</span></button>
                         <button
                           type="button"
                           class="icon-btn icon-btn-edit"
                           title="Editar pergunta"
                           aria-label={`Editar pergunta ${q.title}`}
                           on:click={() => startEdit(q)}
-                        >✎</button>
+                        ><span class="msr icon-btn-edit-glyph">edit_square</span></button>
                         <button
                           type="button"
                           class="icon-btn icon-btn-delete"
                           title="Remover pergunta"
                           aria-label={`Remover pergunta ${q.title}`}
                           on:click={() => removeQuestion(q)}
-                        >×</button>
+                        ><span class="msr icon-btn-delete-glyph">delete</span></button>
                       </div>
                     </div>
                   {/if}
@@ -878,117 +914,46 @@
               </li>
             </ul>
           {/if}
+
+          <footer class="edit-footer" aria-hidden="true"></footer>
       </div>
 
       <aside class="side-rail" class:collapsed={railCollapsed}>
-        <button
-          type="button"
-          class="icon-btn rail-toggle"
-          aria-label={railCollapsed ? 'Expandir painel lateral' : 'Recolher painel lateral'}
-          title={railCollapsed ? 'Expandir painel lateral' : 'Recolher painel lateral'}
-          aria-expanded={!railCollapsed}
-          on:click={() => (railCollapsed = !railCollapsed)}
-        >{railCollapsed ? '‹' : '›'}</button>
+        <div class="rail-top">
+          <button
+            type="button"
+            class="icon-btn rail-toggle"
+            aria-label={railCollapsed ? 'Expandir painel lateral' : 'Recolher painel lateral'}
+            title={railCollapsed ? 'Expandir painel lateral' : 'Recolher painel lateral'}
+            aria-expanded={!railCollapsed}
+            on:click={() => (railCollapsed = !railCollapsed)}
+          >
+            {#if railCollapsed}
+              <span class="msr rail-toggle-icon">right_panel_open</span>
+            {:else}
+              <span class="msr rail-toggle-icon">right_panel_close</span>
+            {/if}
+          </button>
+        </div>
 
         {#if !railCollapsed}
-          <div
-            class="rail-card answers-switch"
-            style="--rail-accent:{status === 'OPEN_FOR_ANSWERS' ? 'var(--success)' : 'var(--border-strong)'}"
-          >
-            <div>
-              <strong>Respostas {status === 'OPEN_FOR_ANSWERS' ? 'abertas' : 'fechadas'}</strong>
-              <p class="text-muted">Só entram respostas enquanto estiver ligado.</p>
-            </div>
-            <Switch
-              checked={status === 'OPEN_FOR_ANSWERS'}
-              disabled={statusBusy}
-              on:change={toggleAnswersOpen}
+          <div class="rail-scroll">
+            <RailContent
+              {status}
+              {statusBusy}
+              questionCount={questions.length}
+              {participantCount}
+              {linkResposta}
+              {linkPlateia}
+              bind:title
+              bind:pinCode
+              bind:showRanking
+              bind:allowEdit
+              {error}
+              {submitting}
+              {toggleAnswersOpen}
+              {handleSubmit}
             />
-          </div>
-
-          <div class="stat-row">
-            <div class="rail-card stat-box">
-              <span class="stat-num">{questions.length}</span>
-              <span class="stat-label">pergunta{questions.length === 1 ? '' : 's'}</span>
-            </div>
-            <div class="rail-card stat-box">
-              <span class="stat-num">{participantCount}</span>
-              <span class="stat-label">{participantCount === 1 ? 'respondeu' : 'responderam'}</span>
-            </div>
-          </div>
-
-          <div class="rail-card rail-section">
-            <span class="overline">Compartilhar</span>
-            <div class="share-link">
-              <div class="share-link-info">
-                <span class="share-link-label">Link de participação</span>
-                <span class="share-link-url">{linkResposta}</span>
-              </div>
-              <CopyButton text={linkResposta} label="Copiar link de participação" />
-            </div>
-            <div class="share-link">
-              <div class="share-link-info">
-                <span class="share-link-label">Apresentação pública</span>
-                <span class="share-link-url">{linkPlateia}</span>
-              </div>
-              <CopyButton text={linkPlateia} label="Copiar link da apresentação pública" />
-            </div>
-          </div>
-
-          <div class="rail-card rail-section">
-            <span class="overline">Configurações</span>
-            <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
-              <Input
-                label="Título"
-                bind:value={title}
-                placeholder="Ex: Conecta DevOps 2026"
-                autocomplete="off"
-                required
-              />
-
-              <Input
-                label="PIN"
-                bind:value={pinCode}
-                placeholder="Ex: dev-team"
-                hint="1 a 25 caracteres: letras, números, _ ou -"
-                uppercase
-              />
-
-              <div class="config-row">
-                <span>Exibir ranking de pontos</span>
-                <Switch
-                  aria-label="Exibir ranking de pontos"
-                  checked={showRanking}
-                  on:change={() => (showRanking = !showRanking)}
-                />
-              </div>
-
-              <div class="config-row config-row-hint">
-                <span>
-                  Permitir editar depois
-                  <p class="text-muted">
-                    {allowEdit
-                      ? 'Cada pessoa recebe um link privado para corrigir respostas e foto.'
-                      : 'O envio é único. Só você pode corrigir respostas por aqui.'}
-                  </p>
-                </span>
-                <Switch
-                  aria-label="Permitir editar depois"
-                  checked={allowEdit}
-                  on:change={() => (allowEdit = !allowEdit)}
-                />
-              </div>
-
-              {#if error}
-                <p class="form-error">{error}</p>
-              {/if}
-
-              <!-- Secundário: a ação primária desta tela é abrir o painel ao vivo,
-                   no breadcrumb. -->
-              <Button type="submit" variant="secondary" block disabled={submitting}>
-                {submitting ? 'Salvando…' : 'Salvar alterações'}
-              </Button>
-            </form>
           </div>
         {/if}
       </aside>
@@ -1037,6 +1002,7 @@
   .edit-layout {
     flex: 1;
     min-height: 0;
+    position: relative;
     display: grid;
     grid-template-columns: 1fr 320px;
     grid-template-rows: minmax(0, 1fr);
@@ -1047,7 +1013,13 @@
   }
 
   .edit-layout.rail-collapsed {
-    grid-template-columns: 1fr 48px;
+    grid-template-columns: 1fr;
+  }
+
+  /* Com o trilho colapsado, o botão flutuante ocupa o canto superior direito;
+     reserva espaço pra não cobrir o "Adicionar pergunta" do Tabs. */
+  .edit-layout.rail-collapsed .questions-col {
+    padding-right: 60px;
   }
 
   /* O conteúdo manda: perguntas ocupam a coluna larga, configurações viram um
@@ -1063,125 +1035,70 @@
   }
 
   .side-rail {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 12px;
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
-  .rail-toggle {
-    flex-shrink: 0;
-    align-self: flex-end;
+  .rail-mobile {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
   }
 
-  .side-rail.collapsed {
-    align-items: center;
-    overflow: visible;
+  /* Espaço inferior no mobile: a página rola inteira e o conteúdo (lista de
+     perguntas / respostas / configurações) chegava colado na borda de baixo. */
+  .edit-footer {
+    display: none;
   }
 
-  .rail-card {
+  .rail-mobile :global(.answers-switch),
+  .rail-mobile :global(.rail-card) {
     background: var(--bg-elev);
     border: 1px solid var(--border);
     border-radius: var(--radius-row);
     padding: 16px;
   }
 
-  .rail-section {
+  .rail-top {
+    flex-shrink: 0;
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    justify-content: flex-end;
   }
 
-  .answers-switch {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 16px;
-    border-left: 3px solid var(--rail-accent);
-  }
-
-  .answers-switch strong {
-    font-size: 0.875rem;
-  }
-
-  .answers-switch p {
-    margin: 2px 0 0;
-    font-size: 0.75rem;
-  }
-
-  .stat-row {
-    display: flex;
-    gap: 10px;
-  }
-
-  .stat-box {
+  .rail-scroll {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 14px;
-  }
-
-  .stat-num {
-    font-size: 1.625rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1;
-  }
-
-  .stat-label {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .share-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--surface-muted);
-  }
-
-  .share-link-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .share-link-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-
-  .share-link-url {
-    font-size: 0.6875rem;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .config-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    font-size: 0.875rem;
+    overflow-y: auto;
   }
 
-  .config-row-hint {
-    align-items: flex-start;
+  .rail-toggle {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
   }
 
-  .config-row-hint p {
-    margin: 2px 0 0;
-    font-size: 0.75rem;
-    line-height: 1.35;
+  .rail-toggle-icon {
+    font-size: 20px;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .side-rail.collapsed {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 48px;
+    overflow: visible;
+  }
+
+  .side-rail.collapsed .rail-top {
+    justify-content: center;
   }
 
   /* --- Perguntas --- */
@@ -1364,17 +1281,51 @@
     width: 30px;
     height: 30px;
     border-color: transparent;
-    color: var(--text-subtle);
+    color: var(--accent);
+    background: var(--accent-soft);
   }
 
   .question-actions .icon-btn:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: transparent;
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .question-actions .icon-btn-edit {
+    background: var(--tint-cyan);
+    color: var(--cyan-text);
+  }
+
+  .question-actions .icon-btn-edit:hover:not(:disabled) {
+    background: var(--cyan);
+    color: var(--on-accent);
+  }
+
+  .icon-btn-edit-glyph {
+    font-size: 18px;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .icon-btn-move-glyph,
+  .icon-btn-delete-glyph {
+    font-size: 18px;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .question-actions .icon-btn-delete {
+    background: var(--tint-danger);
+    color: var(--danger);
   }
 
   .question-actions .icon-btn-delete:hover:not(:disabled) {
-    border-color: var(--danger);
-    color: var(--danger);
+    border-color: transparent;
+    background: var(--danger);
+    color: var(--on-accent);
+  }
+
+  .question-actions .icon-btn:disabled {
+    background: var(--surface-muted);
+    color: var(--text-subtle);
   }
 
   /* --- Respostas --- */
@@ -1398,7 +1349,7 @@
   }
 
   .people-col {
-    flex: 0 0 250px;
+    flex: 0 0 var(--people-basis, 250px);
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -1822,6 +1773,27 @@
       overflow: visible;
     }
 
+    .rail-scroll {
+      overflow: visible;
+      flex: none;
+    }
+
+    /* No mobile as configurações viram a aba "Configuração"; o trilho
+       lateral não existe mais (ficaria sobre as perguntas). */
+    .side-rail {
+      display: none;
+    }
+
+    .rail-mobile {
+      display: flex;
+    }
+
+    .edit-footer {
+      display: block;
+      height: 32px;
+      flex: none;
+    }
+
     .question-list,
     .responses-split,
     .people-list,
@@ -1829,6 +1801,125 @@
       flex: none;
       max-height: none;
       overflow: visible;
+    }
+  }
+
+  /* --- Mobile --- */
+
+  /* Badges "Individual"/"Resposta aberta" usavam classes sem definição (caiam
+     no .badge neutro). Agora diferenciam visualmente, com tokens tema-aware. */
+  .badge-individual {
+    color: var(--success-text);
+    background: var(--tint-success);
+  }
+
+  .badge-open-text {
+    color: var(--purple-text);
+    background: var(--tint-purple);
+  }
+
+  @media (max-width: 760px) {
+    /* Lista de participantes: o basis inline virava ALTURA fixa de 250px e o
+       excedente ficava pintado atrás do painel de detalhes. Libera a altura e
+       devolve a rolagem interna à lista. */
+    .people-col {
+      flex: 0 0 auto;
+      height: auto;
+      /* min() evita 1 linha visível em landscape (45vh de ~375px de altura). */
+      max-height: min(45vh, 320px);
+    }
+
+    .people-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overflow-y: auto;
+    }
+
+    /* Respostas da pessoa: o badge "Individual"/"Resposta aberta" desce para
+       baixo do título da pergunta, antes da resposta, em vez de ficar ao lado. */
+    .answer-card-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .answer-card-question {
+      flex: none;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 560px) {
+    /* Linha da pergunta: texto + chip + 4 ações espremidos em ~295px.
+       Empilha as ações abaixo do texto com alvos de 44px (o ↑↓ é o único
+       reordenador que funciona em touch — drag & drop nativo não). */
+    .question-item {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .reorder-controls {
+      flex-direction: column;
+      width: auto;
+    }
+
+    .question-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    .sort-btn {
+      padding: 10px 10px;
+    }
+
+    /* 16px evita o zoom automático do iOS ao focar. */
+    .people-search {
+      font-size: 1rem;
+    }
+
+    .answer-text-input {
+      font-size: 1rem;
+    }
+
+    .modal-cancel {
+      padding: 12px 8px;
+    }
+
+    .modal-card {
+      padding: 20px;
+    }
+  }
+
+  /* Touch: alvos de 44px nas ações da pergunta (↑↓✎✕), sort e opções de
+     resposta — vale em QUALQUER largura (tablets/landscape inclusos), não só
+     ≤560px: a regra escopada de 30px sobrescrevia o bump global do app.css. */
+  @media (pointer: coarse) {
+    .question-actions .icon-btn {
+      width: 44px;
+      height: 44px;
+    }
+
+    .sort-btn {
+      min-height: 44px;
+    }
+
+    .answer-option {
+      min-height: 44px;
+    }
+
+    .people-search {
+      font-size: 1rem;
+    }
+  }
+
+  /* Em touch não existe hover: os divisores de inserção ficavam invisíveis.
+     (Desaninhado do ≤560px: antes só valia em retrato; tablets e landscape
+     seguiam sem os divisores.) */
+  @media (hover: none) {
+    .insert-btn {
+      opacity: 0.85;
+      padding: 10px 0;
     }
   }
 </style>
