@@ -22,6 +22,7 @@
   import MapaDoSite from './views/MapaDoSite.svelte';
   import Debug from './views/Debug.svelte';
   import Icones from './views/Icones.svelte';
+  import TrocarSenha from './views/TrocarSenha.svelte';
 
   onMount(initAuth);
 
@@ -40,6 +41,7 @@
     if ($route === '/' && $user) navigate('/painel');
     if (
       ($route === '/painel' ||
+        $route === '/trocar-senha' ||
         $route === '/evento/novo' ||
         eventoMatch ||
         palcoMatch ||
@@ -68,6 +70,8 @@
     <CriarConta />
   {:else if $route === '/painel'}
     <Painel />
+  {:else if $route === '/trocar-senha'}
+    <TrocarSenha />
   {:else if $route === '/tela'}
     <Tela />
   {:else if $route === '/mapa-do-site'}

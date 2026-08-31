@@ -99,6 +99,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/conta/criar-conta", a.handleCriarConta)
 	mux.HandleFunc("POST /api/conta/entrar", a.handleEntrar)
 	mux.HandleFunc("POST /api/conta/sair", a.handleSair)
+	mux.HandleFunc("POST /api/conta/trocar-senha", a.requireAuth(a.handleTrocarSenha))
 	mux.HandleFunc("GET /api/conta/eu", a.requireAuth(a.handleEu))
 	mux.HandleFunc("GET /api/conta/configuracao", a.handleConfiguracao)
 	mux.HandleFunc("POST /api/eventos", a.requireAuth(a.handleCriarEvento))
@@ -405,6 +406,60 @@ func (a *API) handleConfiguracao(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"minPasswordLength": a.cfg.MinPasswordLength,
 	})
+}
+
+type trocarSenhaRequest struct {
+	SenhaAtual string `json:"senhaAtual"`
+	NovaSenha  string `json:"novaSenha"`
+}
+
+// handleTrocarSenha troca a senha do usuário logado, exigindo a senha atual
+// como confirmação. Não invalida as demais sessões (o token JWT não carrega
+// o hash da senha) — o que é aceitável para este app; quem quiser pode sair
+// das outras sessões manualmente.
+func (a *API) handleTrocarSenha(w http.ResponseWriter, r *http.Request) {
+	var req trocarSenhaRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	userID := userIDFromContext(r.Context())
+	u, err := a.store.BuscarUsuarioPorID(r.Context(), userID)
+	if err != nil {
+		log.Printf("api: trocar senha: buscar usuário: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+
+	if !auth.CheckPassword(u.PasswordHash, req.SenhaAtual) {
+		writeError(w, http.StatusUnauthorized, "Senha atual incorreta.")
+		return
+	}
+
+	if len(req.NovaSenha) < a.cfg.MinPasswordLength {
+		writeError(w, http.StatusBadRequest, "A nova senha deve ter pelo menos "+strconv.Itoa(a.cfg.MinPasswordLength)+" caracteres.")
+		return
+	}
+	if len(req.NovaSenha) > maxPasswordLength {
+		writeError(w, http.StatusBadRequest, "A nova senha é muito longa (máximo "+strconv.Itoa(maxPasswordLength)+" caracteres).")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.NovaSenha)
+	if err != nil {
+		log.Printf("api: trocar senha: hash: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno.")
+		return
+	}
+
+	if err := a.store.AtualizarSenha(r.Context(), userID, hash); err != nil {
+		log.Printf("api: trocar senha: salvar: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao salvar a nova senha.")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (a *API) handleAPI404(w http.ResponseWriter, r *http.Request) {

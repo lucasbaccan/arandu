@@ -70,6 +70,9 @@
       {#if menuOpen}
         <div class="user-menu" role="menu" bind:this={menuEl}>
           <p class="user-menu-name">Olá, {($user && $user.name) || '…'}</p>
+          <button type="button" class="user-menu-item" role="menuitem" on:click={() => { menuOpen = false; navigate('/trocar-senha'); }}>
+            Trocar senha
+          </button>
           <button type="button" class="user-menu-item" role="menuitem" on:click={handleLogout}>
             Sair
           </button>

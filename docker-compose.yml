@@ -6,8 +6,10 @@ services:
     image: arandu:latest
     container_name: arandu
     restart: unless-stopped
-    ports:
-      - "${PORT:-8080}:8080"
+    # Sem porta publicada: o Traefik alcança o container pela rede interna
+    # server-vps_default (rota http://arandu:8080).
+    networks:
+      - server-vps_default
     environment:
       # Gere um segredo forte com: openssl rand -hex 32
       JWT_SECRET: "${JWT_SECRET:-mude-este-segredo}"
@@ -20,6 +22,10 @@ services:
     volumes:
       # Banco SQLite + fotos materializadas — sobrevivem a recreated do container.
       - arandu_data:/app/data
+
+networks:
+  server-vps_default:
+    external: true
 
 volumes:
   arandu_data:

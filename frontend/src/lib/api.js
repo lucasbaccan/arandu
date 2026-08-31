@@ -62,6 +62,7 @@ export const api = {
   criarConta: (body) => request('/api/conta/criar-conta', { method: 'POST', body }),
   entrar: (body) => request('/api/conta/entrar', { method: 'POST', body }),
   sair: () => request('/api/conta/sair', { method: 'POST' }),
+  trocarSenha: (body) => request('/api/conta/trocar-senha', { method: 'POST', body }),
   eventos: {
     criar: (body) => request('/api/eventos', { method: 'POST', body }),
     listar: () => request('/api/eventos'),

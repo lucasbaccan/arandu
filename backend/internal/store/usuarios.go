@@ -58,6 +58,25 @@ func (s *Store) BuscarUsuarioPorID(ctx context.Context, id int64) (User, error) 
 	return scanUser(row)
 }
 
+// AtualizarSenha troca o hash de senha de um usuário (fluxo "trocar senha"
+// logado: o handler valida a senha atual antes de chamar aqui).
+func (s *Store) AtualizarSenha(ctx context.Context, id int64, hash string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE users SET password_hash = ? WHERE id = ?`, hash, id,
+	)
+	if err != nil {
+		return fmt.Errorf("store: atualizar senha: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("store: atualizar senha: rows affected: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 type scanner interface {
 	Scan(dest ...any) error
 }
