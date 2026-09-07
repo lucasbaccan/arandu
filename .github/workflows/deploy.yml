@@ -1,0 +1,42 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+# Required secrets — add in: GitHub repo → Settings → Secrets and variables → Actions
+#
+#   VPS_HOST        IP or hostname of the Oracle VPS
+#   VPS_SSH_USER    SSH user on the VPS (e.g. ubuntu)
+#   VPS_SSH_KEY     Private SSH key for VPS_SSH_USER (ED25519 recommended)
+#                   The matching public key must be in ~ubuntu/.ssh/authorized_keys on the VPS
+#
+# The deploy user on the VPS must:
+#   - belong to the `docker` group
+#   - have the repo cloned at ~/porandu  (git clone ... ~/porandu)
+#   - have a .env file at ~/porandu/.env with production values
+
+jobs:
+  deploy:
+    name: SSH → git pull → docker compose up --build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ vars.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o BatchMode=yes \
+              "${{ vars.VPS_SSH_USER }}@${{ vars.VPS_HOST }}" << 'ENDSSH'
+            set -e
+            cd ~/porandu
+            git pull origin master
+            docker compose up -d --build
+          ENDSSH
