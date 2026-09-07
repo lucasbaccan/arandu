@@ -28,4 +28,7 @@ networks:
     external: true
 
 volumes:
+  # Nome fixo (não deriva do diretório): renomear/mover a pasta do projeto
+  # não troca o volume — os dados (SQLite + fotos) sempre ficam em arandu_data.
   arandu_data:
+    name: arandu_data
