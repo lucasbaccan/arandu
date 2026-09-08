@@ -409,14 +409,12 @@ func (a *API) handleConfiguracao(w http.ResponseWriter, r *http.Request) {
 }
 
 type trocarSenhaRequest struct {
-	SenhaAtual string `json:"senhaAtual"`
-	NovaSenha  string `json:"novaSenha"`
+	NovaSenha string `json:"novaSenha"`
 }
 
-// handleTrocarSenha troca a senha do usuário logado, exigindo a senha atual
-// como confirmação. Não invalida as demais sessões (o token JWT não carrega
-// o hash da senha) — o que é aceitável para este app; quem quiser pode sair
-// das outras sessões manualmente.
+// handleTrocarSenha troca a senha do usuário logado (já autenticado via
+// requireAuth), sem pedir a senha atual. Não invalida as demais sessões (o
+// token JWT não carrega o hash da senha) — o que é aceitável para este app.
 func (a *API) handleTrocarSenha(w http.ResponseWriter, r *http.Request) {
 	var req trocarSenhaRequest
 	if err := readJSON(w, r, &req); err != nil {
@@ -425,17 +423,6 @@ func (a *API) handleTrocarSenha(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := userIDFromContext(r.Context())
-	u, err := a.store.BuscarUsuarioPorID(r.Context(), userID)
-	if err != nil {
-		log.Printf("api: trocar senha: buscar usuário: %v", err)
-		writeError(w, http.StatusInternalServerError, "Erro interno.")
-		return
-	}
-
-	if !auth.CheckPassword(u.PasswordHash, req.SenhaAtual) {
-		writeError(w, http.StatusUnauthorized, "Senha atual incorreta.")
-		return
-	}
 
 	if len(req.NovaSenha) < a.cfg.MinPasswordLength {
 		writeError(w, http.StatusBadRequest, "A nova senha deve ter pelo menos "+strconv.Itoa(a.cfg.MinPasswordLength)+" caracteres.")
