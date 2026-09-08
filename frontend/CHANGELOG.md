@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/lucasbaccan/arandu/compare/v1.0.0...v1.1.0) (2026-09-08)
+
+
+### Features
+
+* **conta:** trocar senha sem a senha atual e olho de mostrar senha ([#8](https://github.com/lucasbaccan/arandu/issues/8)) ([8065f47](https://github.com/lucasbaccan/arandu/commit/8065f477e7c3f8778384d1621d10fd260c9fb4ae))
+
 # 1.0.0 (2026-09-08)
 
 
