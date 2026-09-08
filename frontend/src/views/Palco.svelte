@@ -5,6 +5,8 @@
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { questionKindInfo } from '../lib/eventStatus.js';
+  import { liveConnect } from '../lib/liveConnect.js';
+  import LiveStatusBadge from '../components/LiveStatusBadge.svelte';
   import Button from '../components/Button.svelte';
   import Chip from '../components/Chip.svelte';
   import CrumbBar from '../components/CrumbBar.svelte';
@@ -24,6 +26,7 @@
   let questions = [];
   let participants = [];
   let currentIndex = 0;
+  let liveStatus = 'online'; // online | offline
 
   // Preview do placar: em telas pequenas usa o layout 'compact' do
   // PresentationStage (linhas legíveis) em vez da escala de projetor.
@@ -219,11 +222,22 @@
       modoDensidadeApresentacao = adminSnap.presentDensityMode || '';
 
       if (qs.length > 0) {
-        const resumeIndex = qs.findIndex((q) => q.id === adminSnap.currentQuestionId);
-        currentIndex = resumeIndex >= 0 ? resumeIndex : 0;
-        // Só força a pergunta 1 no servidor se a apresentação nunca tinha
-        // sido iniciada (evento novo) — senão preserva onde já estava.
-        if (resumeIndex < 0) syncQuestion(qs[0].id);
+        // ?pergunta={id} na URL escolhe a pergunta a mostrar (pra compartilhar
+        // um link que já abre numa pergunta específica); senão, retoma de onde
+        // a apresentação parou no servidor (live.Manager).
+        const urlQuestion = new URLSearchParams(window.location.search).get('pergunta');
+        const urlIndex = urlQuestion ? qs.findIndex((q) => q.id === urlQuestion) : -1;
+        if (urlIndex >= 0) {
+          currentIndex = urlIndex;
+          // Sincroniza o servidor também, pra plateia/apresentar refletirem.
+          syncQuestion(qs[urlIndex].id);
+        } else {
+          const resumeIndex = qs.findIndex((q) => q.id === adminSnap.currentQuestionId);
+          currentIndex = resumeIndex >= 0 ? resumeIndex : 0;
+          // Só força a pergunta 1 no servidor se a apresentação nunca tinha
+          // sido iniciada (evento novo) — senão preserva onde já estava.
+          if (resumeIndex < 0) syncQuestion(qs[0].id);
+        }
       }
 
       connectAdminStream();
@@ -245,20 +259,23 @@
   // recarregar, e entrega as reações e mensagens de Q&A que chegam ao vivo.
   function connectAdminStream() {
     if (adminEventSource) adminEventSource.close();
-    adminEventSource = new EventSource(api.eventos.aoVivo.urlFluxoAdmin(id));
-    adminEventSource.onmessage = (e) => {
-      const snap = JSON.parse(e.data);
-      blanked = snap.blanked;
-      answersHidden = snap.answersHidden;
-      namesHidden = snap.namesHidden;
-      interactionsEnabled = snap.interactionsEnabled;
-      message = snap.message;
-      messageDraft = snap.message;
-      qaInbox = snap.qaInbox;
-      modoDensidadeApresentacao = snap.presentDensityMode || '';
-    };
-    adminEventSource.addEventListener('reaction', (e) => {
-      fireReaction(JSON.parse(e.data).emoji);
+    adminEventSource = liveConnect({
+      url: api.eventos.aoVivo.urlFluxoAdmin(id),
+      onSnapshot: (snap) => {
+        blanked = snap.blanked;
+        answersHidden = snap.answersHidden;
+        namesHidden = snap.namesHidden;
+        interactionsEnabled = snap.interactionsEnabled;
+        message = snap.message;
+        messageDraft = snap.message;
+        qaInbox = snap.qaInbox;
+        modoDensidadeApresentacao = snap.presentDensityMode || '';
+      },
+      onReaction: (emoji) => fireReaction(emoji),
+      onStatus: (status) => {
+        liveStatus = status;
+      },
+      poll: () => api.eventos.aoVivo.estadoAdmin(id)
     });
   }
 
@@ -520,6 +537,17 @@
     currentIndex = i;
     syncQuestion(questions[i].id);
   }
+
+  // Reflete a pergunta atual na URL (?pergunta={id}) via replaceState — sem
+  // nova entrada no histórico — pra quem copiar o link abrir já na pergunta.
+  function syncQuestionParam() {
+    if (!currentQuestion) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('pergunta', currentQuestion.id);
+    history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  $: if (currentQuestion) syncQuestionParam();
 </script>
 
 <svelte:window on:keydown={handleKeydown} on:resize={handleWindowResize} />
@@ -541,13 +569,15 @@
         { label: 'Ao vivo' }
       ]}
     >
-      <Chip
-        slot="status"
-        dot
-        label={`${participants.length} na sala`}
-        tint="var(--tint-cyan)"
-        color="var(--cyan-text)"
-      />
+      <svelte:fragment slot="status">
+        <Chip
+          dot
+          label={`${participants.length} na sala`}
+          tint="var(--tint-cyan)"
+          color="var(--cyan-text)"
+        />
+        {#if liveStatus === 'offline'}<LiveStatusBadge />{/if}
+      </svelte:fragment>
       <svelte:fragment slot="actions">
         <PinChip pin={event.pinCode} variant="boxed" />
         <button

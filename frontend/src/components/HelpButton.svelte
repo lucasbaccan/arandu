@@ -1,5 +1,6 @@
 <script>
   import { navigate } from '../lib/router.js';
+  import { buildInfo } from '../lib/buildInfo.js';
 
   export let shape = 'square';
 
@@ -58,6 +59,22 @@
       <a href="/como-funciona" class="help-more" on:click={goToHowItWorks}>Saiba mais →</a>
       <a href="/mapa-do-site" class="help-more" on:click={goToSiteMap}>Mapa do site →</a>
       <p class="help-foot text-muted">Dúvidas sobre um evento: fale com quem organiza.</p>
+      <div class="help-build">
+        <a href={buildInfo.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <span class="help-version" title={`Arandu v${buildInfo.version} · build ${buildInfo.commit}`}>
+          Arandu v{buildInfo.version} · build
+          {#if buildInfo.commit && buildInfo.commit !== 'dev'}
+            <a
+              class="help-commit"
+              href={`${buildInfo.github}/commit/${buildInfo.commit}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >{buildInfo.commit}</a>
+          {:else}
+            {buildInfo.commit}
+          {/if}
+        </span>
+      </div>
     </div>
   {/if}
 </div>
@@ -138,6 +155,41 @@
   .help-foot {
     margin: 10px 0 0;
     font-size: 0.75rem;
+  }
+
+  .help-build {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .help-build a {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .help-version {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-subtle);
+    white-space: nowrap;
+  }
+
+  .help-commit {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 2px;
+    transition: text-decoration-color 0.15s ease;
+  }
+
+  .help-commit:hover {
+    text-decoration-color: currentColor;
   }
 
   /* Alvo de toque mínimo em telas de toque (34px -> 44px). */

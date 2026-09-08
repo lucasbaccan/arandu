@@ -3,6 +3,8 @@
 
   import { onDestroy, onMount, tick } from 'svelte';
   import { api } from '../lib/api.js';
+  import { liveConnect } from '../lib/liveConnect.js';
+  import LiveStatusBadge from '../components/LiveStatusBadge.svelte';
   import PresentationStage from '../components/PresentationStage.svelte';
   import ReactionBurstLayer from '../components/ReactionBurstLayer.svelte';
   import { fireReaction } from '../lib/reactionStore.js';
@@ -16,6 +18,7 @@
   let error = '';
   let snapshot = null;
   let eventSource = null;
+  let liveStatus = 'online'; // online | offline
 
   // Em telas pequenas o placar usa o layout 'compact' do PresentationStage
   // (linhas legíveis) em vez da escala de projetor; o layout 'screen' segue
@@ -54,17 +57,26 @@
   }
 
   function connectStream() {
-    eventSource = new EventSource(api.eventos.aoVivo.urlFluxoApresentacao(id));
-    eventSource.onmessage = (e) => {
-      snapshot = JSON.parse(e.data);
-    };
-    eventSource.addEventListener('reaction', (e) => {
-      fireReaction(JSON.parse(e.data).emoji);
+    eventSource = liveConnect({
+      url: api.eventos.aoVivo.urlFluxoApresentacao(id),
+      onSnapshot: (snap) => {
+        snapshot = snap;
+      },
+      onReaction: (emoji) => fireReaction(emoji),
+      onStatus: (status) => {
+        liveStatus = status;
+      },
+      poll: () => api.eventos.aoVivo.estadoApresentacao(id)
     });
   }
 
   $: currentQuestion =
-    snapshot && snapshot.questions.find((q) => q.id === snapshot.currentQuestionId);
+    snapshot &&
+    (snapshot.questions.find((q) => q.id === snapshot.currentQuestionId) ||
+      // Pergunta atual do servidor apontando pra algo que não existe mais
+      // (ex.: a pergunta foi removida): cai pra primeira, pra tela nunca ficar
+      // vazia enquanto houver perguntas.
+      snapshot.questions[0]);
 
   // Pergunta longa demais pro clamp de altura: em vez de cortar o texto,
   // rola verticalmente devagar (ninguém rola uma tela projetada na mão) até
@@ -103,6 +115,7 @@
     <div class="apresentar-head">
       <img class="apresentar-logo" src="/img/arandu-logo.png" alt="Arandu" />
       <span class="apresentar-event" title={snapshot.eventTitle || ''}>{snapshot.eventTitle || ''}</span>
+      {#if liveStatus === 'offline'}<LiveStatusBadge />{/if}
     </div>
 
     {#if snapshot.message}

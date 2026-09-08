@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Test
+        working-directory: frontend
+        run: npm test
+
+      # A partir dos Conventional Commits desde a última tag, o semantic-release
+      # calcula o próximo semver, faz o bump no package.json, atualiza o
+      # CHANGELOG.md, cria o commit da release, a tag e o Release no GitHub, e
+      # faz push de tudo (commit + tag) via GITHUB_TOKEN.
+      - name: Release
+        working-directory: frontend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release

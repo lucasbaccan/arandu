@@ -18,6 +18,12 @@ import (
 
 const liveViewerTokenHours = 12
 
+// sseHeartbeatInterval é o período do "ping" que mantém viva cada conexão SSE
+// ao vivo. Muitos proxies/firewalls corporativos derrubam conexão ociosa
+// (deixando o socket "meio morto"): o comentário periódico gera tráfego, força
+// o buffer do proxy a andar e faz o servidor detectar cliente desconectado.
+const sseHeartbeatInterval = 15 * time.Second
+
 // allowedReactionEmojis é o mesmo conjunto usado no frontend
 // (frontend/src/components/ReactionBar.svelte) — mudar um lado exige mudar o
 // outro.
@@ -475,58 +481,9 @@ func (a *API) handleAoVivoFluxoAdmin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	flusher, isFlusher := w.(http.Flusher)
-	if !isFlusher {
-		writeError(w, http.StatusInternalServerError, "Streaming não suportado.")
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-
-	writeSnapshot := func() bool {
-		snapshot, err := a.buildAdminLiveSnapshot(r.Context(), eventID)
-		if err != nil {
-			log.Printf("api: montar snapshot administrativo: %v", err)
-			return false
-		}
-		data, err := json.Marshal(snapshot)
-		if err != nil {
-			log.Printf("api: serializar snapshot administrativo: %v", err)
-			return false
-		}
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
-			return false
-		}
-		flusher.Flush()
-		return true
-	}
-
-	if !writeSnapshot() {
-		return
-	}
-
-	sub, unsubscribe := a.live.Subscribe(eventID)
-	defer unsubscribe()
-	reactionSub, unsubscribeReactions := a.live.SubscribeReactions(eventID)
-	defer unsubscribeReactions()
-
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-sub:
-			if !writeSnapshot() {
-				return
-			}
-		case ev := <-reactionSub:
-			if !writeReactionSSE(w, flusher, ev) {
-				return
-			}
-		}
-	}
+	a.streamLiveSSE(w, r, eventID, func(ctx context.Context) (any, error) {
+		return a.buildAdminLiveSnapshot(ctx, eventID)
+	})
 }
 
 // handleAoVivoEstadoApresentacao é o par autenticado de handleAoVivoEstado: mesmo
@@ -556,58 +513,9 @@ func (a *API) handleAoVivoFluxoApresentacao(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	flusher, isFlusher := w.(http.Flusher)
-	if !isFlusher {
-		writeError(w, http.StatusInternalServerError, "Streaming não suportado.")
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-
-	writeSnapshot := func() bool {
-		snapshot, err := a.buildLiveSnapshot(r.Context(), eventID)
-		if err != nil {
-			log.Printf("api: montar snapshot de apresentação: %v", err)
-			return false
-		}
-		data, err := json.Marshal(snapshot)
-		if err != nil {
-			log.Printf("api: serializar snapshot de apresentação: %v", err)
-			return false
-		}
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
-			return false
-		}
-		flusher.Flush()
-		return true
-	}
-
-	if !writeSnapshot() {
-		return
-	}
-
-	sub, unsubscribe := a.live.Subscribe(eventID)
-	defer unsubscribe()
-	reactionSub, unsubscribeReactions := a.live.SubscribeReactions(eventID)
-	defer unsubscribeReactions()
-
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-sub:
-			if !writeSnapshot() {
-				return
-			}
-		case ev := <-reactionSub:
-			if !writeReactionSSE(w, flusher, ev) {
-				return
-			}
-		}
-	}
+	a.streamLiveSSE(w, r, eventID, func(ctx context.Context) (any, error) {
+		return a.buildLiveSnapshot(ctx, eventID)
+	})
 }
 
 // --- Público (sem login, PIN + e-mail) ---
@@ -828,26 +736,44 @@ func (a *API) handleAoVivoFluxo(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	a.streamLiveSSE(w, r, eventID, func(ctx context.Context) (any, error) {
+		return a.buildLiveSnapshot(ctx, eventID)
+	})
+}
+
+// setSSEHeaders configura os cabeçalhos de um stream SSE. O X-Accel-Buffering
+// desliga o buffering do proxy reverso (Traefik/nginx/Cloudflare): sem isso,
+// frames pequenos podem ficar presos no buffer do proxy e chegar atrasados ou
+// nunca — exatamente o que aparece em redes corporativas atrás de proxy.
+func setSSEHeaders(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+}
+
+// streamLiveSSE mantém uma conexão SSE aberta pra um evento: envia o snapshot
+// ao conectar, de novo a cada mudança de estado, e um heartbeat periódico que
+// mantém a conexão viva (proxy/firewall corporativo derruba ou silencia
+// conexão ociosa) e detecta cliente desconectado.
+func (a *API) streamLiveSSE(w http.ResponseWriter, r *http.Request, eventID int64, build func(context.Context) (any, error)) {
 	flusher, isFlusher := w.(http.Flusher)
 	if !isFlusher {
 		writeError(w, http.StatusInternalServerError, "Streaming não suportado.")
 		return
 	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
+	setSSEHeaders(w)
 	w.WriteHeader(http.StatusOK)
 
 	writeSnapshot := func() bool {
-		snapshot, err := a.buildLiveSnapshot(r.Context(), eventID)
+		snapshot, err := build(r.Context())
 		if err != nil {
-			log.Printf("api: montar snapshot da apresentação: %v", err)
+			log.Printf("api: montar snapshot: %v", err)
 			return false
 		}
 		data, err := json.Marshal(snapshot)
 		if err != nil {
-			log.Printf("api: serializar snapshot da apresentação: %v", err)
+			log.Printf("api: serializar snapshot: %v", err)
 			return false
 		}
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
@@ -866,10 +792,21 @@ func (a *API) handleAoVivoFluxo(w http.ResponseWriter, r *http.Request) {
 	reactionSub, unsubscribeReactions := a.live.SubscribeReactions(eventID)
 	defer unsubscribeReactions()
 
+	heartbeat := time.NewTicker(sseHeartbeatInterval)
+	defer heartbeat.Stop()
+
 	for {
 		select {
 		case <-r.Context().Done():
 			return
+		case <-heartbeat.C:
+			// Reenvia o snapshot (não um comentário ": ping"): o EventSource
+			// descarta comentários, então só um data frame deixa a tela saber
+			// que o stream segue vivo durante uma pausa da apresentação — é o
+			// que permite o cliente detectar "sem conexão" de verdade.
+			if !writeSnapshot() {
+				return
+			}
 		case <-sub:
 			if !writeSnapshot() {
 				return

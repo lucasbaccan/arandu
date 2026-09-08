@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { flip } from 'svelte/animate';
 
@@ -130,10 +130,55 @@
     return { visible: cap - 1, hidden: count - (cap - 1) };
   }
 
-  $: pendingSlots =
-    layout === 'screen' && !pendingScroll ? capWithChipRoom(pending.length, PENDING_CAP) : null;
-  $: visiblePending = pendingSlots ? pending.slice(0, pendingSlots.visible) : pending;
-  $: hiddenPendingCount = pendingSlots ? pendingSlots.hidden : 0;
+  // Telão (/apresentar): mostra TODOS os pendentes; quando a fila não cabe na
+  // largura, eles deslizam num letreiro contínuo (marquee) em vez de virarem
+  // "+N". O marquee só ativa quando MEDE que a lista vaza — senão, em telas
+  // largas onde tudo cabe, uma cópia mais estreita que a projeção faria os
+  // nomes se repetirem dentro da tela.
+  let marqueeRow = null;
+  let marqueeStrip = null;
+  let marqueeCopies = 2;
+  let pendingMarquee = false;
+
+  $: syncMarquee(pending, layout, pendingScroll);
+
+  // A primeira medida precisa esperar o .pending-row montado (bind:this não
+  // re-dispara o reativo acima), então roda no mount.
+  onMount(() => {
+    syncMarquee();
+  });
+
+  async function syncMarquee() {
+    if (layout !== 'screen' || pendingScroll) {
+      pendingMarquee = false;
+      return;
+    }
+    await tick();
+    const row = marqueeRow;
+    const containerW = row ? row.clientWidth : 0;
+    if (containerW <= 0) return;
+    let contentW = 0;
+    if (marqueeStrip && marqueeStrip.firstElementChild) {
+      // Já em modo letreiro: mede a largura de uma cópia da lista.
+      contentW = marqueeStrip.firstElementChild.getBoundingClientRect().width;
+    } else if (row) {
+      // Modo estático: a fila completa (escapando pelo overflow:hidden).
+      contentW = row.scrollWidth;
+    }
+    if (contentW <= 0) return;
+    const overflow = contentW > containerW + 1;
+    if (!overflow) {
+      pendingMarquee = false;
+      marqueeCopies = 1;
+      return;
+    }
+    // Em overflow a cópia já é mais larga que o telão, então bastam DUAS
+    // cópias pra um loop sem vão — e, como a cópia é maior que a janela, os
+    // nomes nunca aparecem repetidos ao mesmo tempo na tela.
+    marqueeCopies = 2;
+    pendingMarquee = true;
+  }
+
   // Depende só do nº de zonas (input estático), nunca de medida de tela —
   // senão o encolher da fila mudaria a altura medida do placar, que mudaria
   // a densidade, que mudaria a fila… (loop de layout).
@@ -181,9 +226,9 @@
       pillPadX: Math.max(5, Math.round(10 * s)),
       pillPadY: Math.max(3, Math.round(5 * s)),
       pillGap: Math.max(5, Math.round(10 * s)),
-      zonePadV: Math.max(6, Math.round(15 * s)),
-      zonePadH: Math.max(8, Math.round(20 * s)),
-      rowGap: Math.max(6, Math.round(14 * s)),
+      zonePadV: Math.max(4, Math.round(10 * s)),
+      zonePadH: Math.max(6, Math.round(14 * s)),
+      rowGap: Math.max(4, Math.round(10 * s)),
     };
   }
 
@@ -356,8 +401,15 @@
   let zonesW = 0;
   let zonesH = 0;
 
+  // Folga vertical de segurança: a estimativa de altura da densidade usa
+  // fatores de largura de texto que subestimam levemente o render real (fonte
+  // em negrito, quebras de linha, bordas). Sem a folga, num "cabe por pouco" a
+  // última resposta era cortada pelo overflow:hidden do placar. Subtrair um
+  // pouco da altura garante que a densidade escolhida sempre sobre espaço.
+  const ZONE_HEIGHT_SAFETY = 20;
+
   $: metrics = layout === 'screen'
-    ? fitDensity(groups, zonesW, zonesH, showNames, forceCols, amplo, scrollFallback)
+    ? fitDensity(groups, zonesW, Math.max(0, zonesH - ZONE_HEIGHT_SAFETY), showNames, forceCols, amplo, scrollFallback)
     : null;
   $: cols = metrics ? metrics.cols : Math.max(1, forceCols || 1);
   $: zoneStyle = metrics
@@ -557,7 +609,7 @@
   onDestroy(() => clearHover());
 </script>
 
-<svelte:window on:resize={clearHover} />
+<svelte:window on:resize={() => { clearHover(); syncMarquee(); }} />
 
 {#if (layout === 'screen' || layout === 'compact') && pending.length === 0}
   <!-- Sem ninguém na fila a faixa vira uma linha de texto: no telão, aqueles
@@ -570,42 +622,78 @@
     class="pending-row"
     class:tight={pendingTight}
     class:scroll={pendingScroll}
+    class:marquee={pendingMarquee}
+    bind:this={marqueeRow}
     on:scroll={clearHover}
   >
-    {#each visiblePending as p (p.id)}
-      <div
-        class="face-wrap"
-        role="group"
-        class:zone-hinted={hoveredZoneIds && hoveredZoneIds.has(p.id)}
-        animate:flip={{ duration: 350 }}
-        out:fade={{ duration: 150 }}
-        on:mouseenter={(e) => onFaceEnter(p, e)}
-        on:mouseleave={scheduleHide}
-      >
-        <button
-          type="button"
-          class="face pending"
-          class:static={!onFaceClick}
-          disabled={!onFaceClick}
-          title={hoverHints ? undefined : p.name || p.email}
-          aria-label={onFaceClick ? "Revelar resposta de " + (p.name || p.email) : p.name || p.email}
-          on:click={() => onFaceClick && onFaceClick(p)}
+    {#if pendingMarquee}
+      <div class="pending-strip" bind:this={marqueeStrip}>
+        {#each Array(marqueeCopies) as _, rep (rep)}
+          <div class="pending-marquee-copy">
+            {#each pending as p (p.id + '-' + rep)}
+              <div
+                class="face-wrap"
+                role="group"
+                class:zone-hinted={hoveredZoneIds && hoveredZoneIds.has(p.id)}
+                animate:flip={{ duration: 350 }}
+                out:fade={{ duration: 150 }}
+                on:mouseenter={(e) => onFaceEnter(p, e)}
+                on:mouseleave={scheduleHide}
+              >
+                <button
+                  type="button"
+                  class="face pending"
+                  class:static={!onFaceClick}
+                  disabled={!onFaceClick}
+                  title={hoverHints ? undefined : p.name || p.email}
+                  aria-label={onFaceClick ? "Revelar resposta de " + (p.name || p.email) : p.name || p.email}
+                  on:click={() => onFaceClick && onFaceClick(p)}
+                >
+                  {#if p.photo}
+                    <img src={p.photo} alt="" />
+                  {:else}
+                    <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+                  {/if}
+                </button>
+                {#if showNames}
+                  <span class="face-name">{displayName(p)}</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+    {:else}
+      {#each pending as p (p.id)}
+        <div
+          class="face-wrap"
+          role="group"
+          class:zone-hinted={hoveredZoneIds && hoveredZoneIds.has(p.id)}
+          animate:flip={{ duration: 350 }}
+          out:fade={{ duration: 150 }}
+          on:mouseenter={(e) => onFaceEnter(p, e)}
+          on:mouseleave={scheduleHide}
         >
-          {#if p.photo}
-            <img src={p.photo} alt="" />
-          {:else}
-            <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+          <button
+            type="button"
+            class="face pending"
+            class:static={!onFaceClick}
+            disabled={!onFaceClick}
+            title={hoverHints ? undefined : p.name || p.email}
+            aria-label={onFaceClick ? "Revelar resposta de " + (p.name || p.email) : p.name || p.email}
+            on:click={() => onFaceClick && onFaceClick(p)}
+          >
+            {#if p.photo}
+              <img src={p.photo} alt="" />
+            {:else}
+              <span class="face-placeholder">{(p.name || p.email)[0].toUpperCase()}</span>
+            {/if}
+          </button>
+          {#if showNames}
+            <span class="face-name">{displayName(p)}</span>
           {/if}
-        </button>
-        {#if showNames}
-          <span class="face-name">{displayName(p)}</span>
-        {/if}
-      </div>
-    {/each}
-    {#if hiddenPendingCount > 0}
-      <div class="face-wrap">
-        <span class="face more-chip" title={`+${hiddenPendingCount} pendentes`}>+{hiddenPendingCount}</span>
-      </div>
+        </div>
+      {/each}
     {/if}
   </div>
 {/if}
@@ -628,7 +716,11 @@
     {/if}
 
     {#each visibleGroups as group, gi (group.label)}
-      <div class="zone" style="--zone-color:{zoneColor(gi)}">
+      <div
+        class="zone"
+        class:empty={group.participants.length === 0}
+        style="--zone-color:{zoneColor(gi)}"
+      >
         <div
           class="zone-label"
           role="group"
@@ -802,12 +894,6 @@
     /* Nunca comprime a fila pra ceder espaço ao placar: quem encolhe é a
        área de zonas (flex:1 / min-height:0), não os pendentes. */
     flex-shrink: 0;
-    /* No telão os rostos (com nomes) ocupam TODA a largura da fileira em vez
-       de se amontoar à esquerda — space-evenly distribui o espaço sobrando
-       igualmente entre eles (e nas pontas). O modo scroll do organizador
-       (.pending-row.scroll) volta pra flex-start: lá a fila é ferramenta de
-       trabalho e rola na horizontal. */
-    justify-content: space-evenly;
     /* Contém os avatares na própria fila: os rostos ganham camadas compostas
        (transform) durante o flip/fade e, em alguns navegadores, a camada
        escapa do recorte do overflow (especialmente com border-radius) —
@@ -830,6 +916,49 @@
     justify-content: flex-start;
   }
 
+  /* Letreiro automático (telão /apresentar): quando os pendentes passam do
+     teto que caberia numa linha, em vez do chip "+N" todos os nomes deslizam
+     num loop contínuo. O conteúdo se repete (marqueeCopies cópias) dentro de
+     uma única "tira" que anima translateX de 0 a -50% — o roam de cada rosto
+     (margin-right, e não gap) deixa a segunda metade entrar exatamente onde
+     a primeira começou (loop sem "vão"). */
+  .pending-row.marquee {
+    justify-content: flex-start;
+    padding: 12px 0;
+  }
+
+  .pending-strip {
+    display: flex;
+    flex: none;
+    flex-wrap: nowrap;
+    animation: pending-marquee 32s linear infinite;
+    will-change: transform;
+  }
+
+  .pending-marquee-copy {
+    display: flex;
+    flex: none;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+
+  .pending-row.marquee .pending-marquee-copy .face-wrap {
+    margin-right: 12px;
+  }
+
+  .pending-row.marquee.tight .pending-marquee-copy .face-wrap {
+    margin-right: 10px;
+  }
+
+  @keyframes pending-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
   /* Fila de pendentes: rosto de 64px, nome a 15px — a fila é a "vitrine" de
      quem ainda vai ser revelado, então mantém escala grande; só encolhe
      (.tight) quando o placar tem 7+ zonas e cada pixel de altura conta. */
@@ -846,9 +975,11 @@
     font-size: 0.9375rem;
     font-weight: 600;
     color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* Nome nunca cortado com "..." — quebra em linha quando não cabe. */
+    text-align: center;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .face {
@@ -998,7 +1129,7 @@
   .zones:not(.compact) {
     display: flex;
     flex-direction: column;
-    gap: var(--row-gap, 6px);
+    gap: var(--row-gap, 10px);
     overflow: hidden;
   }
 
@@ -1038,7 +1169,7 @@
     display: grid;
     grid-template-columns: repeat(var(--cols, 2), 1fr);
     column-gap: 16px;
-    row-gap: var(--row-gap, 6px);
+    row-gap: var(--row-gap, 10px);
     align-content: stretch;
   }
 
@@ -1047,7 +1178,7 @@
     align-items: center;
     gap: 16px;
     min-width: 0;
-    padding: var(--zone-pad, 6px 8px);
+    padding: var(--zone-pad, 10px 14px);
     background: var(--bg-elev);
     border: 1px solid var(--border);
     border-left: 5px solid var(--zone-color);
@@ -1094,6 +1225,33 @@
     font-size: 20px;
     font-weight: 800;
     color: var(--zone-color);
+  }
+
+  /* 1 coluna (telão): o contador aparece ANTES da resposta — o rótulo passa
+     de "resposta ......... N" para "N ......... resposta". Em multi-coluna
+     (header em cima) e compact, o contador continua depois. */
+  .zones:not(.multi):not(.compact) .zone-count {
+    order: -1;
+  }
+
+  /* Na mesma 1 coluna, centraliza o contador na vertical (o texto da resposta
+     pode ter várias linhas; o contador fica na metade, não na linha de base). */
+  .zones:not(.multi):not(.compact) .zone-label {
+    align-items: center;
+  }
+
+  /* 1 coluna sem respondentes: deixa o rótulo da resposta ocupar a linha toda
+     (o espaço das pílulas fica vazio na direita) — o "balde" preenche a
+     largura inteira em vez de sobrar um vão. */
+  .zones:not(.multi):not(.compact) .zone.empty .zone-people {
+    display: none;
+  }
+
+  .zones:not(.multi):not(.compact) .zone.empty .zone-label {
+    flex: 1 1 100%;
+    /* Alinha a esquerda: a contagem fica colada ao texto da resposta, em vez
+       de ir parar na ponta direita da linha. */
+    justify-content: flex-start;
   }
 
   /* As cores de zona (amarelo #fcd000 ≈1.4:1, ciano #00c3fd ≈1.9:1) são

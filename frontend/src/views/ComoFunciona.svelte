@@ -1,6 +1,7 @@
 <script>
   import TopBar from '../components/TopBar.svelte';
   import { navigate } from '../lib/router.js';
+  import { buildInfo } from '../lib/buildInfo.js';
 
   function go(path) {
     return (e) => {
@@ -80,6 +81,25 @@
   <footer class="como-footer">
     <a href="/" on:click={go('/')}>‹ Voltar ao início</a>
     <a href="/privacidade" on:click={go('/privacidade')}>Política de privacidade</a>
+    {#if buildInfo.github}
+      <a href={buildInfo.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+    {/if}
+    <span
+      class="como-version"
+      title={`Arandu v${buildInfo.version} · build ${buildInfo.commit}`}
+    >
+      Arandu v{buildInfo.version} · build
+      {#if buildInfo.commit && buildInfo.commit !== 'dev'}
+        <a
+          class="como-commit"
+          href={`${buildInfo.github}/commit/${buildInfo.commit}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >{buildInfo.commit}</a>
+      {:else}
+        {buildInfo.commit}
+      {/if}
+    </span>
   </footer>
 </div>
 
@@ -163,6 +183,30 @@
 
   .como-footer a:hover {
     color: var(--accent);
+  }
+
+  /* Versão + commit + link GitHub: discreto, no rodapé visível ao público. */
+  .como-version {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-subtle);
+    white-space: nowrap;
+  }
+
+  .como-commit {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 2px;
+    transition: text-decoration-color 0.15s ease;
+  }
+
+  .como-commit:hover {
+    text-decoration-color: currentColor;
   }
 
   .como-section a {

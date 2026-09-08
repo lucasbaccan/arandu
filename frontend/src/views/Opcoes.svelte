@@ -872,9 +872,78 @@
       navigate(path);
     };
   }
+
+  // Nome encurtado ("Ana Ribeiro" -> "Ana R.") — espelha displayName de
+  // PresentationStage.svelte, pra os protótipos da fila de pendentes criarem o
+  // mesmo efeito do telão real.
+  function shortName(p) {
+    const raw = (p.name || p.email || '').trim();
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return parts[0] || raw;
+    return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+  }
+
+  // 18 pendentes (> 14, o teto do telão): é o caso que hoje vira "+N" no
+  // /apresentar — as opções abaixo mostram todos sem o balão.
+  const pendingDemo = [
+    { id: 'p1', name: 'Ana Ribeiro' },
+    { id: 'p2', name: 'Bruno Carvalho' },
+    { id: 'p3', name: 'Carla Mendes' },
+    { id: 'p4', name: 'Diego Alves' },
+    { id: 'p5', name: 'Elisa Farias' },
+    { id: 'p6', name: 'Felipe Ramos' },
+    { id: 'p7', name: 'Gabriela Souza' },
+    { id: 'p8', name: 'Heitor Lima' },
+    { id: 'p9', name: 'Isabela Cruz' },
+    { id: 'p10', name: 'João Pedro Barros' },
+    { id: 'p11', name: 'Karina Nunes' },
+    { id: 'p12', name: 'Lucas Ferreira' },
+    { id: 'p13', name: 'Mariana Duarte' },
+    { id: 'p14', name: 'Nathan Oliveira' },
+    { id: 'p15', name: 'Olívia Pereira' },
+    { id: 'p16', name: 'Paulo Henrique Sena' },
+    { id: 'p17', name: 'Renata Teixeira' },
+    { id: 'p18', name: 'Sofia Martins' }
+  ];
+
+  // Cada variante: nome, descrição e a classe CSS que aplica o layout. (A
+  // classe escolhida pode virar o novo "modo" do /apresentar.)
+  const pendingOptions = [
+    {
+      id: 1,
+      name: 'Grade em múltiplas linhas',
+      cls: 'pr-a',
+      desc: 'A fila quebra em linhas e mostra todo mundo de uma vez — sem rolar nem "+N". Custa mais altura: as zonas encolhem pra ceder espaço.',
+    },
+    {
+      id: 2,
+      name: 'Linha com rolagem horizontal',
+      cls: 'pr-b',
+      desc: 'Uma linha só, todos os rostos alcançáveis rolando na horizontal (como a fila do painel do organizador). O telão fica estático até rolar.',
+    },
+    {
+      id: 3,
+      name: 'Letreiro automático (marquee)',
+      cls: 'pr-c',
+      chosen: true,
+      desc: 'Uma linha que desliza sozinha: todo nome passa pela tela ao longo do tempo, sem interação e sem "+N". A leitura é temporal, não instantânea.',
+    },
+    {
+      id: 4,
+      name: 'Nuvem de nomes (pílulas)',
+      cls: 'pr-d',
+      desc: 'Abre mão do avatar — só os nomes em pílulas compactas que quebram em linhas. É o que mostra mais gente no menor espaço; vira uma "lista de quem falta revelar".',
+    },
+    {
+      id: 5,
+      name: 'Mini-grade densa',
+      cls: 'pr-e',
+      desc: 'Avatares e nomes menores que quebram em colunas: mostra todos os rostos com bem menos altura que a grade 1, mantendo reação visual individual.',
+    }
+  ];
 </script>
 
-<main class="page page-wide icones">
+<main class="page page-wide opcoes">
   <div class="ic-head">
     <h1>Ícones — chevron do Painel</h1>
     <p class="text-muted">
@@ -1492,6 +1561,67 @@
     </div>
   </section>
 
+  <section class="rt-section">
+    <div class="ic-head">
+      <h2>Fila de pendentes (telão) — mostrar todos os nomes — /apresentar</h2>
+      <p class="text-muted">
+        Hoje o <code>/apresentar</code> corta a fila em 14 rostos e mostra um balão "+N".
+        Esta demo usa 18 pendentes (portanto "sobra") e as cinco direções mostram todos
+        sem o balão. Cada uma é um trade-off de <strong>altura</strong> (as zonas encolhem pra
+        ceder espaço), <strong>interação</strong> e <strong>leitura</strong>.
+      </p>
+    </div>
+
+    <div class="ic-grid-stack">
+      {#each pendingOptions as opt (opt.id)}
+        <div class="ic-card">
+          <div class="ic-head">
+            <strong>P{opt.id} — {opt.name}</strong>
+            {#if opt.chosen}
+              <span class="ic-chosen">Escolhida</span>
+            {/if}
+          </div>
+          <p class="text-muted ic-desc">{opt.desc}</p>
+
+          <div class="pr {opt.cls}">
+            {#if opt.id === 4}
+              {#each pendingDemo as p (p.id)}
+                <span class="pr-pill">
+                  <span class="pr-pill-initial">{(p.name || p.email || '?')[0]}</span>
+                  {p.name || ''}
+                </span>
+              {/each}
+            {:else if opt.id === 3}
+              <div class="pr-c-strip">
+                {#each pendingDemo as p (p.id)}
+                  <div class="pr-face">
+                    <span class="pr-avatar">{(p.name || p.email || '?')[0]}</span>
+                    <span class="pr-name">{shortName(p)}</span>
+                  </div>
+                {/each}
+                {#each pendingDemo as p (p.id + '-dup')}
+                  <div class="pr-face">
+                    <span class="pr-avatar">{(p.name || p.email || '?')[0]}</span>
+                    <span class="pr-name">{shortName(p)}</span>
+                  </div>
+                {/each}
+              </div>
+            {:else}
+              {#each pendingDemo as p (p.id)}
+                <div class="pr-face">
+                  <span class="pr-avatar">{(p.name || p.email || '?')[0]}</span>
+                  <span class="pr-name">{shortName(p)}</span>
+                </div>
+              {/each}
+            {/if}
+          </div>
+
+          <code class="ic-values">.pending-row.{opt.cls}</code>
+        </div>
+      {/each}
+    </div>
+  </section>
+
   <footer class="ic-footer">
     <button
       type="button"
@@ -1504,7 +1634,7 @@
 </main>
 
 <style>
-  .icones {
+  .opcoes {
     align-items: stretch;
     gap: 24px;
     padding-bottom: 64px;
@@ -1526,6 +1656,15 @@
     gap: 16px;
   }
 
+  /* Variante empilhada: um card por linha, ocupando toda a largura — os
+     exemplos seguem horizontais (na horizontal), mas cada um abaixo do
+     outro, em vez de lado a lado (que esticava as opções pra baixo). */
+  .ic-grid-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
   .ic-group {
     margin: 20px 0 10px;
     font-size: 0.875rem;
@@ -1544,6 +1683,10 @@
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     padding: 16px 16px 14px;
+    /* Grid item com min-width:auto não encolhe abaixo do conteúdo; sem isso
+       uma fila de rostos horizontais (nowrap) força o card pra além do
+       viewport e cria rolagem horizontal. */
+    min-width: 0;
   }
 
   .ic-card > .ic-head {
@@ -2138,5 +2281,156 @@
 
   .ic-footer-sep {
     color: var(--border-strong);
+  }
+
+  /* --- Demo: fila de pendentes (mostrar todos os nomes) --- */
+
+  /* Base do rosto (avatares + nome) — espelha PresentationStage. */
+  .pr {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    /* Espalha os rostos pela largura disponível (como o telão real usa
+       space-evenly na fila), pra a caixa acompanhar a largura da tela em vez
+       de amontoar tudo à esquerda. */
+    justify-content: space-evenly;
+    /* Nunca deixa a fila estourar a largura do card (e exige que o conteúdo
+       nowrap role/corte em vez de vazar). */
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pr-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 76px;
+    flex-shrink: 0;
+  }
+
+  .pr-avatar {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.0625rem;
+    overflow: hidden;
+  }
+
+  .pr-name {
+    max-width: 76px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 1 — grade em múltiplas linhas */
+  .pr.pr-a {
+    flex-wrap: wrap;
+  }
+
+  /* 2 — linha com rolagem horizontal */
+  .pr.pr-b {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+  }
+
+  /* 3 — letreiro automático (marquee) */
+  .pr.pr-c {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    justify-content: flex-start;
+    padding: 12px 0;
+  }
+
+  .pr-c-strip {
+    display: flex;
+    gap: 12px;
+    padding-left: 12px;
+    animation: pr-marquee 22s linear infinite;
+  }
+
+  /* A fila precisa de ambos os "sets" no mesmo bloco animado pra o loop ser
+     contínuo: deslocando a tira em -50% a segunda cópia entra no lugar da
+     primeira (duplicadas no markup, com chave p.id + '-dup'). */
+  @keyframes pr-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(calc(-50% - 6px));
+    }
+  }
+
+  /* 4 — nuvem de nomes (pílulas, sem avatar) */
+  .pr.pr-d {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pr-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px 5px 6px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .pr-pill-initial {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 800;
+  }
+
+  /* 5 — mini-grade densa (avatares + nomes menores) */
+  .pr.pr-e {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .pr.pr-e .pr-face {
+    width: 56px;
+    gap: 3px;
+  }
+
+  .pr.pr-e .pr-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 0.8125rem;
+  }
+
+  .pr.pr-e .pr-name {
+    max-width: 56px;
+    font-size: 0.71875rem;
   }
 </style>

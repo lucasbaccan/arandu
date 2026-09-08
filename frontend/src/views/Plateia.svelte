@@ -3,6 +3,8 @@
 
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
+  import { liveConnect } from '../lib/liveConnect.js';
+  import LiveStatusBadge from '../components/LiveStatusBadge.svelte';
   import Button from '../components/Button.svelte';
   import Input from '../components/Input.svelte';
   import PinChip from '../components/PinChip.svelte';
@@ -40,7 +42,7 @@
   let token = '';
   let snapshot = null;
   let loadError = '';
-  let connected = true;
+  let liveStatus = 'online'; // online | offline
   let eventSource = null;
 
   let qaDraft = '';
@@ -101,19 +103,19 @@
 
   function connectStream() {
     if (eventSource) eventSource.close();
-    eventSource = new EventSource(api.publico.eventos.aoVivo.urlFluxo(id, token));
-    eventSource.onmessage = (e) => {
-      connected = true;
-      snapshot = JSON.parse(e.data);
-    };
-    eventSource.onerror = () => {
-      connected = false;
-    };
-    // A própria reação de quem manda só aparece via este eco do SSE (sem
-    // disparo otimista no clique) — evita rajada dupla, já que quem manda
-    // também está assinando o próprio stream.
-    eventSource.addEventListener('reaction', (e) => {
-      fireReaction(JSON.parse(e.data).emoji);
+    // O campo `token` é uma variável reativa; usa uma espinha local pra o
+    // poll não depender de re-avaliação no meio do intervalo.
+    const viewerToken = token;
+    eventSource = liveConnect({
+      url: api.publico.eventos.aoVivo.urlFluxo(id, viewerToken),
+      onSnapshot: (snap) => {
+        snapshot = snap;
+      },
+      onReaction: (emoji) => fireReaction(emoji),
+      onStatus: (status) => {
+        liveStatus = status;
+      },
+      poll: () => api.publico.eventos.aoVivo.estado(id, viewerToken)
     });
   }
 
@@ -224,7 +226,7 @@
           <img class="live-logo" src="/img/arandu-logo.png" alt="Arandu" />
         </button>
         <span class="live-event">{snapshot.eventTitle}</span>
-        {#if !connected}<span class="text-muted live-reconnect">Reconectando…</span>{/if}
+        {#if liveStatus === 'offline'}<LiveStatusBadge />{/if}
         <span class="live-spacer"></span>
         <PinChip pin={pinCode} variant="boxed" copyable={false} />
         <ThemeToggle />
@@ -376,11 +378,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .live-reconnect {
-    flex-shrink: 0;
-    font-size: 0.8125rem;
   }
 
   .live-spacer {

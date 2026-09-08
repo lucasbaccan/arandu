@@ -97,6 +97,11 @@
           route: '/debug',
           view: 'Debug.svelte',
           desc: 'Tela interna de desenvolvimento, com atalhos para /mapa-do-site e /tela.'
+        },
+        {
+          route: '/opcoes',
+          view: 'Opcoes.svelte',
+          desc: 'Página interna de decisão: alternativas de UI lado a lado (ícones, botões, fila de pendentes do telão etc.).'
         }
       ]
     }

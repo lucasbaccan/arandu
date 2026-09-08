@@ -135,6 +135,11 @@ function mount() {
 describe('Preview da apresentação', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    // /palco grava ?pergunta={id} na URL via history.replaceState; no jsdom o
+    // window.location é compartilhado entre os testes do arquivo, então sem
+    // resetar aqui a pergunta de um teste vaza pro seguinte e muda qual
+    // pergunta o próximo mount carrega.
+    window.history.replaceState({}, '', '/');
     vi.clearAllMocks();
     FakeEventSource.instances = [];
     global.EventSource = FakeEventSource;

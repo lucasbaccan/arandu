@@ -35,6 +35,30 @@
   let railCollapsed = false;
   let isMobile = false;
 
+  // A aba ativa e a pessoa selecionada refletem na URL (?aba=&participante=),
+  // para que um link compartilhado já abra o evento na aba/pessoa certa.
+  const TAB_PARAMS = { perguntas: 'questions', respostas: 'responses', configuracao: 'settings' };
+  const PARAM_TABS = { questions: 'perguntas', responses: 'respostas', settings: 'configuracao' };
+
+  function readQuery() {
+    return new URLSearchParams(window.location.search);
+  }
+
+  function updateUrl(tab, participantId) {
+    const params = readQuery();
+    params.set('aba', PARAM_TABS[tab]);
+    if (participantId) params.set('participante', participantId);
+    else params.delete('participante');
+    history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  }
+
+  const initialTab = readQuery().get('aba');
+  if (initialTab && TAB_PARAMS[initialTab]) {
+    activeTab = TAB_PARAMS[initialTab];
+  }
+
+  $: if (!loading) updateUrl(activeTab, selectedParticipantId);
+
   $: tabsList = [
     { value: 'questions', label: 'Perguntas', count: questions.length },
     { value: 'responses', label: 'Respostas', count: participantCount },
@@ -125,8 +149,14 @@
     const { participantCount: pc, participants: parts } = await api.eventos.respostas.listar(id);
     participantCount = pc;
     participants = parts;
+    const requestedParticipant = readQuery().get('participante');
     if (!selectedParticipantId || !parts.some((p) => p.id === selectedParticipantId)) {
-      selectedParticipantId = parts[0] ? parts[0].id : null;
+      selectedParticipantId =
+        requestedParticipant && parts.some((p) => p.id === requestedParticipant)
+          ? requestedParticipant
+          : parts[0]
+            ? parts[0].id
+            : null;
     }
   }
 

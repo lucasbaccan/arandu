@@ -33,6 +33,27 @@ npx vitest run src/views/EventEdit.test.js
 npx vitest run -t "nome do teste"
 ```
 
+## Releases (Conventional Commits + semantic-release)
+
+O projeto segue **Conventional Commits** (`feat:`, `fix:`, `feat!:`/`BREAKING CHANGE:` etc.), validado
+no CI (`.github/workflows/ci.yml`) via commitlint. Nada de pre-commit hook local: o repo é Go na
+raiz e o pacote npm em `frontend/`, então o husky (que espera o `.git` junto do `package.json`) não
+se aplica — a validação fica no CI das PRs.
+
+**A versão (fonte única) está em `frontend/package.json`** e é a mesma exibida na UI
+(`buildInfo`, injetada pelo Vite `define` em `vite.config.js`). Ao dar push em `main`, o workflow
+`.github/workflows/release.yml` roda o `semantic-release`:
+
+- lê os Conventional Commits desde a última tag;
+- calcula o próximo semver (`feat` → minor, `fix` → patch, `feat!`/breaking → major);
+- faz bump no `frontend/package.json` (+ lock), atualiza `frontend/CHANGELOG.md`;
+- cria o commit da release, a tag (`vX.Y.Z`) e o Release no GitHub, e faz push de tudo
+  (commit + tag) com `GITHUB_TOKEN` (`contents: write`).
+
+Para liberar localmente (para testar sem o CI): `npm --prefix frontend run release` (equivale a
+`npx semantic-release`). O link "GitHub" + versão/commit aparecem no "Como funciona" e no popover
+de ajuda (`frontend/src/lib/buildInfo.js`).
+
 Running the compiled binary directly:
 ```bash
 ./arandu --yes              # non-interactive, defaults to 0.0.0.0:8080, ./data/app.db
@@ -142,4 +163,4 @@ parsed from the URL.
 | `/tela` | `Tela.svelte` | Internal component/design-system showcase (buttons, inputs, selects, switches, cards, toasts, etc.) — not part of the product flow. |
 | `/mapa-do-site` | `MapaDoSite.svelte` | Internal site map — every URL of the app grouped by flow; static routes are clickable links, dynamic ones (`{id}`) shown as patterns. Linked from `HelpButton`'s "Mapa do site" and from `/debug`. |
 | `/debug` | `Debug.svelte` | Internal developer screen — quick links to `/mapa-do-site` (site map) and `/tela` (design reference), plus current app state (route, theme, user, window). |
-| `/icones` | `Icones.svelte` | Internal decision page — 10 chevron/arrow options for the Painel event row, each in a mini card comparing web (grid) and mobile (stacked card) renderings side by side. |
+| `/opcoes` | `Opcoes.svelte` | Internal decision page — multiple UI alternatives side by side in mini cards (icons/chevrons, buttons, the telão pending-row "show all names" options, etc.), comparing web/mobile renderings. |
