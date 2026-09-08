@@ -58,8 +58,8 @@ func (s *Store) BuscarUsuarioPorID(ctx context.Context, id int64) (User, error) 
 	return scanUser(row)
 }
 
-// AtualizarSenha troca o hash de senha de um usuário (fluxo "trocar senha"
-// logado: o handler valida a senha atual antes de chamar aqui).
+// AtualizarSenha troca o hash de senha de um usuário (fluxo "trocar senha
+// logado": o usuário já está autenticado via requireAuth).
 func (s *Store) AtualizarSenha(ctx context.Context, id int64, hash string) error {
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE users SET password_hash = ? WHERE id = ?`, hash, id,

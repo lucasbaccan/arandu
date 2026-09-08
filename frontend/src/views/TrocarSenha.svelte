@@ -6,7 +6,6 @@
   import TopBar from '../components/TopBar.svelte';
   import CrumbBar from '../components/CrumbBar.svelte';
 
-  let senhaAtual = '';
   let novaSenha = '';
   let confirmacao = '';
   let error = '';
@@ -14,7 +13,6 @@
   let submitting = false;
 
   function validate() {
-    if (!senhaAtual) return 'Informe sua senha atual.';
     if (!novaSenha) return 'Informe a nova senha.';
     if (novaSenha !== confirmacao) return 'A confirmação não confere com a nova senha.';
     return '';
@@ -30,9 +28,9 @@
     }
     submitting = true;
     try {
-      await api.trocarSenha({ senhaAtual, novaSenha });
+      await api.trocarSenha({ novaSenha });
       ok = 'Senha alterada com sucesso.';
-      senhaAtual = novaSenha = confirmacao = '';
+      novaSenha = confirmacao = '';
     } catch (e) {
       error = e.message;
     } finally {
@@ -52,17 +50,9 @@
     <div class="card">
       <div class="card-head">
         <h1>Trocar senha</h1>
-        <p class="card-sub">Digite sua senha atual e escolha uma nova.</p>
+        <p class="card-sub">Escolha uma nova senha para a sua conta.</p>
       </div>
       <form class="form" novalidate on:submit|preventDefault={handleSubmit}>
-        <Input
-          label="Senha atual"
-          type="password"
-          bind:value={senhaAtual}
-          placeholder="••••••••"
-          autocomplete="current-password"
-          required
-        />
         <Input
           label="Nova senha"
           type="password"

@@ -454,7 +454,7 @@ func TestTrocarSenhaSuccess(t *testing.T) {
 	cookie := registerUser(t, h)
 
 	rec := doJSON(t, h, http.MethodPost, "/api/conta/trocar-senha", map[string]string{
-		"senhaAtual": "segredo", "novaSenha": "nova123",
+		"novaSenha": "nova123",
 	}, []*http.Cookie{cookie})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
@@ -477,22 +477,10 @@ func TestTrocarSenhaSuccess(t *testing.T) {
 	}
 }
 
-func TestTrocarSenhaWrongCurrent(t *testing.T) {
-	h := newTestAPI(t).Handler()
-	cookie := registerUser(t, h)
-
-	rec := doJSON(t, h, http.MethodPost, "/api/conta/trocar-senha", map[string]string{
-		"senhaAtual": "errada", "novaSenha": "nova123",
-	}, []*http.Cookie{cookie})
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("senha atual errada: esperado 401, got %d", rec.Code)
-	}
-}
-
 func TestTrocarSenhaRequiresAuth(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	rec := doJSON(t, h, http.MethodPost, "/api/conta/trocar-senha", map[string]string{
-		"senhaAtual": "segredo", "novaSenha": "nova123",
+		"novaSenha": "nova123",
 	}, nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("sem sessão: esperado 401, got %d", rec.Code)

@@ -17,6 +17,10 @@
   export let textarea = false;
 
   let taEl;
+  let showPassword = false;
+
+  $: isPassword = type === 'password';
+  $: inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
   function syncHeight() {
     if (!taEl) return;
@@ -52,16 +56,30 @@
         class="ta-auto"
       ></textarea>
     {:else}
-      <input
-        {type}
-        {value}
-        on:input={(e) => (value = e.currentTarget.value)}
-        {placeholder}
-        {autocomplete}
-        {required}
-        class:invalid={!!error}
-        class:uppercase
-      />
+      <span class="control">
+        <input
+          type={inputType}
+          {value}
+          on:input={(e) => (value = e.currentTarget.value)}
+          {placeholder}
+          {autocomplete}
+          {required}
+          class:invalid={!!error}
+          class:uppercase
+        />
+        {#if isPassword}
+          <button
+            type="button"
+            class="toggle"
+            aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            aria-pressed={showPassword}
+            title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            on:click={() => (showPassword = !showPassword)}
+          >
+            <span class="msr toggle-eye">{showPassword ? 'visibility_off' : 'visibility'}</span>
+          </button>
+        {/if}
+      </span>
     {/if}
   </label>
   {#if error}
@@ -94,5 +112,45 @@
     line-height: 1.45;
     min-height: calc(1.45em + 24px);
     max-height: calc(1.45em * 4 + 24px);
+  }
+
+  /* --- Campo de senha: botão de "mostrar/ocultar" (olho) à direita --- */
+
+  .control {
+    display: flex;
+    position: relative;
+    min-width: 0;
+  }
+
+  /* Reserva espaço pro botão do olho à direita. */
+  .control input {
+    padding-right: 44px;
+  }
+
+  .toggle {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-control);
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .toggle:hover {
+    color: var(--text);
+    background: var(--surface-muted);
+  }
+
+  .toggle-eye {
+    font-size: 20px;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
   }
 </style>
