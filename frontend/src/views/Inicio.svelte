@@ -37,7 +37,10 @@
 <main class="inicio">
   <PublicShell>
     <h1 class="entry-title">Qual é o código do evento?</h1>
-    <p class="entry-sub">Sem conta, sem instalação. O organizador mostra o código na tela.</p>
+    <p class="entry-sub">
+      É a sua primeira vez? Digite o código que o organizador mostrou na tela para entrar no
+      evento — não precisa criar conta nem instalar nada.
+    </p>
 
     <form class="code-form" novalidate on:submit|preventDefault={joinWithCode}>
       <div class="code-pill" class:invalid={!!codeError} class:focused>

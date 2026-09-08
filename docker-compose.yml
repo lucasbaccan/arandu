@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Commit curto exibido na UI (buildInfo). Vem do shell (deploy.yml
+        # exporta GIT_COMMIT); sem ele, "dev".
+        GIT_COMMIT: "${GIT_COMMIT:-dev}"
     image: arandu:latest
     container_name: arandu
     restart: unless-stopped

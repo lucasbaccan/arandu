@@ -12,6 +12,11 @@ FROM node:26-alpine AS frontend
 
 WORKDIR /app
 
+# Commit curto do repositório, injetado no build (o .git não é copiado pra
+# dentro da imagem). Vem do build-arg GIT_COMMIT; sem ele, cai em dev.
+ARG GIT_COMMIT=dev
+ENV VITE_APP_COMMIT=$GIT_COMMIT
+
 # Dependências primeiro (camada com cache: só invalida quando o lockfile muda).
 COPY frontend/package.json frontend/package-lock.json ./frontend/
 RUN cd frontend && npm ci
