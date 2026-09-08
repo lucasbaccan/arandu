@@ -3,6 +3,12 @@ name: Deploy
 on:
   push:
     branches: [master]
+  workflow_dispatch:
+  workflow_run:
+    # Re-dispara o deploy quando o Release (semantic-release) empurra o commit
+    # de versão: push feito com GITHUB_TOKEN não aciona workflows sozinhos.
+    workflows: [Release]
+    types: [completed]
 
 # Required secrets — add in: GitHub repo → Settings → Secrets and variables → Actions
 #
@@ -13,8 +19,8 @@ on:
 #
 # The deploy user on the VPS must:
 #   - belong to the `docker` group
-#   - have the repo cloned at ~/porandu  (git clone ... ~/porandu)
-#   - have a .env file at ~/porandu/.env with production values
+#   - have the repo cloned at ~/arandu  (git clone ... ~/arandu)
+#   - have a .env file at ~/arandu/.env with production values
 
 jobs:
   deploy:
