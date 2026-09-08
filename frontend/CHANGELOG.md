@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/lucasbaccan/arandu/compare/v1.1.0...v1.1.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **ui:** injeta o commit real no build do Docker e ajusta o texto da home ([#9](https://github.com/lucasbaccan/arandu/issues/9)) ([88ddf6e](https://github.com/lucasbaccan/arandu/commit/88ddf6e69c8d5f6a559f0aa5d0b084f3e66db57d))
+
 # [1.1.0](https://github.com/lucasbaccan/arandu/compare/v1.0.0...v1.1.0) (2026-09-08)
 
 
