@@ -41,7 +41,7 @@ raiz e o pacote npm em `frontend/`, então o husky (que espera o `.git` junto do
 se aplica — a validação fica no CI das PRs.
 
 **A versão (fonte única) está em `frontend/package.json`** e é a mesma exibida na UI
-(`buildInfo`, injetada pelo Vite `define` em `vite.config.js`). Ao dar push em `main`, o workflow
+(`buildInfo`, injetada pelo Vite `define` em `vite.config.js`). Ao dar push em `master`, o workflow
 `.github/workflows/release.yml` roda o `semantic-release`:
 
 - lê os Conventional Commits desde a última tag;
@@ -49,6 +49,10 @@ se aplica — a validação fica no CI das PRs.
 - faz bump no `frontend/package.json` (+ lock), atualiza `frontend/CHANGELOG.md`;
 - cria o commit da release, a tag (`vX.Y.Z`) e o Release no GitHub, e faz push de tudo
   (commit + tag) com `GITHUB_TOKEN` (`contents: write`).
+
+O commit da release **não leva `[skip ci]`** (`.releaserc.json` → plugin `@semantic-release/git`,
+`message`) de propósito: é o push PÓS-bump que o `deploy.yml`/webhook precisa ver, pra que a versão
+enviada/deployada seja a recém-bumpeada (ex.: `v1.0.0`), não a anterior.
 
 Para liberar localmente (para testar sem o CI): `npm --prefix frontend run release` (equivale a
 `npx semantic-release`). O link "GitHub" + versão/commit aparecem no "Como funciona" e no popover
