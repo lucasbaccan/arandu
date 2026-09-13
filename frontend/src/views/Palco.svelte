@@ -380,14 +380,16 @@
 
   $: choiceGroups =
     currentQuestion && currentQuestion.type !== 'OPEN_TEXT'
-      ? currentQuestion.options.map((opt) => ({
-          label: opt.text,
-          participants: participants.filter((p) => {
-            if (!revealedIds.has(p.id)) return false;
-            const a = answerFor(p, currentQuestion);
-            return a && a.optionId === opt.id;
-          })
-        }))
+      ? [...currentQuestion.options]
+          .sort((a, b) => a.text.localeCompare(b.text))
+          .map((opt) => ({
+            label: opt.text,
+            participants: participants.filter((p) => {
+              if (!revealedIds.has(p.id)) return false;
+              const a = answerFor(p, currentQuestion);
+              return a && a.optionId === opt.id;
+            })
+          }))
       : [];
 
   // Normaliza a resposta aberta (trim + primeira letra maiúscula) e usa o
@@ -413,7 +415,7 @@
       if (!groups.has(label)) groups.set(label, { label, participants: [] });
       if (revealedSet.has(p.id)) groups.get(label).participants.push(p);
     }
-    return Array.from(groups.values());
+    return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
   }
 
   $: groups = currentQuestion && currentQuestion.type === 'OPEN_TEXT' ? openGroups : choiceGroups;
