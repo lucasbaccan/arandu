@@ -273,6 +273,20 @@
         messageDraft = snap.message;
         qaInbox = snap.qaInbox;
         modoDensidadeApresentacao = snap.presentDensityMode || '';
+        // Revelação e pergunta atual vêm do live.Manager (servidor) — sem
+        // aplicar aqui, cada aba de /palco aberta ficava com sua própria
+        // cópia local, só atualizada pelos próprios cliques: revelar em uma
+        // aba não tirava ninguém da lista de pendentes da outra.
+        const revealedMap = snap.revealed || {};
+        revealed = Object.fromEntries(
+          questions.map((q) => [q.id, new Set(revealedMap[q.id] || [])])
+        );
+        const questionIndex = questions.findIndex((q) => q.id === snap.currentQuestionId);
+        if (questionIndex >= 0) currentIndex = questionIndex;
+        // Um respondente novo (ou uma resposta editada) só chega aqui via
+        // Touch() — não muda blanked/revealed/etc, mas precisa recarregar a
+        // lista de participantes pra aparecer como pendente.
+        refreshParticipants();
       },
       onReaction: (emoji) => fireReaction(emoji),
       onStatus: (status) => {
@@ -280,6 +294,15 @@
       },
       poll: () => api.eventos.aoVivo.estadoAdmin(id)
     });
+  }
+
+  async function refreshParticipants() {
+    try {
+      const { participants: ps } = await api.eventos.respostas.listar(id);
+      participants = [...ps].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+    } catch {
+      // Best-effort — mantém a lista atual se a requisição falhar.
+    }
   }
 
   function toggleBlanked() {

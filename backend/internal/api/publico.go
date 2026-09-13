@@ -362,5 +362,9 @@ func (a *API) handleEnviarRespostas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Avisa quem estiver assistindo /palco (ao vivo) que há um respondente
+	// novo/atualizado — sem isso a lista de pendentes só atualizava com F5.
+	a.live.Touch(id)
+
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "editToken": participant.EditToken})
 }
