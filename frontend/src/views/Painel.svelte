@@ -157,6 +157,8 @@
         </div>
       {/if}
     {/if}
+
+    <footer class="painel-footer" aria-hidden="true"></footer>
   </div>
 </main>
 
@@ -274,6 +276,14 @@
 
   .eventos-empty-search {
     margin: 0;
+  }
+
+  /* Respiro inferior: com a lista maior que a janela, o shell (100vh) não
+     cresce e a última linha encostava na borda de baixo. O espaçador entra
+     depois do conteúdo e garante o vão no fim da rolagem. */
+  .painel-footer {
+    flex: none;
+    padding-bottom: 16px;
   }
 
   /* A cor da situação vira a borda esquerda da linha — o mesmo sinal do chip,
