@@ -128,7 +128,7 @@
       {deletingEvent ? 'Excluindo…' : 'Excluir evento'}
     </Button>
     <p class="text-muted danger-note">
-      Apaga o evento inteiro: perguntas, respostas e fotos. Não tem volta.
+      Apaga o evento inteiro: perguntas, respostas e fotos. Não pode ser desfeito.
     </p>
   </div>
 {/if}
