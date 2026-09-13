@@ -123,7 +123,7 @@
 
 {#if onDeleteEvent}
   <div class="rail-card rail-section danger-zone">
-    <span class="overline">Zona de perigo</span>
+    <span class="overline">Cuidado</span>
     <Button variant="danger" block disabled={deletingEvent} on:click={onDeleteEvent}>
       {deletingEvent ? 'Excluindo…' : 'Excluir evento'}
     </Button>
