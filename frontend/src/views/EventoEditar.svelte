@@ -571,9 +571,12 @@
         color={statusInfo(status).color}
       />
       <svelte:fragment slot="actions">
-        <span class="share-chip" title={linkResposta}>
-          <span class="share-chip-label">Link de participação</span>
-          <CopyButton text={linkResposta} label="Copiar link de participação" />
+        <span
+          class="share-chip"
+          title="Esse link serve para as pessoas responderem as perguntas e participar do evento"
+        >
+          <span class="share-chip-label">Link dos respondentes</span>
+          <CopyButton text={linkResposta} label="Copiar link dos respondentes" />
         </span>
         <PinChip pin={pinCode} variant="boxed" />
         <Button size="sm" on:click={abrirPalco}>Abrir painel ao vivo</Button>
