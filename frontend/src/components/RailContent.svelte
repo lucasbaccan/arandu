@@ -9,7 +9,6 @@
   export let questionCount = 0;
   export let participantCount = 0;
   export let linkResposta = '';
-  export let linkPlateia = '';
   export let title;
   export let pinCode;
   export let showRanking = false;
@@ -57,13 +56,6 @@
       <span class="share-link-url">{linkResposta}</span>
     </div>
     <CopyButton text={linkResposta} label="Copiar link de participação" />
-  </div>
-  <div class="share-link">
-    <div class="share-link-info">
-      <span class="share-link-label">Apresentação pública</span>
-      <span class="share-link-url">{linkPlateia}</span>
-    </div>
-    <CopyButton text={linkPlateia} label="Copiar link da apresentação pública" />
   </div>
 </div>
 

@@ -66,9 +66,6 @@
   ];
 
   $: linkResposta = `${window.location.origin}/responder/${id}`;
-  $: linkPlateia = pinCode
-    ? `${window.location.origin}/plateia/${id}?pin=${encodeURIComponent(pinCode.toUpperCase())}`
-    : `${window.location.origin}/plateia/${id}`;
 
   let title = '';
   let pinCode = '';
@@ -606,7 +603,6 @@
                 questionCount={questions.length}
                 {participantCount}
                 {linkResposta}
-                {linkPlateia}
                 bind:title
                 bind:pinCode
                 bind:showRanking
@@ -997,7 +993,6 @@
               questionCount={questions.length}
               {participantCount}
               {linkResposta}
-              {linkPlateia}
               bind:title
               bind:pinCode
               bind:showRanking
