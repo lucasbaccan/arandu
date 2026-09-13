@@ -204,7 +204,10 @@
       ]);
       event = ev;
       questions = qs;
-      participants = ps;
+      // Ordem alfabética por nome (mesma regra do modo "Nome" em Respostas):
+      // pendentes e rostos dentro de cada zona de resposta seguem essa ordem,
+      // já que os dois são filtros sobre este array.
+      participants = [...ps].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
 
       // Retoma de onde a apresentação parou: pergunta atual e revelação já
       // feita vêm do servidor (live.Manager), não começam sempre do zero —
