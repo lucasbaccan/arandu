@@ -6,6 +6,7 @@
   import './lib/themeStore.js';
   import Particles from './components/Particles.svelte';
   import Toast from './components/Toast.svelte';
+  import TouchTooltip from './components/TouchTooltip.svelte';
   import Inicio from './views/Inicio.svelte';
   import Entrar from './views/Entrar.svelte';
   import CriarConta from './views/CriarConta.svelte';
@@ -60,6 +61,7 @@
 
 <Particles />
 <Toast />
+<TouchTooltip />
 <div class="app-view">
   {#if !$authReady}
     <main class="page">
