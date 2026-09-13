@@ -99,6 +99,28 @@ produces one self-contained executable. Everything under `/api/` is a REST/SSE A
   (not a cookie, since these are cross-device links/QR codes) to the `/api/publico/eventos/{id}/ao-vivo/*`
   endpoints.
 
+**Organizer accounts have a `role` (`users.role`): `organizer` or `super_admin`.** The first account ever
+created on a database becomes `super_admin` implicitly (`store.CriarUsuario`, inside the same transaction
+as the count-and-insert, so two simultaneous signups on an empty DB can't both win) — there's no
+invite/promote UI. Databases that already had users before this column existed get backfilled on startup
+(`store.Migrate` promotes the earliest-created user if nobody has the role yet). `requireSuperAdmin`
+(`backend/internal/api/server.go`) re-checks the role from the DB on every request rather than trusting
+anything in the JWT, so a demoted/deleted account can't keep acting as admin until its token expires. The
+super admin can manage every user (`/api/admin/usuarios`: list, delete — which cascades that user's events
+via `store.ExcluirUsuario`, deleting them explicitly first since `events.owner_id` has no `ON DELETE
+CASCADE`; self-delete is blocked so the only admin can't lock themselves out), toggle whether new signups
+are allowed (`app_settings` table, `store.RegistroHabilitado`/`DefinirRegistroHabilitado` — checked by
+`handleCriarConta` and surfaced to the frontend via the public `/api/conta/configuracao`), and act on **any**
+event regardless of owner: `autorizarAcessoEvento` (`backend/internal/api/eventos.go`) is the single choke
+point every event-scoped handler goes through (directly in `eventos.go`, and via `resolveEventOwner` for
+perguntas/respostas/ao-vivo) — it allows the real owner or a super admin, denying everyone else as 404 (not
+403) so ownership isn't leaked. A super admin editing someone else's event still writes with that event's
+real `OwnerID`, never their own. Password resets go through a one-time link, not an admin-chosen password:
+`POST /api/admin/usuarios/{id}/link-redefinicao` generates a random token (`password_reset_tokens`, 1 hour
+TTL, single-use, generating a new one invalidates the previous), which the admin copies and sends
+out-of-band; the person redeems it at `/redefinir-senha?token=` (public, no session) to set their own
+password.
+
 **Live presentation state lives in memory, not SQLite** (`backend/internal/live/gerenciador.go`). Which
 question is on screen, which participants have been "revealed", blanked/message overlay state, and
 answers-hidden state are all per-event, mutex-protected, in-process maps — deliberately not persisted,
@@ -166,5 +188,7 @@ parsed from the URL.
 | `/privacidade` | `Privacidade.svelte` | Public privacy policy page — the product-level version of the per-event privacy explainer inline in `Responder.svelte`'s "privacy" step. Linked from `ComoFunciona.svelte`'s footer. |
 | `/tela` | `Tela.svelte` | Internal component/design-system showcase (buttons, inputs, selects, switches, cards, toasts, etc.) — not part of the product flow. |
 | `/mapa-do-site` | `MapaDoSite.svelte` | Internal site map — every URL of the app grouped by flow; static routes are clickable links, dynamic ones (`{id}`) shown as patterns. Linked from `HelpButton`'s "Mapa do site" and from `/debug`. |
+| `/admin` | `Administracao.svelte` | Super admin only (redirects other organizers to `/painel`). Tabs: **Usuários** (list all accounts, role, event count; generate a one-time password-reset link to copy/send; delete an account and its events — self-delete blocked), **Eventos** (every event from every organizer, links into the same `EventoEditar` at `/evento/{id}`), **Configurações** (toggle whether new organizer signups are allowed — more settings land here over time). Linked from `TopBar`'s avatar menu when `user.role === 'super_admin'`. |
+| `/redefinir-senha` | `RedefinirSenha.svelte` | Public, unauthenticated — lands from the one-time link a super admin generates in `/admin`. Validates the `?token=` query param against the backend, then lets the person set a new password without the admin ever seeing/choosing it. |
 | `/debug` | `Debug.svelte` | Internal developer screen — quick links to `/mapa-do-site` (site map) and `/tela` (design reference), plus current app state (route, theme, user, window). |
 | `/opcoes` | `Opcoes.svelte` | Internal decision page — multiple UI alternatives side by side in mini cards (icons/chevrons, buttons, the telão pending-row "show all names" options, etc.), comparing web/mobile renderings. |

@@ -3,6 +3,7 @@
   import { route, navigate } from '../lib/router.js';
   import { user } from '../lib/authStore.js';
   import { theme } from '../lib/themeStore.js';
+  import TopBar from '../components/TopBar.svelte';
 
   function go(path) {
     return (e) => {
@@ -42,6 +43,8 @@
 
   $: userLine = $user ? `${$user.name} <${$user.email}>` : 'deslogado';
 </script>
+
+<TopBar area="Debug" showAccount={false} />
 
 <main class="page page-wide debug">
   <div class="dbg-head">

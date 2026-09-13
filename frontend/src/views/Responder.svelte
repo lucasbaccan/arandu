@@ -305,7 +305,7 @@
         {/if}
         <AvatarCropper compact on:change={onPhotoChange} />
         <Input
-          label="Como quer aparecer"
+          label="Nome completo"
           bind:value={name}
           error={nameError}
           placeholder="Seu nome"
@@ -331,8 +331,10 @@
 
       <div class="identify-meta">
         <span>≈ 2 minutos</span>
-        <span class="meta-dot" aria-hidden="true"></span>
-        <span>Dá para editar depois</span>
+        {#if event.allowEdit}
+          <span class="meta-dot" aria-hidden="true"></span>
+          <span>Dá para editar depois</span>
+        {/if}
         <span class="meta-dot" aria-hidden="true"></span>
         <button type="button" class="link-btn" on:click={() => (step = 'privacidade')}>
           Privacidade e uso dos dados

@@ -52,17 +52,30 @@
     raf = requestAnimationFrame(step);
   }
 
+  // No Safari iOS, voltar de uma navegação restaurada do bfcache (gesto de
+  // voltar, trocar de app e retornar) não dispara 'resize' mesmo que a
+  // barra de URL/orientação tenha mudado enquanto a página estava
+  // congelada — o canvas ficava com o backing buffer antigo, menor que a
+  // caixa CSS (inset:0), e o navegador esticava esse buffer pra preencher a
+  // tela, deixando as partículas gigantes até a próxima interação disparar
+  // um resize "de verdade". 'pageshow' com event.persisted cobre esse caso.
+  function handlePageShow(e) {
+    if (e.persisted) resize();
+  }
+
   onMount(() => {
     ctx = canvas.getContext('2d');
     resize();
     particles = Array.from({ length: COUNT }, spawn);
     window.addEventListener('resize', resize);
+    window.addEventListener('pageshow', handlePageShow);
     raf = requestAnimationFrame(step);
   });
 
   onDestroy(() => {
     cancelAnimationFrame(raf);
     window.removeEventListener('resize', resize);
+    window.removeEventListener('pageshow', handlePageShow);
   });
 </script>
 

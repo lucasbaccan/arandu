@@ -46,7 +46,7 @@ function mockLoad({
 }
 
 async function identifyAndContinue(name = 'Ana', email = 'ana@exemplo.com') {
-  await userEvent.type(screen.getByLabelText('Como quer aparecer'), name);
+  await userEvent.type(screen.getByLabelText('Nome completo'), name);
   await userEvent.type(screen.getByLabelText('E-mail'), email);
   await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
   await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
@@ -62,9 +62,24 @@ describe('Tela de respostas do participante', () => {
     render(Responder, { props: { id: '42' } });
 
     expect(await screen.findByText('Dinâmica de Testes')).toBeInTheDocument();
-    expect(screen.getByLabelText('Como quer aparecer')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nome completo')).toBeInTheDocument();
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Começar' })).toBeInTheDocument();
+  });
+
+  it('mostra "Dá para editar depois" só quando o evento permite edição', async () => {
+    mockLoad({ allowEdit: true });
+    render(Responder, { props: { id: '42' } });
+
+    expect(await screen.findByText('Dá para editar depois')).toBeInTheDocument();
+  });
+
+  it('esconde "Dá para editar depois" quando a edição está desabilitada', async () => {
+    mockLoad({ allowEdit: false });
+    render(Responder, { props: { id: '42' } });
+
+    await screen.findByText('Dinâmica de Testes');
+    expect(screen.queryByText('Dá para editar depois')).not.toBeInTheDocument();
   });
 
   it('exige nome e e-mail válidos antes de iniciar', async () => {
@@ -76,7 +91,7 @@ describe('Tela de respostas do participante', () => {
     expect(await screen.findByText('Informe seu nome.')).toBeInTheDocument();
     expect(screen.getByText('Informe seu e-mail.')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText('Como quer aparecer'), 'Ana');
+    await userEvent.type(screen.getByLabelText('Nome completo'), 'Ana');
     await userEvent.type(screen.getByLabelText('E-mail'), 'não-é-email');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
@@ -91,7 +106,7 @@ describe('Tela de respostas do participante', () => {
     render(Responder, { props: { id: '42' } });
     await screen.findByText('Dinâmica de Testes');
 
-    await userEvent.type(screen.getByLabelText('Como quer aparecer'), 'Ana');
+    await userEvent.type(screen.getByLabelText('Nome completo'), 'Ana');
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@my_domain.com');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
 

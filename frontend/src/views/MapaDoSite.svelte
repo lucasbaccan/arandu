@@ -1,5 +1,6 @@
 <script>
   import { navigate } from '../lib/router.js';
+  import TopBar from '../components/TopBar.svelte';
 
   function go(path) {
     return (e) => {
@@ -25,6 +26,11 @@
         },
         { route: '/entrar', view: 'Entrar.svelte', desc: 'Login de quem organiza (e-mail + senha).' },
         { route: '/criar-conta', view: 'CriarConta.svelte', desc: 'Criação de conta de quem organiza.' },
+        {
+          route: '/redefinir-senha',
+          view: 'RedefinirSenha.svelte',
+          desc: 'Definir nova senha a partir do link temporário gerado pelo super admin (?token=).'
+        },
         {
           route: '/como-funciona',
           view: 'ComoFunciona.svelte',
@@ -75,6 +81,11 @@
           route: '/palco/{id}/apresentar',
           view: 'PalcoApresentar.svelte',
           desc: 'Janela de projeção do palco — o que vai para o telão.'
+        },
+        {
+          route: '/admin',
+          view: 'Administracao.svelte',
+          desc: 'Só para o super admin: gerenciar usuários (papel, link de redefinição de senha, exclusão), ver todos os eventos de todo mundo e controlar se novos cadastros são permitidos.'
         }
       ]
     },
@@ -119,6 +130,8 @@
     return !route.includes('{');
   }
 </script>
+
+<TopBar area="Mapa do site" showAccount={false} />
 
 <main class="page page-wide mapa-do-site">
   <div class="sm-head">

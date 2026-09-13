@@ -66,9 +66,6 @@
   ];
 
   $: linkResposta = `${window.location.origin}/responder/${id}`;
-  $: linkPlateia = pinCode
-    ? `${window.location.origin}/plateia/${id}?pin=${encodeURIComponent(pinCode.toUpperCase())}`
-    : `${window.location.origin}/plateia/${id}`;
 
   let title = '';
   let pinCode = '';
@@ -274,6 +271,20 @@
     formError = '';
   }
 
+  // Clicar em outra pergunta (pra editá-la ou arrastá-la) enquanto um
+  // formulário está aberto fechava sem avisar nada: a linha clicada não é
+  // arrastável enquanto qualquer edição estiver aberta (draggable global
+  // fica false), então o clique parecia não fazer nada. Fechar o formulário
+  // aberto ao clicar fora dele destrava esse caminho.
+  function handleOutsideFormClick(e) {
+    if (editingId === null && insertAt === null) return;
+    // .question-form em vez de .insert-slot.active: com a lista vazia, o
+    // formulário de inserção renderiza direto dentro de .empty-note, sem
+    // nenhum .insert-slot em volta.
+    if (e.target.closest('.question-form')) return;
+    closeForms();
+  }
+
   async function handleInsert(detail, pos) {
     formError = validateQuestion(detail.title, detail.options, detail.type);
     if (formError) return;
@@ -365,7 +376,11 @@
   }
 
   function onDragStart(e, index) {
-    if (editingId !== null || insertAt !== null) return;
+    // NÃO fecha o formulário aberto aqui: mudar o DOM (a linha em edição
+    // volta a ser .question-item) no meio do dragstart faz o Chrome abortar
+    // o drag nativo em andamento — nenhum dragover/drop chega a disparar
+    // depois disso. O fechamento (se houver algo aberto) fica pra depois que
+    // o drag termina, em onDragEnd.
     dragIndex = index;
     dropIndex = index;
     if (e.dataTransfer) {
@@ -409,6 +424,9 @@
   function onDragEnd() {
     dragIndex = null;
     dropIndex = null;
+    // Só agora, com o drag já encerrado, é seguro fechar um formulário que
+    // tenha ficado aberto (editar outra pergunta, ou inserir uma nova).
+    if (editingId !== null || insertAt !== null) closeForms();
   }
 
   function back() {
@@ -546,6 +564,8 @@
   }
 </script>
 
+<svelte:window on:mousedown={handleOutsideFormClick} />
+
 <main class="shell">
   {#if loading}
     <div class="edit-center"><p class="text-muted">Carregando…</p></div>
@@ -574,6 +594,13 @@
         color={statusInfo(status).color}
       />
       <svelte:fragment slot="actions">
+        <span
+          class="share-chip"
+          title="Esse link serve para as pessoas responderem as perguntas e participar do evento"
+        >
+          <span class="share-chip-label">Link dos respondentes</span>
+          <CopyButton text={linkResposta} label="Copiar link dos respondentes" />
+        </span>
         <PinChip pin={pinCode} variant="boxed" />
         <Button size="sm" on:click={abrirPalco}>Abrir painel ao vivo</Button>
       </svelte:fragment>
@@ -605,8 +632,6 @@
                 {statusBusy}
                 questionCount={questions.length}
                 {participantCount}
-                {linkResposta}
-                {linkPlateia}
                 bind:title
                 bind:pinCode
                 bind:showRanking
@@ -848,7 +873,7 @@
                       role="listitem"
                       class:dragging={dragIndex === i}
                       class:drop-top={dragIndex !== null && dropIndex === i && dragIndex !== i}
-                      draggable={editingId === null && insertAt === null}
+                      draggable={true}
                       on:dragstart={(e) => onDragStart(e, i)}
                       on:dragend={onDragEnd}
                     >
@@ -996,8 +1021,6 @@
               {statusBusy}
               questionCount={questions.length}
               {participantCount}
-              {linkResposta}
-              {linkPlateia}
               bind:title
               bind:pinCode
               bind:showRanking
@@ -1046,6 +1069,41 @@
     height: 100dvh;
   }
 
+  /* Mesmo visual do PinChip "boxed" — os dois vivem lado a lado no CrumbBar. */
+  .share-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 5px 8px 5px 10px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--border);
+    background: var(--surface-muted);
+  }
+
+  .share-chip-label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Sem espaço pro rótulo por extenso: fica só o botão de copiar, como um
+     ícone solto (a pílula em volta perderia o sentido sem o texto). */
+  @media (max-width: 480px) {
+    .share-chip {
+      padding: 0;
+      border: none;
+      background: none;
+    }
+
+    .share-chip-label {
+      display: none;
+    }
+  }
+
   .edit-center {
     flex: 1;
     display: flex;
@@ -1064,6 +1122,18 @@
     gap: 20px;
     padding: 24px;
     align-items: stretch;
+    /* `clip`, não `hidden`: sem isso o conteúdo interno que rola
+       (.question-list, .rail-scroll) ainda contribui pro overflow da página
+       inteira mesmo já clipando a si mesmo visualmente — a página ganha um
+       scroll fantasma com espaço em branco no final (reproduz ao abrir
+       "Adicionar pergunta" e alternar o tipo de resposta, que alonga o
+       formulário). `hidden` sozinho não bastava: o elemento continua sendo um
+       scroll container programático, então o foco no radio do tipo de
+       resposta disparava scroll-into-view nele, deixando um scrollTop
+       "fantasma" que, quando o formulário encolhia (trocar pra "Resposta
+       aberta"), sobrava apontando pra uma área em branco — tela toda parecia
+       quebrada. `clip` desliga esse scroll programático por completo. */
+    overflow: clip;
     transition: grid-template-columns 0.16s ease;
   }
 
@@ -1086,7 +1156,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    overflow: hidden;
+    overflow: clip;
   }
 
   .side-rail {
@@ -1095,7 +1165,7 @@
     flex-direction: column;
     gap: 12px;
     min-height: 0;
-    overflow: hidden;
+    overflow: clip;
   }
 
   .rail-mobile {

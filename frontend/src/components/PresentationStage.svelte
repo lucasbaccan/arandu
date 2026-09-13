@@ -400,6 +400,7 @@
 
   let zonesW = 0;
   let zonesH = 0;
+  let zonesEl = null;
 
   // Folga vertical de segurança: a estimativa de altura da densidade usa
   // fatores de largura de texto que subestimam levemente o render real (fonte
@@ -452,6 +453,16 @@
   let tipEl = null;
   let tipReady = false;
   let tipPos = { left: 0, top: 0 };
+  // Posição do mouse dentro do rótulo/rosto em hover — o tooltip ancora perto
+  // DELA (não do centro do elemento, que numa zona de 1 coluna pode ser bem
+  // mais largo que o cursor). Atualizada no enter e a cada mousemove.
+  let hoverX = 0;
+  let hoverY = 0;
+
+  function trackHoverPos(e) {
+    hoverX = e.clientX;
+    hoverY = e.clientY;
+  }
 
   function clearTimers() {
     if (hoverTimer) {
@@ -470,6 +481,7 @@
     // O âncora é capturado na hora do evento: dentro do setTimeout o
     // currentTarget do evento já não vale mais (e o nó pode até ter saído).
     const anchor = e.currentTarget;
+    trackHoverPos(e);
     hoverTimer = setTimeout(() => showHover(kind, payload, anchor), HOVER_DELAY);
   }
 
@@ -478,29 +490,49 @@
     positionTip(anchor);
   }
 
+  // Trava a horizontal dentro da área das perguntas (.zones), não da janela
+  // inteira: numa zona da coluna mais à direita (grid multi-coluna), o mouse
+  // já está perto da borda direita DAS PERGUNTAS, mas ainda longe da borda
+  // da janela (sobra o painel lateral do organizador ao lado) — sem isso o
+  // tooltip estourava pra cima desse painel em vez de ficar contido no
+  // placar.
+  function clampLeft(x, tw) {
+    const bounds = zonesEl ? zonesEl.getBoundingClientRect() : null;
+    const min = bounds ? bounds.left + 8 : 8;
+    const max = bounds ? bounds.right - tw - 8 : window.innerWidth - tw - 8;
+    return Math.max(min, Math.min(x, max));
+  }
+
   function positionTip(anchor) {
     const rect = anchor.getBoundingClientRect();
+    // Perto do cursor, não do centro do rótulo/rosto (uma zona de 1 coluna
+    // pode ser bem mais larga que o texto, então o centro do elemento fica
+    // longe de onde o mouse realmente está) — trava dentro do próprio
+    // elemento em hover como resguardo caso hoverX/hoverY fiquem
+    // desatualizados por algum motivo.
+    const x = Math.min(Math.max(hoverX, rect.left), rect.right);
+    const y = Math.min(Math.max(hoverY, rect.top), rect.bottom);
     if (tipReady) {
       // Já visível (ex.: reancorou depois de revelar alguém pelo popup):
       // reposiciona direto, sem piscar.
       const tw = tipEl ? tipEl.offsetWidth : 0;
       const th = tipEl ? tipEl.offsetHeight : 0;
       tipPos = {
-        left: Math.max(8, Math.min(rect.left + rect.width / 2 - tw / 2, window.innerWidth - tw - 8)),
-        top: rect.top - th - 10 < 8 ? rect.bottom + 10 : rect.top - th - 10
+        left: clampLeft(x - tw / 2, tw),
+        top: y - th - 10 < 8 ? y + 10 : y - th - 10
       };
       return;
     }
-    // Posição provisória (canto do âncora) antes de medir o tooltip — evita
-    // piscar fora do lugar no frame em que ele monta.
-    tipPos = { left: rect.left, top: rect.top };
+    // Posição provisória (no cursor) antes de medir o tooltip — evita piscar
+    // fora do lugar no frame em que ele monta.
+    tipPos = { left: x, top: y };
     tick().then(() => {
       if (!tipEl || !hover) return;
       const tw = tipEl.offsetWidth;
       const th = tipEl.offsetHeight;
       tipPos = {
-        left: Math.max(8, Math.min(rect.left + rect.width / 2 - tw / 2, window.innerWidth - tw - 8)),
-        top: rect.top - th - 10 < 8 ? rect.bottom + 10 : rect.top - th - 10
+        left: clampLeft(x - tw / 2, tw),
+        top: y - th - 10 < 8 ? y + 10 : y - th - 10
       };
       tipReady = true;
     });
@@ -638,6 +670,7 @@
                 animate:flip={{ duration: 350 }}
                 out:fade={{ duration: 150 }}
                 on:mouseenter={(e) => onFaceEnter(p, e)}
+                on:mousemove={trackHoverPos}
                 on:mouseleave={scheduleHide}
               >
                 <button
@@ -672,6 +705,7 @@
           animate:flip={{ duration: 350 }}
           out:fade={{ duration: 150 }}
           on:mouseenter={(e) => onFaceEnter(p, e)}
+          on:mousemove={trackHoverPos}
           on:mouseleave={scheduleHide}
         >
           <button
@@ -704,6 +738,7 @@
   class:multi={layout === 'screen' && cols > 1}
   class:scrollable={layout === 'screen' && scrollFallback}
   style={zoneStyle}
+  bind:this={zonesEl}
   bind:clientWidth={zonesW}
   bind:clientHeight={zonesH}
   on:scroll={clearHover}
@@ -725,6 +760,7 @@
           class="zone-label"
           role="group"
           on:mouseenter={(e) => onZoneLabelEnter(group, e)}
+          on:mousemove={trackHoverPos}
           on:mouseleave={scheduleHide}
         >
           <span class="zone-text">{group.label}</span>
@@ -738,6 +774,7 @@
               animate:flip={{ duration: 350 }}
               in:fly={{ y: -20, duration: 350 }}
               on:mouseenter={(e) => onFaceEnter(p, e)}
+              on:mousemove={trackHoverPos}
               on:mouseleave={scheduleHide}
             >
               <button
@@ -1227,17 +1264,22 @@
     color: var(--zone-color);
   }
 
-  /* 1 coluna (telão): o contador aparece ANTES da resposta — o rótulo passa
-     de "resposta ......... N" para "N ......... resposta". Em multi-coluna
-     (header em cima) e compact, o contador continua depois. */
+  /* 1 coluna (telão): o contador aparece ANTES da resposta ("N resposta", em
+     vez de "resposta N"). Em multi-coluna (header em cima) e compact, o
+     contador continua depois. */
   .zones:not(.multi):not(.compact) .zone-count {
     order: -1;
   }
 
   /* Na mesma 1 coluna, centraliza o contador na vertical (o texto da resposta
-     pode ter várias linhas; o contador fica na metade, não na linha de base). */
+     pode ter várias linhas; o contador fica na metade, não na linha de base)
+     e mantém o texto colado ao contador — sem isso, o justify-content:
+     space-between herdado da regra base empurrava o texto pra ponta direita
+     do rótulo (30% da linha) assim que a resposta tinha alguém revelado,
+     abrindo um vão entre o número e o texto. */
   .zones:not(.multi):not(.compact) .zone-label {
     align-items: center;
+    justify-content: flex-start;
   }
 
   /* 1 coluna sem respondentes: deixa o rótulo da resposta ocupar a linha toda
@@ -1249,9 +1291,6 @@
 
   .zones:not(.multi):not(.compact) .zone.empty .zone-label {
     flex: 1 1 100%;
-    /* Alinha a esquerda: a contagem fica colada ao texto da resposta, em vez
-       de ir parar na ponta direita da linha. */
-    justify-content: flex-start;
   }
 
   /* As cores de zona (amarelo #fcd000 ≈1.4:1, ciano #00c3fd ≈1.9:1) são

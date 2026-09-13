@@ -436,6 +436,24 @@ describe('Editar evento', () => {
     await waitFor(() => expect(view.queryByPlaceholderText('Opção 3')).not.toBeInTheDocument());
   });
 
+  it('reordena opções com as setas sem precisar apagar e adicionar de novo', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    const view = mount();
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+
+    await fireEvent.click(view.getByRole('button', { name: '+ Adicionar pergunta' }));
+    await userEvent.type(view.getByPlaceholderText('Opção 1'), 'Go');
+    await userEvent.type(view.getByPlaceholderText('Opção 2'), 'Python');
+
+    expect(view.getByLabelText('Mover opção 1 para cima')).toBeDisabled();
+    expect(view.getByLabelText('Mover opção 2 para baixo')).toBeDisabled();
+
+    await fireEvent.click(view.getByLabelText('Mover opção 1 para baixo'));
+
+    expect(view.getByPlaceholderText('Opção 1').value).toBe('Python');
+    expect(view.getByPlaceholderText('Opção 2').value).toBe('Go');
+  });
+
   it('move pergunta para baixo com a seta e persiste a ordem', async () => {
     api.eventos.buscar.mockResolvedValue({ event });
     api.eventos.perguntas.reordenar.mockResolvedValue(null);

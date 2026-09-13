@@ -124,7 +124,26 @@ export const api = {
       urlFluxoApresentacao: (id) => apiUrl(`/api/eventos/${id}/ao-vivo/apresentacao/fluxo`)
     }
   },
+  admin: {
+    usuarios: {
+      listar: () => request('/api/admin/usuarios'),
+      excluir: (id) => request(`/api/admin/usuarios/${id}`, { method: 'DELETE' }),
+      gerarLinkRedefinicao: (id) => request(`/api/admin/usuarios/${id}/link-redefinicao`, { method: 'POST' })
+    },
+    eventos: {
+      listar: () => request('/api/admin/eventos')
+    },
+    configuracoes: {
+      buscar: () => request('/api/admin/configuracoes'),
+      atualizar: (body) => request('/api/admin/configuracoes', { method: 'PATCH', body })
+    }
+  },
   publico: {
+    redefinirSenha: {
+      validarToken: (token) => request(`/api/publico/redefinir-senha?token=${encodeURIComponent(token)}`),
+      redefinir: (token, novaSenha) =>
+        request('/api/publico/redefinir-senha', { method: 'POST', body: { token, novaSenha } })
+    },
     eventos: {
       resolverPin: (pin) => request(`/api/publico/eventos/por-pin?pin=${encodeURIComponent(pin)}`),
       buscar: (id) => request(`/api/publico/eventos/${id}`),

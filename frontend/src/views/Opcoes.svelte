@@ -1,5 +1,6 @@
 <script>
   import { navigate } from '../lib/router.js';
+  import TopBar from '../components/TopBar.svelte';
 
   const options = [
     {
@@ -942,6 +943,8 @@
     }
   ];
 </script>
+
+<TopBar area="Opções" showAccount={false} />
 
 <main class="page page-wide opcoes">
   <div class="ic-head">

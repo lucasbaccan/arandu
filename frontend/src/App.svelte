@@ -6,6 +6,7 @@
   import './lib/themeStore.js';
   import Particles from './components/Particles.svelte';
   import Toast from './components/Toast.svelte';
+  import TouchTooltip from './components/TouchTooltip.svelte';
   import Inicio from './views/Inicio.svelte';
   import Entrar from './views/Entrar.svelte';
   import CriarConta from './views/CriarConta.svelte';
@@ -23,6 +24,8 @@
   import Debug from './views/Debug.svelte';
   import TrocarSenha from './views/TrocarSenha.svelte';
   import Opcoes from './views/Opcoes.svelte';
+  import Administracao from './views/Administracao.svelte';
+  import RedefinirSenha from './views/RedefinirSenha.svelte';
 
   onMount(initAuth);
 
@@ -43,6 +46,7 @@
       ($route === '/painel' ||
         $route === '/trocar-senha' ||
         $route === '/evento/novo' ||
+        $route === '/admin' ||
         eventoMatch ||
         palcoMatch ||
         palcoApresentarMatch) &&
@@ -50,12 +54,14 @@
     ) {
       navigate('/');
     }
+    if ($route === '/admin' && $user && $user.role !== 'super_admin') navigate('/painel');
     if (($route === '/entrar' || $route === '/criar-conta') && $user) navigate('/painel');
   }
 </script>
 
 <Particles />
 <Toast />
+<TouchTooltip />
 <div class="app-view">
   {#if !$authReady}
     <main class="page">
@@ -72,6 +78,10 @@
     <Painel />
   {:else if $route === '/trocar-senha'}
     <TrocarSenha />
+  {:else if $route === '/admin'}
+    <Administracao />
+  {:else if $route === '/redefinir-senha'}
+    <RedefinirSenha />
   {:else if $route === '/tela'}
     <Tela />
   {:else if $route === '/mapa-do-site'}

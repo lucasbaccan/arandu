@@ -13,14 +13,16 @@ vi.mock('../lib/router.js', async () => {
 vi.mock('../lib/authStore.js', async () => {
   const { writable } = await import('svelte/store');
   return {
-    user: writable(null)
+    user: writable(null),
+    logout: vi.fn()
   };
 });
 
 vi.mock('../lib/themeStore.js', async () => {
   const { writable } = await import('svelte/store');
   return {
-    theme: writable('light')
+    theme: writable('light'),
+    toggleTheme: vi.fn()
   };
 });
 

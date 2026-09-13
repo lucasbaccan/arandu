@@ -37,6 +37,7 @@ type userDTO struct {
 	Email        string `json:"email"`
 	Name         string `json:"name"`
 	AuthProvider string `json:"authProvider"`
+	Role         string `json:"role"`
 	CreatedAt    string `json:"createdAt"`
 }
 
@@ -46,6 +47,7 @@ func toUserDTO(u store.User) userDTO {
 		Email:        u.Email,
 		Name:         u.Name,
 		AuthProvider: u.AuthProvider,
+		Role:         u.Role,
 		CreatedAt:    u.CreatedAt.Format(time.RFC3339),
 	}
 }
@@ -102,6 +104,14 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/conta/trocar-senha", a.requireAuth(a.handleTrocarSenha))
 	mux.HandleFunc("GET /api/conta/eu", a.requireAuth(a.handleEu))
 	mux.HandleFunc("GET /api/conta/configuracao", a.handleConfiguracao)
+	mux.HandleFunc("GET /api/publico/redefinir-senha", a.handlePublicoValidarTokenRedefinicao)
+	mux.HandleFunc("POST /api/publico/redefinir-senha", a.handlePublicoRedefinirSenha)
+	mux.HandleFunc("GET /api/admin/usuarios", a.requireSuperAdmin(a.handleAdminListarUsuarios))
+	mux.HandleFunc("DELETE /api/admin/usuarios/{id}", a.requireSuperAdmin(a.handleAdminExcluirUsuario))
+	mux.HandleFunc("POST /api/admin/usuarios/{id}/link-redefinicao", a.requireSuperAdmin(a.handleAdminGerarLinkRedefinicao))
+	mux.HandleFunc("GET /api/admin/eventos", a.requireSuperAdmin(a.handleAdminListarEventos))
+	mux.HandleFunc("GET /api/admin/configuracoes", a.requireSuperAdmin(a.handleAdminBuscarConfiguracoes))
+	mux.HandleFunc("PATCH /api/admin/configuracoes", a.requireSuperAdmin(a.handleAdminAtualizarConfiguracoes))
 	mux.HandleFunc("POST /api/eventos", a.requireAuth(a.handleCriarEvento))
 	mux.HandleFunc("GET /api/eventos", a.requireAuth(a.handleListarEventos))
 	mux.HandleFunc("GET /api/eventos/{id}", a.requireAuth(a.handleBuscarEvento))
@@ -291,6 +301,17 @@ type registerRequest struct {
 }
 
 func (a *API) handleCriarConta(w http.ResponseWriter, r *http.Request) {
+	enabled, err := a.store.RegistroHabilitado(r.Context())
+	if err != nil {
+		log.Printf("api: verificar registro habilitado: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao criar a conta.")
+		return
+	}
+	if !enabled {
+		writeError(w, http.StatusForbidden, "Cadastro de novas contas está desativado no momento.")
+		return
+	}
+
 	var req registerRequest
 	if err := readJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -403,8 +424,14 @@ func (a *API) handleEu(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleConfiguracao(w http.ResponseWriter, r *http.Request) {
+	registrationEnabled, err := a.store.RegistroHabilitado(r.Context())
+	if err != nil {
+		log.Printf("api: verificar registro habilitado: %v", err)
+		registrationEnabled = true
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"minPasswordLength": a.cfg.MinPasswordLength,
+		"minPasswordLength":   a.cfg.MinPasswordLength,
+		"registrationEnabled": registrationEnabled,
 	})
 }
 
@@ -514,6 +541,21 @@ func (a *API) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		ctx := context.WithValue(r.Context(), ctxUserID, userID)
 		next(w, r.WithContext(ctx))
 	}
+}
+
+// requireSuperAdmin exige sessão válida (requireAuth) e busca o papel do
+// usuário no banco a cada requisição — não confia num "role" salvo no JWT,
+// que continuaria válido mesmo se o papel fosse revogado até o token expirar.
+func (a *API) requireSuperAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return a.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		userID := userIDFromContext(r.Context())
+		u, err := a.store.BuscarUsuarioPorID(r.Context(), userID)
+		if err != nil || u.Role != store.RoleSuperAdmin {
+			writeError(w, http.StatusForbidden, "Acesso restrito ao super admin.")
+			return
+		}
+		next(w, r)
+	})
 }
 
 // --- Helpers ---

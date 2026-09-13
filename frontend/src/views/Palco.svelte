@@ -204,7 +204,10 @@
       ]);
       event = ev;
       questions = qs;
-      participants = ps;
+      // Ordem alfabética por nome (mesma regra do modo "Nome" em Respostas):
+      // pendentes e rostos dentro de cada zona de resposta seguem essa ordem,
+      // já que os dois são filtros sobre este array.
+      participants = [...ps].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
 
       // Retoma de onde a apresentação parou: pergunta atual e revelação já
       // feita vêm do servidor (live.Manager), não começam sempre do zero —
@@ -270,6 +273,20 @@
         messageDraft = snap.message;
         qaInbox = snap.qaInbox;
         modoDensidadeApresentacao = snap.presentDensityMode || '';
+        // Revelação e pergunta atual vêm do live.Manager (servidor) — sem
+        // aplicar aqui, cada aba de /palco aberta ficava com sua própria
+        // cópia local, só atualizada pelos próprios cliques: revelar em uma
+        // aba não tirava ninguém da lista de pendentes da outra.
+        const revealedMap = snap.revealed || {};
+        revealed = Object.fromEntries(
+          questions.map((q) => [q.id, new Set(revealedMap[q.id] || [])])
+        );
+        const questionIndex = questions.findIndex((q) => q.id === snap.currentQuestionId);
+        if (questionIndex >= 0) currentIndex = questionIndex;
+        // Um respondente novo (ou uma resposta editada) só chega aqui via
+        // Touch() — não muda blanked/revealed/etc, mas precisa recarregar a
+        // lista de participantes pra aparecer como pendente.
+        refreshParticipants();
       },
       onReaction: (emoji) => fireReaction(emoji),
       onStatus: (status) => {
@@ -277,6 +294,15 @@
       },
       poll: () => api.eventos.aoVivo.estadoAdmin(id)
     });
+  }
+
+  async function refreshParticipants() {
+    try {
+      const { participants: ps } = await api.eventos.respostas.listar(id);
+      participants = [...ps].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+    } catch {
+      // Best-effort — mantém a lista atual se a requisição falhar.
+    }
   }
 
   function toggleBlanked() {
@@ -377,14 +403,16 @@
 
   $: choiceGroups =
     currentQuestion && currentQuestion.type !== 'OPEN_TEXT'
-      ? currentQuestion.options.map((opt) => ({
-          label: opt.text,
-          participants: participants.filter((p) => {
-            if (!revealedIds.has(p.id)) return false;
-            const a = answerFor(p, currentQuestion);
-            return a && a.optionId === opt.id;
-          })
-        }))
+      ? [...currentQuestion.options]
+          .sort((a, b) => a.text.localeCompare(b.text))
+          .map((opt) => ({
+            label: opt.text,
+            participants: participants.filter((p) => {
+              if (!revealedIds.has(p.id)) return false;
+              const a = answerFor(p, currentQuestion);
+              return a && a.optionId === opt.id;
+            })
+          }))
       : [];
 
   // Normaliza a resposta aberta (trim + primeira letra maiúscula) e usa o
@@ -410,7 +438,7 @@
       if (!groups.has(label)) groups.set(label, { label, participants: [] });
       if (revealedSet.has(p.id)) groups.get(label).participants.push(p);
     }
-    return Array.from(groups.values());
+    return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
   }
 
   $: groups = currentQuestion && currentQuestion.type === 'OPEN_TEXT' ? openGroups : choiceGroups;
