@@ -108,7 +108,7 @@
             {#if options.length > MIN_OPTIONS}
               <button
                 type="button"
-                class="icon-btn"
+                class="icon-btn icon-btn-remove"
                 title="Remover opção"
                 aria-label={`Remover opção ${i + 1}`}
                 on:click={() => removeOption(i)}
@@ -168,6 +168,39 @@
     display: flex;
     gap: 6px;
     flex-shrink: 0;
+  }
+
+  /* Mesma paleta dos ícones de ação da pergunta (mover em accent, remover em
+     tom de perigo) — os dois níveis de ação (pergunta e opção) usam o mesmo
+     código de cor. */
+  .option-actions .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-color: transparent;
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .option-actions .icon-btn:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .option-actions .icon-btn:disabled {
+    background: var(--surface-muted);
+    color: var(--text-subtle);
+  }
+
+  .option-actions .icon-btn-remove {
+    background: var(--tint-danger);
+    color: var(--danger);
+  }
+
+  .option-actions .icon-btn-remove:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--danger);
+    color: var(--on-accent);
   }
 
   .icon-btn-move-glyph {
