@@ -336,6 +336,9 @@ a:hover {
 }
 
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 34px;
   height: 34px;
   border-radius: var(--radius-control);
