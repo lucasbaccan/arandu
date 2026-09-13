@@ -5,26 +5,16 @@ on:
     branches: [master]
   workflow_dispatch:
   workflow_run:
-    # Re-dispara o deploy quando o Release (semantic-release) empurra o commit
-    # de versão: push feito com GITHUB_TOKEN não aciona workflows sozinhos.
     workflows: [Release]
     types: [completed]
 
-# Required secrets — add in: GitHub repo → Settings → Secrets and variables → Actions
-#
-#   VPS_HOST        IP or hostname of the Oracle VPS
-#   VPS_SSH_USER    SSH user on the VPS (e.g. ubuntu)
-#   VPS_SSH_KEY     Private SSH key for VPS_SSH_USER (ED25519 recommended)
-#                   The matching public key must be in ~ubuntu/.ssh/authorized_keys on the VPS
-#
-# The deploy user on the VPS must:
-#   - belong to the `docker` group
-#   - have the repo cloned at ~/arandu  (git clone ... ~/arandu)
-#   - have a .env file at ~/arandu/.env with production values
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: SSH → git pull → docker compose up --build
+    name: SSH → git sync → docker compose up --build
     runs-on: ubuntu-latest
     environment: production
 
@@ -43,9 +33,12 @@ jobs:
               "${{ vars.VPS_SSH_USER }}@${{ vars.VPS_HOST }}" << 'ENDSSH'
             set -e
             cd ~/arandu
-            git pull origin master
-            # Commit atual (pós-pull) vira o build-arg GIT_COMMIT do docker
-            # compose, e no fim vai parar no "build <hash>" da UI.
+            git fetch origin master
+            git reset --hard origin/master
             export GIT_COMMIT=$(git rev-parse --short HEAD)
-            docker compose up -d --build
+            if docker inspect arandu >/dev/null 2>&1; then
+              wd="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' arandu 2>/dev/null || true)"
+              if [ "$wd" != "$(pwd)" ]; then docker rm -f arandu; fi
+            fi
+            docker compose up -d --build --remove-orphans
           ENDSSH
