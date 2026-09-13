@@ -67,6 +67,21 @@ describe('Tela de respostas do participante', () => {
     expect(screen.getByRole('button', { name: 'Começar' })).toBeInTheDocument();
   });
 
+  it('mostra "Dá para editar depois" só quando o evento permite edição', async () => {
+    mockLoad({ allowEdit: true });
+    render(Responder, { props: { id: '42' } });
+
+    expect(await screen.findByText('Dá para editar depois')).toBeInTheDocument();
+  });
+
+  it('esconde "Dá para editar depois" quando a edição está desabilitada', async () => {
+    mockLoad({ allowEdit: false });
+    render(Responder, { props: { id: '42' } });
+
+    await screen.findByText('Dinâmica de Testes');
+    expect(screen.queryByText('Dá para editar depois')).not.toBeInTheDocument();
+  });
+
   it('exige nome e e-mail válidos antes de iniciar', async () => {
     mockLoad();
     render(Responder, { props: { id: '42' } });
