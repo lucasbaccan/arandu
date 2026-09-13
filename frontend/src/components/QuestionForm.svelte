@@ -34,6 +34,15 @@
     options = options.filter((_, i) => i !== index);
   }
 
+  function moveOption(index, delta) {
+    const to = index + delta;
+    if (to < 0 || to >= options.length) return;
+    const next = [...options];
+    const [moved] = next.splice(index, 1);
+    next.splice(to, 0, moved);
+    options = next;
+  }
+
   function handleSubmit() {
     dispatch('submit', { title, options: type === 'OPEN_TEXT' ? [] : options, type });
   }
@@ -79,15 +88,33 @@
       {#each options as _, i (i)}
         <div class="option-row">
           <Input bind:value={options[i]} placeholder={`Opção ${i + 1}`} autocomplete="off" />
-          {#if options.length > MIN_OPTIONS}
+          <div class="option-actions">
             <button
               type="button"
-              class="icon-btn"
-              title="Remover opção"
-              aria-label={`Remover opção ${i + 1}`}
-              on:click={() => removeOption(i)}
-            >×</button>
-          {/if}
+              class="icon-btn icon-btn-move"
+              title="Mover para cima"
+              aria-label={`Mover opção ${i + 1} para cima`}
+              disabled={i === 0}
+              on:click={() => moveOption(i, -1)}
+            ><span class="msr icon-btn-move-glyph">arrow_upward</span></button>
+            <button
+              type="button"
+              class="icon-btn icon-btn-move"
+              title="Mover para baixo"
+              aria-label={`Mover opção ${i + 1} para baixo`}
+              disabled={i === options.length - 1}
+              on:click={() => moveOption(i, 1)}
+            ><span class="msr icon-btn-move-glyph">arrow_downward</span></button>
+            {#if options.length > MIN_OPTIONS}
+              <button
+                type="button"
+                class="icon-btn"
+                title="Remover opção"
+                aria-label={`Remover opção ${i + 1}`}
+                on:click={() => removeOption(i)}
+              >×</button>
+            {/if}
+          </div>
         </div>
       {/each}
       {#if options.length < MAX_OPTIONS}
@@ -135,6 +162,17 @@
 
   .option-row :global(.field) {
     flex: 1;
+  }
+
+  .option-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .icon-btn-move-glyph {
+    font-size: 18px;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
   }
 
   .form-actions {
