@@ -1,5 +1,6 @@
 <script>
   import { navigate } from '../lib/router.js';
+  import TopBar from '../components/TopBar.svelte';
 
   function go(path) {
     return (e) => {
@@ -129,6 +130,8 @@
     return !route.includes('{');
   }
 </script>
+
+<TopBar area="Mapa do site" showAccount={false} />
 
 <main class="page page-wide mapa-do-site">
   <div class="sm-head">

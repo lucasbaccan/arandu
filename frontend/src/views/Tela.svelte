@@ -13,6 +13,7 @@
   import PinChip from '../components/PinChip.svelte';
   import Tabs from '../components/Tabs.svelte';
   import ThemeToggle from '../components/ThemeToggle.svelte';
+  import TopBar from '../components/TopBar.svelte';
   import ReactionBar from '../components/ReactionBar.svelte';
   import QuestionForm from '../components/QuestionForm.svelte';
   import AvatarCropper from '../components/AvatarCropper.svelte';
@@ -132,6 +133,8 @@
     showToast(`Pergunta "${e.detail.title || '(sem título)'}" enviada (demo, nada foi salvo).`, 'info');
   }
 </script>
+
+<TopBar area="Guia de componentes" showAccount={false} />
 
 <main class="page page-wide tela">
   <div class="sg-head">
