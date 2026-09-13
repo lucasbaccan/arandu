@@ -305,7 +305,7 @@
         {/if}
         <AvatarCropper compact on:change={onPhotoChange} />
         <Input
-          label="Como quer aparecer"
+          label="Nome completo"
           bind:value={name}
           error={nameError}
           placeholder="Seu nome"
