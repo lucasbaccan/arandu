@@ -571,6 +571,10 @@
         color={statusInfo(status).color}
       />
       <svelte:fragment slot="actions">
+        <span class="share-chip" title={linkResposta}>
+          <span class="share-chip-label">Link de participação</span>
+          <CopyButton text={linkResposta} label="Copiar link de participação" />
+        </span>
         <PinChip pin={pinCode} variant="boxed" />
         <Button size="sm" on:click={abrirPalco}>Abrir painel ao vivo</Button>
       </svelte:fragment>
@@ -602,7 +606,6 @@
                 {statusBusy}
                 questionCount={questions.length}
                 {participantCount}
-                {linkResposta}
                 bind:title
                 bind:pinCode
                 bind:showRanking
@@ -992,7 +995,6 @@
               {statusBusy}
               questionCount={questions.length}
               {participantCount}
-              {linkResposta}
               bind:title
               bind:pinCode
               bind:showRanking
@@ -1039,6 +1041,41 @@
     flex: none;
     height: 100vh;
     height: 100dvh;
+  }
+
+  /* Mesmo visual do PinChip "boxed" — os dois vivem lado a lado no CrumbBar. */
+  .share-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 5px 8px 5px 10px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--border);
+    background: var(--surface-muted);
+  }
+
+  .share-chip-label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Sem espaço pro rótulo por extenso: fica só o botão de copiar, como um
+     ícone solto (a pílula em volta perderia o sentido sem o texto). */
+  @media (max-width: 480px) {
+    .share-chip {
+      padding: 0;
+      border: none;
+      background: none;
+    }
+
+    .share-chip-label {
+      display: none;
+    }
   }
 
   .edit-center {

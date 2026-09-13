@@ -1,14 +1,12 @@
 <script>
   import Button from './Button.svelte';
   import Input from './Input.svelte';
-  import CopyButton from './CopyButton.svelte';
   import Switch from './Switch.svelte';
 
   export let status = '';
   export let statusBusy = false;
   export let questionCount = 0;
   export let participantCount = 0;
-  export let linkResposta = '';
   export let title;
   export let pinCode;
   export let showRanking = false;
@@ -45,17 +43,6 @@
   <div class="rail-card stat-box">
     <span class="stat-num">{participantCount}</span>
     <span class="stat-label">{participantCount === 1 ? 'respondeu' : 'responderam'}</span>
-  </div>
-</div>
-
-<div class="rail-card rail-section">
-  <span class="overline">Compartilhar</span>
-  <div class="share-link">
-    <div class="share-link-info">
-      <span class="share-link-label">Link de participação</span>
-      <span class="share-link-url">{linkResposta}</span>
-    </div>
-    <CopyButton text={linkResposta} label="Copiar link de participação" />
   </div>
 </div>
 
@@ -180,36 +167,6 @@
   .stat-label {
     font-size: 0.75rem;
     color: var(--text-muted);
-  }
-
-  .share-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--surface-muted);
-  }
-
-  .share-link-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .share-link-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-
-  .share-link-url {
-    font-size: 0.6875rem;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .config-row {
