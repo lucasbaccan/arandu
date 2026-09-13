@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"log"
@@ -141,13 +142,35 @@ func (a *API) handleListarEventos(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"events": dtos})
 }
 
+// autorizarAcessoEvento verifica se quem está autenticado pode agir sobre o
+// evento: o dono, ou o super admin (que controla todos os eventos, de
+// qualquer organizador). Acesso negado responde como "não encontrado" — não
+// vaza pra quem não é dono nem admin que o evento existe e é de outra
+// pessoa. Devolve o evento com o OwnerID real, que os handlers de escrita
+// (atualizar/excluir) precisam usar em vez do id de quem está agindo, quando
+// os dois forem diferentes (edição feita pelo super admin).
+func (a *API) autorizarAcessoEvento(ctx context.Context, eventID int64) (store.Event, error) {
+	ev, err := a.store.BuscarEventoPorID(ctx, eventID)
+	if err != nil {
+		return store.Event{}, err
+	}
+	userID := userIDFromContext(ctx)
+	if ev.OwnerID == userID {
+		return ev, nil
+	}
+	u, err := a.store.BuscarUsuarioPorID(ctx, userID)
+	if err != nil || u.Role != store.RoleSuperAdmin {
+		return store.Event{}, store.ErrNotFound
+	}
+	return ev, nil
+}
+
 func (a *API) handleBuscarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
 		return
 	}
-	ownerID := userIDFromContext(r.Context())
-	ev, err := a.store.BuscarEventoPorIDEDono(r.Context(), id, ownerID)
+	ev, err := a.autorizarAcessoEvento(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Evento não encontrado.")
 		return
@@ -173,7 +196,6 @@ func (a *API) handleAtualizarEvento(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ownerID := userIDFromContext(r.Context())
 
 	var req updateEventRequest
 	if err := readJSON(w, r, &req); err != nil {
@@ -201,7 +223,7 @@ func (a *API) handleAtualizarEvento(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	current, err := a.store.BuscarEventoPorIDEDono(r.Context(), id, ownerID)
+	current, err := a.autorizarAcessoEvento(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Evento não encontrado.")
 		return
@@ -223,7 +245,7 @@ func (a *API) handleAtualizarEvento(w http.ResponseWriter, r *http.Request) {
 
 	ev, err := a.store.AtualizarEvento(r.Context(), store.Event{
 		ID:          id,
-		OwnerID:     ownerID,
+		OwnerID:     current.OwnerID,
 		Title:       req.Title,
 		PINCode:     pin,
 		Status:      status,
@@ -251,8 +273,17 @@ func (a *API) handleDeletarEvento(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ownerID := userIDFromContext(r.Context())
-	if err := a.store.DeletarEvento(r.Context(), id, ownerID); err != nil {
+	ev, err := a.autorizarAcessoEvento(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Evento não encontrado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar evento: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao excluir o evento.")
+		return
+	}
+	if err := a.store.DeletarEvento(r.Context(), id, ev.OwnerID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Evento não encontrado.")
 			return

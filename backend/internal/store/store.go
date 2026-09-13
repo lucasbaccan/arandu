@@ -209,5 +209,43 @@ func Migrate(db *sql.DB) error {
 		}
 	}
 
+	// Bancos criados antes do papel super admin existir: adiciona a coluna com
+	// default 'organizer' (não quebra dados existentes).
+	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'organizer'`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("store: migração (users.role): %w", err)
+		}
+	}
+
+	// Bootstrap do super admin em bancos que já tinham usuários antes desta
+	// coluna existir: promove o mais antigo. Idempotente — não faz nada se já
+	// existe alguém com o papel (inclusive o caminho normal, onde CriarUsuario
+	// já atribui o papel ao primeiro cadastro).
+	if _, err := db.Exec(`
+		UPDATE users SET role = 'super_admin'
+		WHERE id = (SELECT id FROM users ORDER BY created_at ASC, id ASC LIMIT 1)
+		  AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'super_admin')
+	`); err != nil {
+		return fmt.Errorf("store: migração (bootstrap super admin): %w", err)
+	}
+
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS app_settings (
+			key   TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS password_reset_tokens (
+			token      TEXT PRIMARY KEY,
+			user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			expires_at DATETIME NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+	`); err != nil {
+		return fmt.Errorf("store: migração (app_settings/password_reset_tokens): %w", err)
+	}
+
 	return nil
 }

@@ -108,6 +108,52 @@ func (s *Store) ListarResumosDeEventosPorDono(ctx context.Context, ownerID int64
 	return summaries, nil
 }
 
+// EventSummaryComDono é um EventSummary com os dados do dono, usado na visão
+// consolidada de todos os eventos do super admin.
+type EventSummaryComDono struct {
+	EventSummary
+	OwnerName  string
+	OwnerEmail string
+}
+
+func (s *Store) ListarTodosResumosDeEventos(ctx context.Context) ([]EventSummaryComDono, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT e.id, e.owner_id, e.title, e.pin_code, e.status, e.config_show_ranking, e.allow_edit, e.interactions_enabled, e.created_at,
+		       (SELECT COUNT(*) FROM questions q WHERE q.event_id = e.id),
+		       (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id),
+		       u.name, u.email
+		FROM events e
+		JOIN users u ON u.id = e.owner_id
+		ORDER BY e.created_at DESC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: listar todos os eventos: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []EventSummaryComDono
+	for rows.Next() {
+		var es EventSummaryComDono
+		var createdAt string
+		if err := rows.Scan(
+			&es.ID, &es.OwnerID, &es.Title, &es.PINCode, &es.Status, &es.ShowRanking, &es.AllowEdit, &es.InteractionsEnabled, &createdAt,
+			&es.QuestionCount, &es.ParticipantCount,
+			&es.OwnerName, &es.OwnerEmail,
+		); err != nil {
+			return nil, fmt.Errorf("store: ler evento: %w", err)
+		}
+		es.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("store: parse created_at: %w", err)
+		}
+		summaries = append(summaries, es)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: iterar eventos: %w", err)
+	}
+	return summaries, nil
+}
+
 // BuscarEventoPorID busca o evento por ID, sem checar dono (uso público/participante).
 func (s *Store) BuscarEventoPorID(ctx context.Context, id int64) (Event, error) {
 	row := s.db.QueryRowContext(ctx,

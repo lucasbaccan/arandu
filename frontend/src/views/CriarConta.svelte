@@ -69,6 +69,9 @@
         <h1>Criar conta de organizador</h1>
         <p class="card-sub">Participantes não precisam de conta — só do código.</p>
       </div>
+      {#if !$authConfig.registrationEnabled}
+        <p class="form-error">Cadastro de novas contas está desativado no momento.</p>
+      {:else}
       <form class="form" novalidate on:submit|preventDefault={handleSubmit} on:input={clearFieldErrors}>
         <Input
           label="Nome completo"
@@ -119,6 +122,7 @@
           {submitting ? 'Criando conta…' : 'Criar conta'}
         </Button>
       </form>
+      {/if}
       <p class="switch">
         Já tem conta?
         <a href="/entrar" on:click|preventDefault={() => navigate('/entrar')}>Entrar</a>

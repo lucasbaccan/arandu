@@ -70,6 +70,11 @@
       {#if menuOpen}
         <div class="user-menu" role="menu" bind:this={menuEl}>
           <p class="user-menu-name">Olá, {($user && $user.name) || '…'}</p>
+          {#if $user && $user.role === 'super_admin'}
+            <button type="button" class="user-menu-item" role="menuitem" on:click={() => { menuOpen = false; navigate('/admin'); }}>
+              Administração
+            </button>
+          {/if}
           <button type="button" class="user-menu-item" role="menuitem" on:click={() => { menuOpen = false; navigate('/trocar-senha'); }}>
             Trocar senha
           </button>

@@ -23,6 +23,8 @@
   import Debug from './views/Debug.svelte';
   import TrocarSenha from './views/TrocarSenha.svelte';
   import Opcoes from './views/Opcoes.svelte';
+  import Administracao from './views/Administracao.svelte';
+  import RedefinirSenha from './views/RedefinirSenha.svelte';
 
   onMount(initAuth);
 
@@ -43,6 +45,7 @@
       ($route === '/painel' ||
         $route === '/trocar-senha' ||
         $route === '/evento/novo' ||
+        $route === '/admin' ||
         eventoMatch ||
         palcoMatch ||
         palcoApresentarMatch) &&
@@ -50,6 +53,7 @@
     ) {
       navigate('/');
     }
+    if ($route === '/admin' && $user && $user.role !== 'super_admin') navigate('/painel');
     if (($route === '/entrar' || $route === '/criar-conta') && $user) navigate('/painel');
   }
 </script>
@@ -72,6 +76,10 @@
     <Painel />
   {:else if $route === '/trocar-senha'}
     <TrocarSenha />
+  {:else if $route === '/admin'}
+    <Administracao />
+  {:else if $route === '/redefinir-senha'}
+    <RedefinirSenha />
   {:else if $route === '/tela'}
     <Tela />
   {:else if $route === '/mapa-do-site'}

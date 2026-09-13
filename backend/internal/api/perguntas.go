@@ -319,14 +319,14 @@ func (a *API) handleReordenarPerguntas(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// resolveEventOwner valida o ID do evento e a posse pelo usuário autenticado.
+// resolveEventOwner valida o ID do evento e o acesso de quem está autenticado
+// (dono do evento, ou super admin — ver autorizarAcessoEvento em eventos.go).
 func (a *API) resolveEventOwner(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	eventID, ok := parseEventID(w, r)
 	if !ok {
 		return 0, false
 	}
-	ownerID := userIDFromContext(r.Context())
-	if _, err := a.store.BuscarEventoPorIDEDono(r.Context(), eventID, ownerID); err != nil {
+	if _, err := a.autorizarAcessoEvento(r.Context(), eventID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Evento não encontrado.")
 			return 0, false
