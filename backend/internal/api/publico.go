@@ -52,6 +52,18 @@ type publicParticipantDTO struct {
 // formulário de resposta. O token é o único segredo que autoriza o acesso;
 // token inválido ou de outro evento retorna 404 (não revela se o e-mail
 // existe).
+// handlePublicoBuscarParticipante godoc
+//
+// @Summary     Busca as respostas de um participante pelo link de edição
+// @Description Público, sem sessão — o token é o único segredo que autoriza. Usado para pré-preencher o formulário quando a pessoa volta para editar.
+// @Tags        publico
+// @Produce     json
+// @Param       id    path  string true "ID do evento"
+// @Param       token query string true "Token do link de edição"
+// @Success     200 {object} publicoParticipanteEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse "link inválido ou expirado"
+// @Router      /api/publico/eventos/{id}/participante [get]
 func (a *API) handlePublicoBuscarParticipante(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
@@ -100,6 +112,16 @@ func (a *API) handlePublicoBuscarParticipante(w http.ResponseWriter, r *http.Req
 // (sem ID na URL) poder checar se o código existe antes de avançar pro
 // próximo passo. Não revela mais que o ID — status e detalhes do evento só
 // aparecem nas rotas que já exigem PIN validado (join da live).
+// handlePublicoResolverPIN godoc
+//
+// @Summary     Resolve o ID de um evento a partir do PIN
+// @Description Público, sem sessão. Usado pela tela inicial antes de avançar para /responder/{id} ou /plateia/{id}.
+// @Tags        publico
+// @Produce     json
+// @Param       pin query string true "PIN do evento"
+// @Success     200 {object} pinResolvidoResponse
+// @Failure     404 {object} errorResponse "código não encontrado"
+// @Router      /api/publico/eventos/por-pin [get]
 func (a *API) handlePublicoResolverPIN(w http.ResponseWriter, r *http.Request) {
 	pin := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("pin")))
 	if pin == "" || !pinRe.MatchString(pin) {
@@ -121,6 +143,17 @@ func (a *API) handlePublicoResolverPIN(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"id": strconv.FormatInt(event.ID, 10)})
 }
 
+// handlePublicoBuscarEvento godoc
+//
+// @Summary     Busca um evento e suas perguntas (visão pública)
+// @Description Público, sem sessão — usado por /responder/{id} antes de enviar as respostas.
+// @Tags        publico
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} publicoEventoResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Router      /api/publico/eventos/{id} [get]
 func (a *API) handlePublicoBuscarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
@@ -184,6 +217,20 @@ type submitRequest struct {
 	Answers   []submitAnswerRequest `json:"answers"`
 }
 
+// handleEnviarRespostas godoc
+//
+// @Summary     Envia (ou edita) as respostas de um participante
+// @Description Público, sem sessão. Sem editToken, identifica por e-mail (cria um novo participante, ou falha se o evento não permitir reenvio). Com editToken, edita as respostas já enviadas — exige allowEdit habilitado no evento. answers deve cobrir todas as perguntas do evento.
+// @Tags        publico
+// @Accept      json
+// @Produce     json
+// @Param       id   path string        true "ID do evento"
+// @Param       body body submitRequest true "Identificação + respostas"
+// @Success     200 {object} enviarRespostasResponse
+// @Failure     400 {object} errorResponse
+// @Failure     403 {object} errorResponse "respostas fechadas, edição desabilitada, ou já respondeu"
+// @Failure     404 {object} errorResponse
+// @Router      /api/publico/eventos/{id}/enviar [post]
 func (a *API) handleEnviarRespostas(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {

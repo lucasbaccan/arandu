@@ -15,8 +15,30 @@ import (
 	"devopsconecta/backend/internal/live"
 	"devopsconecta/backend/internal/photos"
 	"devopsconecta/backend/internal/store"
+
+	// docs registra o spec gerado por `swag init` (ver Makefile, alvo
+	// "swagger") no pacote swag — é o que GET /api/docs/doc.json lê.
+	_ "devopsconecta/backend/docs"
 )
 
+// @title       Arandu API
+// @version     1.0
+// @description API REST do Arandu (coleta de respostas, apresentação ao vivo e administração de eventos) — as mesmas rotas usadas pelo frontend embutido, prontas para chamar diretamente e criar/gerenciar recursos por API.
+// @description
+// @description Autenticação de organizador (cookieAuth): faça login em outra aba pelo próprio app (POST /api/conta/entrar) — o cookie de sessão é httpOnly, então não dá para colá-lo aqui manualmente, mas o navegador o envia sozinho nas chamadas desta página por estarem na mesma origem.
+// @description Visitante ao vivo (liveViewerToken): obtenha o token em POST /api/publico/eventos/{id}/ao-vivo/entrar e cole em "Authorize" — o Swagger UI passa a anexar "?token=" nas chamadas das rotas públicas de ao-vivo.
+//
+// @license.name Uso interno
+//
+// @basePath /
+//
+// @securityDefinitions.apikey cookieAuth
+// @in header
+// @name Cookie
+//
+// @securityDefinitions.apikey liveViewerToken
+// @in query
+// @name token
 func main() {
 	cfg := resolveConfig()
 	if cfg.JWTSecret == "dev-secret-change-me" {

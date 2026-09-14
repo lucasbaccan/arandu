@@ -64,6 +64,17 @@ func toQuestionDTO(q store.QuestionWithOptions) questionDTO {
 	}
 }
 
+// handleListarPerguntas godoc
+//
+// @Summary     Lista as perguntas de um evento
+// @Tags        perguntas
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} questionsEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/perguntas [get]
 func (a *API) handleListarPerguntas(w http.ResponseWriter, r *http.Request) {
 	id, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -89,6 +100,20 @@ type createQuestionRequest struct {
 	Options    []string `json:"options"`
 }
 
+// handleCriarPergunta godoc
+//
+// @Summary     Cria uma pergunta no evento
+// @Description type: GROUP ou INDIVIDUAL (opções, min. 2 pra GROUP) ou OPEN_TEXT (sem opções). layoutView: TIMELINE, DUAL, CLOUD ou CENTER (default TIMELINE).
+// @Tags        perguntas
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                true "ID do evento"
+// @Param       body body createQuestionRequest true "Pergunta"
+// @Success     201 {object} questionEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/perguntas [post]
 func (a *API) handleCriarPergunta(w http.ResponseWriter, r *http.Request) {
 	id, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -151,6 +176,17 @@ func (a *API) handleCriarPergunta(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"question": toQuestionDTO(question)})
 }
 
+// handleRemoverPergunta godoc
+//
+// @Summary  Remove uma pergunta
+// @Tags     perguntas
+// @Param    id         path string true "ID do evento"
+// @Param    questionId path string true "ID da pergunta"
+// @Success  204 "removida"
+// @Failure  400 {object} errorResponse
+// @Failure  404 {object} errorResponse
+// @Security cookieAuth
+// @Router   /api/eventos/{id}/perguntas/{questionId} [delete]
 func (a *API) handleRemoverPergunta(w http.ResponseWriter, r *http.Request) {
 	id, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -178,6 +214,21 @@ type updateQuestionRequest struct {
 	Options []string `json:"options"`
 }
 
+// handleAtualizarPergunta godoc
+//
+// @Summary     Atualiza o título/opções de uma pergunta
+// @Description O tipo (GROUP/INDIVIDUAL/OPEN_TEXT) não muda depois de criada — só título e opções.
+// @Tags        perguntas
+// @Accept      json
+// @Produce     json
+// @Param       id         path string                true "ID do evento"
+// @Param       questionId path string                true "ID da pergunta"
+// @Param       body       body updateQuestionRequest true "Novo título/opções"
+// @Success     200 {object} questionEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/perguntas/{questionId} [patch]
 func (a *API) handleAtualizarPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -263,6 +314,20 @@ type reorderQuestionsRequest struct {
 	QuestionIDs []string `json:"questionIds"`
 }
 
+// handleReordenarPerguntas godoc
+//
+// @Summary     Reordena as perguntas do evento
+// @Description questionIds deve conter TODAS as perguntas do evento, na nova ordem desejada.
+// @Tags        perguntas
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                  true "ID do evento"
+// @Param       body body reorderQuestionsRequest true "IDs das perguntas na nova ordem"
+// @Success     204 "reordenado"
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/perguntas/ordem [put]
 func (a *API) handleReordenarPerguntas(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {

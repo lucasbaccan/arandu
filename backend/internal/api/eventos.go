@@ -64,6 +64,19 @@ type createEventRequest struct {
 	PINCode string `json:"pinCode"`
 }
 
+// handleCriarEvento godoc
+//
+// @Summary     Cria um evento
+// @Description Sem pinCode, gera um PIN numérico de 6 dígitos automaticamente.
+// @Tags        eventos
+// @Accept      json
+// @Produce     json
+// @Param       body body createEventRequest true "Título e (opcional) PIN"
+// @Success     201 {object} eventEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     409 {object} errorResponse "PIN em uso"
+// @Security    cookieAuth
+// @Router      /api/eventos [post]
 func (a *API) handleCriarEvento(w http.ResponseWriter, r *http.Request) {
 	var req createEventRequest
 	if err := readJSON(w, r, &req); err != nil {
@@ -127,6 +140,14 @@ func (a *API) handleCriarEvento(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusConflict, "Não foi possível gerar um PIN livre. Tente novamente.")
 }
 
+// handleListarEventos godoc
+//
+// @Summary     Lista os eventos do organizador autenticado
+// @Tags        eventos
+// @Produce     json
+// @Success     200 {object} eventsEnvelope
+// @Security    cookieAuth
+// @Router      /api/eventos [get]
 func (a *API) handleListarEventos(w http.ResponseWriter, r *http.Request) {
 	ownerID := userIDFromContext(r.Context())
 	events, err := a.store.ListarResumosDeEventosPorDono(r.Context(), ownerID)
@@ -165,6 +186,18 @@ func (a *API) autorizarAcessoEvento(ctx context.Context, eventID int64) (store.E
 	return ev, nil
 }
 
+// handleBuscarEvento godoc
+//
+// @Summary     Busca um evento por ID
+// @Description Dono do evento ou super admin — qualquer outro recebe 404 (não revela que o evento existe).
+// @Tags        eventos
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} eventEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id} [get]
 func (a *API) handleBuscarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
@@ -191,6 +224,21 @@ type updateEventRequest struct {
 	AllowEdit   bool   `json:"allowEdit"`
 }
 
+// handleAtualizarEvento godoc
+//
+// @Summary     Atualiza um evento
+// @Description Dono do evento ou super admin. status aceita "" (mantém), OPEN_FOR_ANSWERS ou CLOSED_FOR_ANSWERS.
+// @Tags        eventos
+// @Accept      json
+// @Produce     json
+// @Param       id   path string             true "ID do evento"
+// @Param       body body updateEventRequest true "Campos a atualizar"
+// @Success     200 {object} eventEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Failure     409 {object} errorResponse "PIN em uso"
+// @Security    cookieAuth
+// @Router      /api/eventos/{id} [patch]
 func (a *API) handleAtualizarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {
@@ -268,6 +316,18 @@ func (a *API) handleAtualizarEvento(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"event": toEventDTO(ev)})
 }
 
+// handleDeletarEvento godoc
+//
+// @Summary     Exclui um evento
+// @Description Dono do evento ou super admin. Apaga em cascata perguntas, participantes e respostas.
+// @Tags        eventos
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id} [delete]
 func (a *API) handleDeletarEvento(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEventID(w, r)
 	if !ok {

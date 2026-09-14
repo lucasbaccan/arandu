@@ -12,9 +12,9 @@
     };
   }
 
-  // Atalhos internos: o mapa do site (todas as URLs) e o guia de componentes
-  // (design). Estes dois são o acesso rápido desta tela — ver /mapa-do-site para o
-  // mapa completo.
+  // Atalhos internos: o mapa do site (todas as URLs), o guia de componentes
+  // (design) e a doc da API. Estes são o acesso rápido desta tela — ver
+  // /mapa-do-site para o mapa completo.
   const shortcuts = [
     {
       path: '/mapa-do-site',
@@ -25,6 +25,14 @@
       path: '/tela',
       title: 'Guia de componentes',
       desc: 'Cores, tipografia e componentes prontos — a referência de design.'
+    },
+    {
+      path: '/api/docs/',
+      title: 'Doc da API (Swagger)',
+      desc: 'Toda rota do backend, testável direto pelo navegador.',
+      // Rota servida pelo backend (Go), fora do SPA — abre numa aba nova em
+      // vez de passar pelo router (go()/navigate()), que não a conhece.
+      external: true
     }
   ];
 
@@ -60,7 +68,12 @@
     <h2>Atalhos internos</h2>
     <div class="dbg-shortcuts">
       {#each shortcuts as s (s.path)}
-        <a class="dbg-card" href={s.path} on:click={go(s.path)}>
+        <a
+          class="dbg-card"
+          href={s.path}
+          target={s.external ? '_blank' : undefined}
+          on:click={s.external ? undefined : go(s.path)}
+        >
           <strong>{s.title}</strong>
           <span class="text-muted">{s.desc}</span>
           <code>{s.path}</code>

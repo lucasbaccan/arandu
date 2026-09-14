@@ -30,6 +30,17 @@ type participantResponseDTO struct {
 	Answers   []answerDTO `json:"answers"`
 }
 
+// handleListarRespostas godoc
+//
+// @Summary     Lista os participantes e suas respostas
+// @Tags        respostas
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} respostasEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/respostas [get]
 func (a *API) handleListarRespostas(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -116,6 +127,22 @@ type updateAnswerRequest struct {
 	Text     string `json:"text"`
 }
 
+// handleAtualizarResposta godoc
+//
+// @Summary     Corrige a resposta de um participante a uma pergunta
+// @Description Edição feita pelo organizador (não pelo próprio participante). optionId para GROUP/INDIVIDUAL, text para OPEN_TEXT.
+// @Tags        respostas
+// @Accept      json
+// @Produce     json
+// @Param       id            path string              true "ID do evento"
+// @Param       participantId path string              true "ID do participante"
+// @Param       questionId    path string              true "ID da pergunta"
+// @Param       body          body updateAnswerRequest true "Nova resposta"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/respostas/{participantId}/resposta/{questionId} [patch]
 func (a *API) handleAtualizarResposta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -222,6 +249,21 @@ type updateParticipantPhotoRequest struct {
 // handleAtualizarFotoParticipante permite ao organizador definir ou corrigir a
 // foto de um participante (ex: participante pediu atualização por fora do
 // link de edição, ou não enviou foto ao responder).
+// handleAtualizarFotoParticipante godoc
+//
+// @Summary     Define/corrige a foto de um participante
+// @Description Feito pelo organizador. photo é um data URL "data:image/..."; vazio remove a foto.
+// @Tags        respostas
+// @Accept      json
+// @Produce     json
+// @Param       id            path string                        true "ID do evento"
+// @Param       participantId path string                        true "ID do participante"
+// @Param       body          body updateParticipantPhotoRequest true "Foto (data URL)"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/respostas/{participantId}/foto [patch]
 func (a *API) handleAtualizarFotoParticipante(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {

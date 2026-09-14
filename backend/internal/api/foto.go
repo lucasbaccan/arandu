@@ -25,6 +25,18 @@ func (a *API) photoURL(p store.Participant) string {
 // no banco (mais lento); nas seguintes, é servido direto do disco (rápido).
 // A foto não exige autenticação: ela já é exibida publicamente na tela da
 // apresentação.
+// handleFotoParticipante godoc
+//
+// @Summary     Serve a foto de um participante
+// @Description Público (a foto já aparece na apresentação). Primeira chamada materializa o arquivo a partir do banco; as seguintes servem direto do disco com cache.
+// @Tags        fotos
+// @Produce     png
+// @Produce     jpeg
+// @Param       participantId path string true "ID do participante"
+// @Success     200 {file} file
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse "sem foto"
+// @Router      /api/fotos/{participantId} [get]
 func (a *API) handleFotoParticipante(w http.ResponseWriter, r *http.Request) {
 	participantID, err := strconv.ParseInt(r.PathValue("participantId"), 10, 64)
 	if err != nil || participantID <= 0 {
