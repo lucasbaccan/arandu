@@ -1,7 +1,8 @@
-.PHONY: dev backend-dev frontend-dev frontend-watch frontend-clean run build build-windows docker test clean stop tools deps seed
+.PHONY: dev backend-dev frontend-dev frontend-watch frontend-clean run build build-windows docker test clean stop tools deps seed swagger
 
 GOBIN := $(shell go env GOBIN 2>/dev/null)
 AIR := $(if $(GOBIN),$(GOBIN)/air,$(shell go env GOPATH)/bin/air)
+SWAG := $(if $(GOBIN),$(GOBIN)/swag,$(shell go env GOPATH)/bin/swag)
 
 HOST ?= 0.0.0.0
 PORT ?= 8080
@@ -95,10 +96,19 @@ seed: ## Popula o banco com dados fake pra explorar o app (usuário demo@demo.co
 	@cd backend && go run ./cmd/seed
 	@echo "✅ Dados de demonstração prontos!"
 
-tools: ## Instala ferramentas de desenvolvimento (air)
+swagger: ## Gera a doc da API (Swagger UI) a partir dos comentários @... nos handlers -> backend/docs
+	@test -x "$(SWAG)" || { echo "🛠️  Instalando swag..."; go install github.com/swaggo/swag/cmd/swag@latest; }
+	@echo "📖 Gerando documentação da API (Swagger)..."
+	@cd backend && "$(SWAG)" init -g cmd/server/main.go -o docs --parseInternal --parseDependency=false
+	@echo "✅ Doc gerada em backend/docs — com o servidor rodando, veja em http://localhost:$(PORT)/api/docs/"
+	@echo "💡 Rode de novo sempre que adicionar/mudar uma rota ou seus comentários @... (não é gerado automaticamente pelo build/dev)."
+
+tools: ## Instala ferramentas de desenvolvimento (air, swag)
 	@echo "🛠️  Instalando air..."
 	@go install github.com/air-verse/air@latest
-	@echo "✅ air instalado!"
+	@echo "🛠️  Instalando swag..."
+	@go install github.com/swaggo/swag/cmd/swag@latest
+	@echo "✅ air e swag instalados!"
 
 clean:
 	@echo "🧹 Limpando artefatos de build..."

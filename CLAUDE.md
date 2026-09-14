@@ -163,6 +163,17 @@ localStorage. `/tela` (`Tela.svelte`) is the living reference for all of it.
 `eventos`/`publico.eventos` namespaces) — there's no codegen from the Go handlers, so adding a backend route
 means adding the matching entry here by hand.
 
+**The API is documented with Swagger** (`github.com/swaggo/swag`): every handler in `backend/internal/api/`
+carries `@Summary`/`@Param`/`@Success`/`@Router`/etc. comments (general info + security schemes live above
+`func main()` in `backend/cmd/server/main.go`); response shapes that are ad hoc `map[string]any` in the
+handler (see `writeJSON`) get a matching doc-only type in `backend/internal/api/swagger_docs.go` so `swag`
+has something concrete to point `@Success` at. `make swagger` (wraps `swag init`) regenerates
+`backend/docs/*` from those comments — **not automatic**, run it by hand after adding/changing a route or
+its annotations (same manual-sync spirit as `api.js` above). `backend/docs` is imported for its side effect
+in `main.go` and served, unauthenticated, at `GET /api/docs/` (Swagger UI) via `github.com/swaggo/http-swagger/v2`
+— same-origin, so "Try it out" carries the organizer's session cookie automatically once logged into the app
+in the same browser; the public live-viewer token (`?token=`) can be entered through the UI's "Authorize" button.
+
 > **Whenever a new screen (view) is created, update this file**: add it to the "Screens" list below with
 > a one-line description, and add its route to `App.svelte`'s match/render logic if not already covered
 > above.

@@ -49,6 +49,15 @@ describe('Debug', () => {
     expect(navigate).toHaveBeenCalledWith('/tela');
   });
 
+  it('tem link para a doc da API que abre em nova aba sem passar pelo router', async () => {
+    render(Debug);
+    const link = screen.getByRole('link', { name: /Doc da API/ });
+    expect(link).toHaveAttribute('href', '/api/docs/');
+    expect(link).toHaveAttribute('target', '_blank');
+    await fireEvent.click(link);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('mostra o estado da aplicação (rota, tema e usuário)', () => {
     render(Debug);
     expect(screen.getByText('Rota (store)')).toBeInTheDocument();

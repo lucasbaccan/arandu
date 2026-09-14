@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
 	"devopsconecta/backend/internal/auth"
 	"devopsconecta/backend/internal/config"
 	"devopsconecta/backend/internal/ids"
@@ -153,6 +155,12 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/publico/eventos/{id}/ao-vivo/perguntas", a.handleAoVivoEnviarPergunta)
 	mux.HandleFunc("DELETE /api/publico/eventos/{id}/ao-vivo/perguntas/{messageId}", a.handleAoVivoRemoverPergunta)
 	mux.HandleFunc("GET /api/fotos/{participantId}", a.handleFotoParticipante)
+	// Documentação interativa da API (Swagger UI), gerada por `swag init` a
+	// partir dos comentários "@..." nos handlers — ver Makefile (alvo
+	// "swagger") e docs/. Igual a /tela e /mapa-do-site no frontend, é uma
+	// página interna sem autenticação própria: as chamadas que ela dispara
+	// continuam exigindo a sessão real de cada rota.
+	mux.HandleFunc("GET /api/docs/", httpSwagger.WrapHandler)
 	mux.HandleFunc("/api/", a.handleAPI404)
 
 	if a.cfg.ViteDevURL != "" {
@@ -300,6 +308,19 @@ type registerRequest struct {
 	Password string `json:"password"`
 }
 
+// handleCriarConta godoc
+//
+// @Summary     Cria uma conta de organizador
+// @Description Cria a conta e já abre sessão (cookie). Falha se o cadastro estiver desativado (GET /api/conta/configuracao) ou o e-mail já existir.
+// @Tags        conta
+// @Accept      json
+// @Produce     json
+// @Param       body body registerRequest true "Nome, e-mail e senha"
+// @Success     201 {object} userEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     403 {object} errorResponse "cadastro desativado"
+// @Failure     409 {object} errorResponse "e-mail já cadastrado"
+// @Router      /api/conta/criar-conta [post]
 func (a *API) handleCriarConta(w http.ResponseWriter, r *http.Request) {
 	enabled, err := a.store.RegistroHabilitado(r.Context())
 	if err != nil {
@@ -375,6 +396,18 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+// handleEntrar godoc
+//
+// @Summary     Login de organizador
+// @Description Autentica por e-mail e senha e abre sessão (cookie httpOnly).
+// @Tags        conta
+// @Accept      json
+// @Produce     json
+// @Param       body body loginRequest true "E-mail e senha"
+// @Success     200 {object} userEnvelope
+// @Failure     400 {object} errorResponse
+// @Failure     401 {object} errorResponse "e-mail ou senha inválidos"
+// @Router      /api/conta/entrar [post]
 func (a *API) handleEntrar(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := readJSON(w, r, &req); err != nil {
@@ -403,11 +436,27 @@ func (a *API) handleEntrar(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": toUserDTO(u)})
 }
 
+// handleSair godoc
+//
+// @Summary  Logout do organizador
+// @Tags     conta
+// @Success  204 "sessão encerrada"
+// @Router   /api/conta/sair [post]
 func (a *API) handleSair(w http.ResponseWriter, r *http.Request) {
 	a.clearSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleEu godoc
+//
+// @Summary     Organizador autenticado
+// @Description Devolve quem está logado nesta sessão — usado pelo frontend pra saber se/quem está autenticado ao carregar.
+// @Tags        conta
+// @Produce     json
+// @Success     200 {object} userEnvelope
+// @Failure     401 {object} errorResponse "sessão inválida"
+// @Security    cookieAuth
+// @Router      /api/conta/eu [get]
 func (a *API) handleEu(w http.ResponseWriter, r *http.Request) {
 	userID := userIDFromContext(r.Context())
 	u, err := a.store.BuscarUsuarioPorID(r.Context(), userID)
@@ -423,6 +472,14 @@ func (a *API) handleEu(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": toUserDTO(u)})
 }
 
+// handleConfiguracao godoc
+//
+// @Summary     Configuração pública de conta
+// @Description Tamanho mínimo de senha e se o cadastro de novas contas está aberto — checado por /criar-conta antes de mostrar o formulário.
+// @Tags        conta
+// @Produce     json
+// @Success     200 {object} contaConfiguracaoResponse
+// @Router      /api/conta/configuracao [get]
 func (a *API) handleConfiguracao(w http.ResponseWriter, r *http.Request) {
 	registrationEnabled, err := a.store.RegistroHabilitado(r.Context())
 	if err != nil {
@@ -442,6 +499,18 @@ type trocarSenhaRequest struct {
 // handleTrocarSenha troca a senha do usuário logado (já autenticado via
 // requireAuth), sem pedir a senha atual. Não invalida as demais sessões (o
 // token JWT não carrega o hash da senha) — o que é aceitável para este app.
+// handleTrocarSenha godoc
+//
+// @Summary     Troca a senha do organizador logado
+// @Description Não pede a senha atual — quem está autenticado já pode trocar.
+// @Tags        conta
+// @Accept      json
+// @Produce     json
+// @Param       body body trocarSenhaRequest true "Nova senha"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/conta/trocar-senha [post]
 func (a *API) handleTrocarSenha(w http.ResponseWriter, r *http.Request) {
 	var req trocarSenhaRequest
 	if err := readJSON(w, r, &req); err != nil {

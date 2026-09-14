@@ -1,0 +1,2437 @@
+basePath: /
+definitions:
+  api.adminConfigResponse:
+    properties:
+      registrationEnabled:
+        type: boolean
+    type: object
+  api.adminEventDTO:
+    properties:
+      allowEdit:
+        type: boolean
+      configShowRanking:
+        type: boolean
+      createdAt:
+        type: string
+      id:
+        type: string
+      interactionsEnabled:
+        type: boolean
+      ownerEmail:
+        type: string
+      ownerId:
+        type: string
+      ownerName:
+        type: string
+      participantCount:
+        type: integer
+      pinCode:
+        type: string
+      questionCount:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  api.adminEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/api.adminEventDTO'
+        type: array
+    type: object
+  api.adminResetLinkResponse:
+    properties:
+      expiresAt:
+        description: ExpiresAt no formato RFC3339.
+        type: string
+      token:
+        type: string
+    type: object
+  api.adminUserDTO:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      eventCount:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  api.adminUsersResponse:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/api.adminUserDTO'
+        type: array
+    type: object
+  api.answerDTO:
+    properties:
+      optionId:
+        type: string
+      optionText:
+        type: string
+      questionId:
+        type: string
+      questionTitle:
+        type: string
+      questionType:
+        type: string
+      text:
+        type: string
+    type: object
+  api.contaConfiguracaoResponse:
+    properties:
+      minPasswordLength:
+        type: integer
+      registrationEnabled:
+        type: boolean
+    type: object
+  api.createEventRequest:
+    properties:
+      pinCode:
+        type: string
+      title:
+        type: string
+    type: object
+  api.createQuestionRequest:
+    properties:
+      layoutView:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  api.enviarPerguntaAoVivoResponse:
+    properties:
+      messageId:
+        type: string
+      ok:
+        type: boolean
+      text:
+        type: string
+    type: object
+  api.enviarRespostasResponse:
+    properties:
+      editToken:
+        description: |-
+          EditToken permite voltar depois e editar as mesmas respostas (link
+          pessoal, sem login) — só presente quando o evento permite edição.
+        type: string
+      ok:
+        type: boolean
+    type: object
+  api.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  api.eventDTO:
+    properties:
+      allowEdit:
+        type: boolean
+      configShowRanking:
+        type: boolean
+      createdAt:
+        type: string
+      id:
+        type: string
+      interactionsEnabled:
+        type: boolean
+      ownerId:
+        type: string
+      participantCount:
+        type: integer
+      pinCode:
+        type: string
+      questionCount:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  api.eventEnvelope:
+    properties:
+      event:
+        $ref: '#/definitions/api.eventDTO'
+    type: object
+  api.eventsEnvelope:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/api.eventDTO'
+        type: array
+    type: object
+  api.liveAdminSnapshotDTO:
+    properties:
+      answersHidden:
+        type: boolean
+      blanked:
+        type: boolean
+      currentQuestionId:
+        type: string
+      interactionsEnabled:
+        type: boolean
+      message:
+        type: string
+      namesHidden:
+        type: boolean
+      presentDensityMode:
+        type: string
+      qaInbox:
+        items:
+          $ref: '#/definitions/api.liveQAMessageDTO'
+        type: array
+      revealed:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: |-
+          Revealed mapeia questionID (string) -> participantIDs (string) já
+          revelados nessa pergunta — deixa o painel do organizador retomar de
+          onde parou depois de um F5 ou ao reabrir /stage, em vez de sempre
+          recomeçar do zero.
+        type: object
+    type: object
+  api.liveEntrarResponse:
+    properties:
+      role:
+        description: |-
+          Role: "participant" (já respondeu, com e-mail reconhecido) ou
+          "observer" (só assiste).
+        type: string
+      token:
+        description: |-
+          Token de visitante (JWT) — usado como "?token=" nas rotas
+          /api/publico/eventos/{id}/ao-vivo/*.
+        type: string
+    type: object
+  api.liveGroupDTO:
+    properties:
+      label:
+        type: string
+      participants:
+        items:
+          $ref: '#/definitions/api.liveParticipantDTO'
+        type: array
+    type: object
+  api.liveJoinRequest:
+    properties:
+      email:
+        type: string
+      pinCode:
+        type: string
+    type: object
+  api.liveOptionDTO:
+    properties:
+      id:
+        type: string
+      text:
+        type: string
+    type: object
+  api.liveParticipantDTO:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      photo:
+        type: string
+    type: object
+  api.liveQAMessageDTO:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      text:
+        type: string
+    type: object
+  api.liveQuestionDTO:
+    properties:
+      id:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/api.liveOptionDTO'
+        type: array
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  api.liveReactRequest:
+    properties:
+      emoji:
+        type: string
+    type: object
+  api.liveResetRequest:
+    properties:
+      questionId:
+        type: string
+    type: object
+  api.liveRevealAllRequest:
+    properties:
+      questionId:
+        type: string
+    type: object
+  api.liveRevealRequest:
+    properties:
+      participantId:
+        type: string
+      questionId:
+        type: string
+    type: object
+  api.liveSetAnswersHiddenRequest:
+    properties:
+      hidden:
+        type: boolean
+    type: object
+  api.liveSetBlankedRequest:
+    properties:
+      blanked:
+        type: boolean
+    type: object
+  api.liveSetInteractionsRequest:
+    properties:
+      enabled:
+        type: boolean
+    type: object
+  api.liveSetMessageRequest:
+    properties:
+      message:
+        type: string
+    type: object
+  api.liveSetNamesHiddenRequest:
+    properties:
+      hidden:
+        type: boolean
+    type: object
+  api.liveSetPresentDensityModeRequest:
+    properties:
+      mode:
+        type: string
+    type: object
+  api.liveSetQuestionRequest:
+    properties:
+      questionId:
+        type: string
+    type: object
+  api.liveSnapshotDTO:
+    properties:
+      answersHidden:
+        type: boolean
+      blanked:
+        type: boolean
+      currentQuestionId:
+        type: string
+      eventTitle:
+        type: string
+      groups:
+        items:
+          $ref: '#/definitions/api.liveGroupDTO'
+        type: array
+      interactionsEnabled:
+        type: boolean
+      message:
+        type: string
+      namesHidden:
+        type: boolean
+      pending:
+        items:
+          $ref: '#/definitions/api.liveParticipantDTO'
+        type: array
+      presentDensityMode:
+        description: |-
+          PresentDensityMode escolhe colunas × escala do placar de respostas em
+          PresentationStage.svelte — ver live.EventState.PresentDensityMode.
+        type: string
+      questions:
+        items:
+          $ref: '#/definitions/api.liveQuestionDTO'
+        type: array
+    type: object
+  api.liveSubmitQARequest:
+    properties:
+      clientId:
+        description: |-
+          ClientID identifica o navegador que mandou (UUID persistido pelo
+          frontend) — é o que permite a própria pessoa remover a pergunta depois.
+        type: string
+      text:
+        type: string
+    type: object
+  api.loginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  api.okResponse:
+    properties:
+      ok:
+        type: boolean
+    type: object
+  api.participantResponseDTO:
+    properties:
+      answers:
+        items:
+          $ref: '#/definitions/api.answerDTO'
+        type: array
+      createdAt:
+        type: string
+      editToken:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      photo:
+        type: string
+    type: object
+  api.pinResolvidoResponse:
+    properties:
+      id:
+        type: string
+    type: object
+  api.publicAnswerDTO:
+    properties:
+      optionId:
+        type: string
+      questionId:
+        type: string
+      text:
+        type: string
+    type: object
+  api.publicEventDTO:
+    properties:
+      allowEdit:
+        type: boolean
+      answersOpen:
+        type: boolean
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  api.publicOptionDTO:
+    properties:
+      id:
+        type: string
+      text:
+        type: string
+    type: object
+  api.publicParticipantDTO:
+    properties:
+      answers:
+        items:
+          $ref: '#/definitions/api.publicAnswerDTO'
+        type: array
+      email:
+        type: string
+      name:
+        type: string
+      photo:
+        type: string
+    type: object
+  api.publicQuestionDTO:
+    properties:
+      id:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/api.publicOptionDTO'
+        type: array
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  api.publicoEventoResponse:
+    properties:
+      event:
+        $ref: '#/definitions/api.publicEventDTO'
+      questions:
+        items:
+          $ref: '#/definitions/api.publicQuestionDTO'
+        type: array
+    type: object
+  api.publicoParticipanteEnvelope:
+    properties:
+      participant:
+        $ref: '#/definitions/api.publicParticipantDTO'
+    type: object
+  api.questionDTO:
+    properties:
+      eventId:
+        type: string
+      id:
+        type: string
+      layoutView:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/api.questionOptionDTO'
+        type: array
+      orderIndex:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  api.questionEnvelope:
+    properties:
+      question:
+        $ref: '#/definitions/api.questionDTO'
+    type: object
+  api.questionOptionDTO:
+    properties:
+      id:
+        type: string
+      text:
+        type: string
+    type: object
+  api.questionsEnvelope:
+    properties:
+      questions:
+        items:
+          $ref: '#/definitions/api.questionDTO'
+        type: array
+    type: object
+  api.redefinirSenhaRequest:
+    properties:
+      novaSenha:
+        type: string
+      token:
+        type: string
+    type: object
+  api.registerRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  api.removerPerguntaAoVivoRequest:
+    properties:
+      clientId:
+        type: string
+    type: object
+  api.reorderQuestionsRequest:
+    properties:
+      questionIds:
+        items:
+          type: string
+        type: array
+    type: object
+  api.respostasEnvelope:
+    properties:
+      participantCount:
+        type: integer
+      participants:
+        items:
+          $ref: '#/definitions/api.participantResponseDTO'
+        type: array
+    type: object
+  api.submitAnswerRequest:
+    properties:
+      optionId:
+        type: string
+      questionId:
+        type: string
+      text:
+        type: string
+    type: object
+  api.submitRequest:
+    properties:
+      answers:
+        items:
+          $ref: '#/definitions/api.submitAnswerRequest'
+        type: array
+      editToken:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      photo:
+        type: string
+    type: object
+  api.trocarSenhaRequest:
+    properties:
+      novaSenha:
+        type: string
+    type: object
+  api.updateAdminConfigRequest:
+    properties:
+      registrationEnabled:
+        type: boolean
+    type: object
+  api.updateAnswerRequest:
+    properties:
+      optionId:
+        type: string
+      text:
+        type: string
+    type: object
+  api.updateEventRequest:
+    properties:
+      allowEdit:
+        type: boolean
+      configShowRanking:
+        type: boolean
+      pinCode:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  api.updateParticipantPhotoRequest:
+    properties:
+      photo:
+        type: string
+    type: object
+  api.updateQuestionRequest:
+    properties:
+      options:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  api.userDTO:
+    properties:
+      authProvider:
+        type: string
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  api.userEnvelope:
+    properties:
+      user:
+        $ref: '#/definitions/api.userDTO'
+    type: object
+  api.validTokenResponse:
+    properties:
+      valid:
+        type: boolean
+    type: object
+info:
+  contact: {}
+  description: |-
+    API REST do Arandu (coleta de respostas, apresentação ao vivo e administração de eventos) — as mesmas rotas usadas pelo frontend embutido, prontas para chamar diretamente e criar/gerenciar recursos por API.
+
+    Autenticação de organizador (cookieAuth): faça login em outra aba pelo próprio app (POST /api/conta/entrar) — o cookie de sessão é httpOnly, então não dá para colá-lo aqui manualmente, mas o navegador o envia sozinho nas chamadas desta página por estarem na mesma origem.
+    Visitante ao vivo (liveViewerToken): obtenha o token em POST /api/publico/eventos/{id}/ao-vivo/entrar e cole em "Authorize" — o Swagger UI passa a anexar "?token=" nas chamadas das rotas públicas de ao-vivo.
+  license:
+    name: Uso interno
+  title: Arandu API
+  version: "1.0"
+paths:
+  /api/admin/configuracoes:
+    get:
+      description: Somente super admin. Hoje só tem o toggle de cadastro aberto.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.adminConfigResponse'
+        "403":
+          description: acesso restrito ao super admin
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Configurações administrativas
+      tags:
+      - admin
+    patch:
+      consumes:
+      - application/json
+      description: Somente super admin. Liga/desliga o cadastro de novas contas organizadoras.
+      parameters:
+      - description: Nova configuração
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateAdminConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.adminConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "403":
+          description: acesso restrito ao super admin
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Atualiza configurações administrativas
+      tags:
+      - admin
+  /api/admin/eventos:
+    get:
+      description: Somente super admin.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.adminEventsResponse'
+        "403":
+          description: acesso restrito ao super admin
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Lista todos os eventos, de todos os organizadores
+      tags:
+      - admin
+  /api/admin/usuarios:
+    get:
+      description: Somente super admin — cada usuário vem com sua contagem de eventos.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.adminUsersResponse'
+        "403":
+          description: acesso restrito ao super admin
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Lista todos os usuários
+      tags:
+      - admin
+  /api/admin/usuarios/{id}:
+    delete:
+      description: Somente super admin. Quem está agindo não pode se auto-excluir
+        por aqui.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: auto-exclusão bloqueada
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "403":
+          description: acesso restrito ao super admin
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Exclui um usuário (e seus eventos)
+      tags:
+      - admin
+  /api/admin/usuarios/{id}/link-redefinicao:
+    post:
+      description: Somente super admin. Token de uso único, válido por 1h — o admin
+        copia e envia por fora (o app não envia nada); gerar de novo invalida o anterior.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.adminResetLinkResponse'
+        "403":
+          description: acesso restrito ao super admin
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Gera um link de redefinição de senha para um usuário
+      tags:
+      - admin
+  /api/conta/configuracao:
+    get:
+      description: Tamanho mínimo de senha e se o cadastro de novas contas está aberto
+        — checado por /criar-conta antes de mostrar o formulário.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.contaConfiguracaoResponse'
+      summary: Configuração pública de conta
+      tags:
+      - conta
+  /api/conta/criar-conta:
+    post:
+      consumes:
+      - application/json
+      description: Cria a conta e já abre sessão (cookie). Falha se o cadastro estiver
+        desativado (GET /api/conta/configuracao) ou o e-mail já existir.
+      parameters:
+      - description: Nome, e-mail e senha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.registerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.userEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "403":
+          description: cadastro desativado
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "409":
+          description: e-mail já cadastrado
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Cria uma conta de organizador
+      tags:
+      - conta
+  /api/conta/entrar:
+    post:
+      consumes:
+      - application/json
+      description: Autentica por e-mail e senha e abre sessão (cookie httpOnly).
+      parameters:
+      - description: E-mail e senha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.userEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "401":
+          description: e-mail ou senha inválidos
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Login de organizador
+      tags:
+      - conta
+  /api/conta/eu:
+    get:
+      description: Devolve quem está logado nesta sessão — usado pelo frontend pra
+        saber se/quem está autenticado ao carregar.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.userEnvelope'
+        "401":
+          description: sessão inválida
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Organizador autenticado
+      tags:
+      - conta
+  /api/conta/sair:
+    post:
+      responses:
+        "204":
+          description: sessão encerrada
+      summary: Logout do organizador
+      tags:
+      - conta
+  /api/conta/trocar-senha:
+    post:
+      consumes:
+      - application/json
+      description: Não pede a senha atual — quem está autenticado já pode trocar.
+      parameters:
+      - description: Nova senha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.trocarSenhaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Troca a senha do organizador logado
+      tags:
+      - conta
+  /api/eventos:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.eventsEnvelope'
+      security:
+      - cookieAuth: []
+      summary: Lista os eventos do organizador autenticado
+      tags:
+      - eventos
+    post:
+      consumes:
+      - application/json
+      description: Sem pinCode, gera um PIN numérico de 6 dígitos automaticamente.
+      parameters:
+      - description: Título e (opcional) PIN
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.createEventRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.eventEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "409":
+          description: PIN em uso
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Cria um evento
+      tags:
+      - eventos
+  /api/eventos/{id}:
+    delete:
+      description: Dono do evento ou super admin. Apaga em cascata perguntas, participantes
+        e respostas.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Exclui um evento
+      tags:
+      - eventos
+    get:
+      description: Dono do evento ou super admin — qualquer outro recebe 404 (não
+        revela que o evento existe).
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.eventEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Busca um evento por ID
+      tags:
+      - eventos
+    patch:
+      consumes:
+      - application/json
+      description: Dono do evento ou super admin. status aceita "" (mantém), OPEN_FOR_ANSWERS
+        ou CLOSED_FOR_ANSWERS.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Campos a atualizar
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.eventEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "409":
+          description: PIN em uso
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Atualiza um evento
+      tags:
+      - eventos
+  /api/eventos/{id}/ao-vivo/apresentacao/estado:
+    get:
+      description: Mesmo formato que a plateia vê (pergunta atual, pendentes, grupos
+        revelados), mas restrito ao dono do evento — alimenta a janela "Modo apresentação".
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.liveSnapshotDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Snapshot do estado de apresentação, para o organizador (sem SSE)
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/apresentacao/fluxo:
+    get:
+      description: Server-Sent Events, mesmo formato de GET /ao-vivo/fluxo (público)
+        mas autenticado — não requer PIN nem token de visitante. Não dá pra "experimentar"
+        pelo Swagger UI (conexão fica aberta); consuma com EventSource.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.liveSnapshotDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Stream (SSE) do estado de apresentação, para o organizador
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/em-branco:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: blanked
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSetBlankedRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Liga/desliga a tela em branco na apresentação
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/estado:
+    get:
+      description: 'Equivalente sem streaming de GET /ao-vivo/fluxo — útil pra buscar
+        o estado uma vez (ex: testes, fallback de polling).'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.liveAdminSnapshotDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Snapshot administrativo do estado ao vivo (sem SSE)
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/fluxo:
+    get:
+      description: 'Server-Sent Events: um frame liveAdminSnapshotDTO ao conectar,
+        de novo a cada mudança, e um heartbeat a cada 15s. Não é uma chamada request/response
+        comum — não dá pra "experimentar" pelo Swagger UI (a conexão fica aberta);
+        consuma com EventSource no navegador ou um cliente HTTP que aceite streaming.'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.liveAdminSnapshotDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Stream (SSE) do estado ao vivo administrativo
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/interacoes:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: enabled
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSetInteractionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Liga/desliga as interações da plateia (reações e Q&A)
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/mensagem:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: message
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSetMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Define (ou limpa, com message vazio) o aviso mostrado na apresentação
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/modo-densidade:
+    post:
+      consumes:
+      - application/json
+      description: 'mode: "" ou "modo_amplo" (padrão, maior escala possível), "modo_compacto"
+        (menor nº de colunas que cabe), ou "1".."4" (força o nº de colunas).'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: mode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSetPresentDensityModeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Define o modo de densidade do placar de respostas
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/ocultar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Pergunta e participante
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveRevealRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Desfaz a revelação de um participante na pergunta atual
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/ocultar-nomes:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: hidden
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSetNamesHiddenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Liga/desliga a legenda de nome sob cada rosto na apresentação
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/ocultar-respostas:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: hidden
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSetAnswersHiddenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Liga/desliga a ocultação das respostas na apresentação
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/pergunta:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da pergunta
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSetQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Define a pergunta atual da apresentação
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/perguntas/{messageId}/dispensar:
+    post:
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da mensagem de Q&A
+        in: path
+        name: messageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Dispensa (arquiva) uma mensagem de Q&A da caixa de entrada do organizador
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/reiniciar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da pergunta
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveResetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Reinicia a revelação de uma pergunta (volta todos a pendente)
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/reiniciar-tudo:
+    post:
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Reinicia a revelação de TODAS as perguntas do evento
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/revelar:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Pergunta e participante
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveRevealRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Revela a resposta de um participante na pergunta atual
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/ao-vivo/revelar-todos:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da pergunta
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveRevealAllRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Revela todos os participantes pendentes na pergunta atual
+      tags:
+      - ao-vivo (admin)
+  /api/eventos/{id}/perguntas:
+    get:
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.questionsEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Lista as perguntas de um evento
+      tags:
+      - perguntas
+    post:
+      consumes:
+      - application/json
+      description: 'type: GROUP ou INDIVIDUAL (opções, min. 2 pra GROUP) ou OPEN_TEXT
+        (sem opções). layoutView: TIMELINE, DUAL, CLOUD ou CENTER (default TIMELINE).'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Pergunta
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.createQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.questionEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Cria uma pergunta no evento
+      tags:
+      - perguntas
+  /api/eventos/{id}/perguntas/{questionId}:
+    delete:
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da pergunta
+        in: path
+        name: questionId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: removida
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Remove uma pergunta
+      tags:
+      - perguntas
+    patch:
+      consumes:
+      - application/json
+      description: O tipo (GROUP/INDIVIDUAL/OPEN_TEXT) não muda depois de criada —
+        só título e opções.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da pergunta
+        in: path
+        name: questionId
+        required: true
+        type: string
+      - description: Novo título/opções
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.questionEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Atualiza o título/opções de uma pergunta
+      tags:
+      - perguntas
+  /api/eventos/{id}/perguntas/ordem:
+    put:
+      consumes:
+      - application/json
+      description: questionIds deve conter TODAS as perguntas do evento, na nova ordem
+        desejada.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: IDs das perguntas na nova ordem
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.reorderQuestionsRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: reordenado
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Reordena as perguntas do evento
+      tags:
+      - perguntas
+  /api/eventos/{id}/respostas:
+    get:
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.respostasEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Lista os participantes e suas respostas
+      tags:
+      - respostas
+  /api/eventos/{id}/respostas/{participantId}/foto:
+    patch:
+      consumes:
+      - application/json
+      description: Feito pelo organizador. photo é um data URL "data:image/..."; vazio
+        remove a foto.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID do participante
+        in: path
+        name: participantId
+        required: true
+        type: string
+      - description: Foto (data URL)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateParticipantPhotoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Define/corrige a foto de um participante
+      tags:
+      - respostas
+  /api/eventos/{id}/respostas/{participantId}/resposta/{questionId}:
+    patch:
+      consumes:
+      - application/json
+      description: Edição feita pelo organizador (não pelo próprio participante).
+        optionId para GROUP/INDIVIDUAL, text para OPEN_TEXT.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID do participante
+        in: path
+        name: participantId
+        required: true
+        type: string
+      - description: ID da pergunta
+        in: path
+        name: questionId
+        required: true
+        type: string
+      - description: Nova resposta
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateAnswerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - cookieAuth: []
+      summary: Corrige a resposta de um participante a uma pergunta
+      tags:
+      - respostas
+  /api/fotos/{participantId}:
+    get:
+      description: Público (a foto já aparece na apresentação). Primeira chamada materializa
+        o arquivo a partir do banco; as seguintes servem direto do disco com cache.
+      parameters:
+      - description: ID do participante
+        in: path
+        name: participantId
+        required: true
+        type: string
+      produces:
+      - image/png
+      - image/jpeg
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: sem foto
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Serve a foto de um participante
+      tags:
+      - fotos
+  /api/publico/eventos/{id}:
+    get:
+      description: Público, sem sessão — usado por /responder/{id} antes de enviar
+        as respostas.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.publicoEventoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Busca um evento e suas perguntas (visão pública)
+      tags:
+      - publico
+  /api/publico/eventos/{id}/ao-vivo/entrar:
+    post:
+      consumes:
+      - application/json
+      description: Público, sem sessão. PIN errado nunca autoriza. E-mail de quem
+        já respondeu vira "participant"; e-mail em branco ou de quem não respondeu
+        vira "observer" (só assiste). O token devolvido é usado como "?token=" nas
+        demais rotas /ao-vivo/* públicas.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: PIN e e-mail (opcional)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveJoinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.liveEntrarResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "401":
+          description: PIN inválido
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Entra na apresentação ao vivo com PIN (+ e-mail opcional)
+      tags:
+      - ao-vivo (público)
+  /api/publico/eventos/{id}/ao-vivo/estado:
+    get:
+      description: Equivalente sem streaming de GET /ao-vivo/fluxo (público).
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token de visitante
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.liveSnapshotDTO'
+        "401":
+          description: sessão inválida
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - liveViewerToken: []
+      summary: Snapshot público do estado ao vivo (sem SSE)
+      tags:
+      - ao-vivo (público)
+  /api/publico/eventos/{id}/ao-vivo/fluxo:
+    get:
+      description: "Server-Sent Events: um frame liveSnapshotDTO ao conectar, de novo
+        a cada mudança, e um heartbeat a cada 15s. Também emite eventos nomeados \"reaction\"
+        (\\{\"emoji\":\"\U0001F44D\"\\}) para reações ao vivo. Não dá pra \"experimentar\"
+        pelo Swagger UI (conexão fica aberta); consuma com EventSource no navegador."
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token de visitante
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.liveSnapshotDTO'
+        "401":
+          description: sessão inválida
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - liveViewerToken: []
+      summary: Stream (SSE) do estado ao vivo, para participantes/observadores
+      tags:
+      - ao-vivo (público)
+  /api/publico/eventos/{id}/ao-vivo/perguntas:
+    post:
+      consumes:
+      - application/json
+      description: Fica só na caixa privada do organizador — nunca aparece pra outros
+        participantes. clientId (opcional) permite remover a própria mensagem depois.
+        Exige interações habilitadas no evento.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token de visitante
+        in: query
+        name: token
+        required: true
+        type: string
+      - description: Mensagem
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveSubmitQARequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.enviarPerguntaAoVivoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "401":
+          description: sessão inválida
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "403":
+          description: interações desativadas
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - liveViewerToken: []
+      summary: Envia uma pergunta/recado para a caixa de Q&A do organizador
+      tags:
+      - ao-vivo (público)
+  /api/publico/eventos/{id}/ao-vivo/perguntas/{messageId}:
+    delete:
+      consumes:
+      - application/json
+      description: 'Só quem enviou pode remover: o clientId do corpo precisa bater
+        com o clientId salvo no envio.'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da mensagem de Q&A
+        in: path
+        name: messageId
+        required: true
+        type: string
+      - description: Token de visitante
+        in: query
+        name: token
+        required: true
+        type: string
+      - description: clientId de quem enviou
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.removerPerguntaAoVivoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - liveViewerToken: []
+      summary: Remove a própria pergunta/recado de Q&A
+      tags:
+      - ao-vivo (público)
+  /api/publico/eventos/{id}/ao-vivo/reagir:
+    post:
+      consumes:
+      - application/json
+      description: "emoji precisa ser um dos permitidos: \U0001F44D ❤️ \U0001F602
+        \U0001F389 \U0001F44F. Exige interações habilitadas no evento."
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token de visitante
+        in: query
+        name: token
+        required: true
+        type: string
+      - description: emoji
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.liveReactRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "401":
+          description: sessão inválida
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "403":
+          description: interações desativadas
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      security:
+      - liveViewerToken: []
+      summary: Manda uma reação de emoji (efêmera, não grava no banco)
+      tags:
+      - ao-vivo (público)
+  /api/publico/eventos/{id}/enviar:
+    post:
+      consumes:
+      - application/json
+      description: Público, sem sessão. Sem editToken, identifica por e-mail (cria
+        um novo participante, ou falha se o evento não permitir reenvio). Com editToken,
+        edita as respostas já enviadas — exige allowEdit habilitado no evento. answers
+        deve cobrir todas as perguntas do evento.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Identificação + respostas
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.submitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.enviarRespostasResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "403":
+          description: respostas fechadas, edição desabilitada, ou já respondeu
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Envia (ou edita) as respostas de um participante
+      tags:
+      - publico
+  /api/publico/eventos/{id}/participante:
+    get:
+      description: Público, sem sessão — o token é o único segredo que autoriza. Usado
+        para pré-preencher o formulário quando a pessoa volta para editar.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token do link de edição
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.publicoParticipanteEnvelope'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: link inválido ou expirado
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Busca as respostas de um participante pelo link de edição
+      tags:
+      - publico
+  /api/publico/eventos/por-pin:
+    get:
+      description: Público, sem sessão. Usado pela tela inicial antes de avançar para
+        /responder/{id} ou /plateia/{id}.
+      parameters:
+      - description: PIN do evento
+        in: query
+        name: pin
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.pinResolvidoResponse'
+        "404":
+          description: código não encontrado
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Resolve o ID de um evento a partir do PIN
+      tags:
+      - publico
+  /api/publico/redefinir-senha:
+    get:
+      description: Público, sem sessão. Usado por /redefinir-senha antes de mostrar
+        o formulário de nova senha.
+      parameters:
+      - description: Token do link gerado pelo super admin
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.validTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+        "404":
+          description: link inválido ou expirado
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Valida um link de redefinição de senha
+      tags:
+      - conta
+    post:
+      consumes:
+      - application/json
+      description: Público, sem sessão. O token é de uso único e expira em 1h.
+      parameters:
+      - description: Token e nova senha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.redefinirSenhaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.okResponse'
+        "400":
+          description: link inválido/expirado ou senha fora das regras
+          schema:
+            $ref: '#/definitions/api.errorResponse'
+      summary: Define uma nova senha a partir do link de redefinição
+      tags:
+      - conta
+securityDefinitions:
+  cookieAuth:
+    in: header
+    name: Cookie
+    type: apiKey
+  liveViewerToken:
+    in: query
+    name: token
+    type: apiKey
+swagger: "2.0"

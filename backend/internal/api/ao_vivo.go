@@ -42,6 +42,19 @@ type liveSetQuestionRequest struct {
 	QuestionID string `json:"questionId"`
 }
 
+// handleAoVivoDefinirPergunta godoc
+//
+// @Summary     Define a pergunta atual da apresentação
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                 true "ID do evento"
+// @Param       body body liveSetQuestionRequest true "ID da pergunta"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/pergunta [post]
 func (a *API) handleAoVivoDefinirPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -71,6 +84,19 @@ type liveRevealRequest struct {
 	ParticipantID string `json:"participantId"`
 }
 
+// handleAoVivoRevelar godoc
+//
+// @Summary     Revela a resposta de um participante na pergunta atual
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                true "ID do evento"
+// @Param       body body liveRevealRequest      true "Pergunta e participante"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/revelar [post]
 func (a *API) handleAoVivoRevelar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -96,6 +122,19 @@ func (a *API) handleAoVivoRevelar(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// handleAoVivoOcultar godoc
+//
+// @Summary     Desfaz a revelação de um participante na pergunta atual
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string           true "ID do evento"
+// @Param       body body liveRevealRequest true "Pergunta e participante"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/ocultar [post]
 func (a *API) handleAoVivoOcultar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -125,6 +164,19 @@ type liveRevealAllRequest struct {
 	QuestionID string `json:"questionId"`
 }
 
+// handleAoVivoRevelarTodos godoc
+//
+// @Summary     Revela todos os participantes pendentes na pergunta atual
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                  true "ID do evento"
+// @Param       body body liveRevealAllRequest    true "ID da pergunta"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/revelar-todos [post]
 func (a *API) handleAoVivoRevelarTodos(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -163,6 +215,19 @@ type liveResetRequest struct {
 	QuestionID string `json:"questionId"`
 }
 
+// handleAoVivoReiniciar godoc
+//
+// @Summary     Reinicia a revelação de uma pergunta (volta todos a pendente)
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string             true "ID do evento"
+// @Param       body body liveResetRequest   true "ID da pergunta"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/reiniciar [post]
 func (a *API) handleAoVivoReiniciar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -189,6 +254,17 @@ func (a *API) handleAoVivoReiniciar(w http.ResponseWriter, r *http.Request) {
 
 // handleAoVivoReiniciarTudo limpa a revelação de todas as perguntas do evento de
 // uma vez — botão "Reiniciar tudo" em /stage.
+// handleAoVivoReiniciarTudo godoc
+//
+// @Summary     Reinicia a revelação de TODAS as perguntas do evento
+// @Tags        ao-vivo (admin)
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/reiniciar-tudo [post]
 func (a *API) handleAoVivoReiniciarTudo(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -207,6 +283,19 @@ type liveSetBlankedRequest struct {
 	Blanked bool `json:"blanked"`
 }
 
+// handleAoVivoDefinirEmBranco godoc
+//
+// @Summary     Liga/desliga a tela em branco na apresentação
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                  true "ID do evento"
+// @Param       body body liveSetBlankedRequest   true "blanked"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/em-branco [post]
 func (a *API) handleAoVivoDefinirEmBranco(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -230,6 +319,19 @@ type liveSetAnswersHiddenRequest struct {
 	Hidden bool `json:"hidden"`
 }
 
+// handleAoVivoOcultarRespostas godoc
+//
+// @Summary     Liga/desliga a ocultação das respostas na apresentação
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                       true "ID do evento"
+// @Param       body body liveSetAnswersHiddenRequest  true "hidden"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/ocultar-respostas [post]
 func (a *API) handleAoVivoOcultarRespostas(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -257,6 +359,19 @@ type liveSetNamesHiddenRequest struct {
 // janela de apresentação (/stage/{id}/present) e na tela da plateia
 // (/audience/{id}) — o painel do organizador (/stage) sempre mostra os
 // nomes, esse switch não afeta ele.
+// handleAoVivoOcultarNomes godoc
+//
+// @Summary     Liga/desliga a legenda de nome sob cada rosto na apresentação
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                     true "ID do evento"
+// @Param       body body liveSetNamesHiddenRequest  true "hidden"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/ocultar-nomes [post]
 func (a *API) handleAoVivoOcultarNomes(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -295,6 +410,20 @@ var validPresentDensityModes = map[string]bool{
 // janela de apresentação (/stage/{id}/present) quanto na tela pública
 // (/audience/{id}), já que as duas leem o mesmo snapshot (buildLiveSnapshot).
 // Escolhido pelos botões no rodapé de /stage.
+// handleAoVivoDefinirModoDensidade godoc
+//
+// @Summary     Define o modo de densidade do placar de respostas
+// @Description mode: "" ou "modo_amplo" (padrão, maior escala possível), "modo_compacto" (menor nº de colunas que cabe), ou "1".."4" (força o nº de colunas).
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                            true "ID do evento"
+// @Param       body body liveSetPresentDensityModeRequest  true "mode"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/modo-densidade [post]
 func (a *API) handleAoVivoDefinirModoDensidade(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -322,6 +451,19 @@ type liveSetMessageRequest struct {
 	Message string `json:"message"`
 }
 
+// handleAoVivoDefinirMensagem godoc
+//
+// @Summary     Define (ou limpa, com message vazio) o aviso mostrado na apresentação
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                true "ID do evento"
+// @Param       body body liveSetMessageRequest  true "message"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/mensagem [post]
 func (a *API) handleAoVivoDefinirMensagem(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -350,6 +492,19 @@ type liveSetInteractionsRequest struct {
 	Enabled bool `json:"enabled"`
 }
 
+// handleAoVivoDefinirInteracoes godoc
+//
+// @Summary     Liga/desliga as interações da plateia (reações e Q&A)
+// @Tags        ao-vivo (admin)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string                       true "ID do evento"
+// @Param       body body liveSetInteractionsRequest  true "enabled"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/interacoes [post]
 func (a *API) handleAoVivoDefinirInteracoes(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -369,6 +524,18 @@ func (a *API) handleAoVivoDefinirInteracoes(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// handleAoVivoDispensarPergunta godoc
+//
+// @Summary     Dispensa (arquiva) uma mensagem de Q&A da caixa de entrada do organizador
+// @Tags        ao-vivo (admin)
+// @Produce     json
+// @Param       id        path string true "ID do evento"
+// @Param       messageId path string true "ID da mensagem de Q&A"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/perguntas/{messageId}/dispensar [post]
 func (a *API) handleAoVivoDispensarPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -407,6 +574,22 @@ func (a *API) handleAoVivoDispensarPergunta(w http.ResponseWriter, r *http.Reque
 // pelo frontend) e a mensagem só é removida se o clientId bater e pertencer
 // ao evento da URL. Qualquer divergência responde "não encontrada" pra não
 // revelar a existência da mensagem a terceiros.
+// handleAoVivoRemoverPergunta godoc
+//
+// @Summary     Remove a própria pergunta/recado de Q&A
+// @Description Só quem enviou pode remover: o clientId do corpo precisa bater com o clientId salvo no envio.
+// @Tags        ao-vivo (público)
+// @Accept      json
+// @Produce     json
+// @Param       id        path  string                                    true "ID do evento"
+// @Param       messageId path  string                                    true "ID da mensagem de Q&A"
+// @Param       token     query string                                    true "Token de visitante"
+// @Param       body      body  removerPerguntaAoVivoRequest              true "clientId de quem enviou"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    liveViewerToken
+// @Router      /api/publico/eventos/{id}/ao-vivo/perguntas/{messageId} [delete]
 func (a *API) handleAoVivoRemoverPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {
@@ -459,6 +642,18 @@ func (a *API) handleAoVivoRemoverPergunta(w http.ResponseWriter, r *http.Request
 // handleAoVivoEstadoAdmin é o equivalente autenticado de handleAoVivoEstado — deixa
 // buscar o snapshot do organizador sem abrir SSE (útil pra testes e como
 // fallback), espelhando o par state/stream que já existe pro público.
+// handleAoVivoEstadoAdmin godoc
+//
+// @Summary     Snapshot administrativo do estado ao vivo (sem SSE)
+// @Description Equivalente sem streaming de GET /ao-vivo/fluxo — útil pra buscar o estado uma vez (ex: testes, fallback de polling).
+// @Tags        ao-vivo (admin)
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} liveAdminSnapshotDTO
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/estado [get]
 func (a *API) handleAoVivoEstadoAdmin(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -476,6 +671,18 @@ func (a *API) handleAoVivoEstadoAdmin(w http.ResponseWriter, r *http.Request) {
 // handleAoVivoFluxoAdmin espelha handleAoVivoFluxo, mas pro organizador
 // autenticado: snapshot administrativo (inclui a caixa de Q&A privada) + a
 // mesma fila de reações ao vivo que os participantes veem.
+// handleAoVivoFluxoAdmin godoc
+//
+// @Summary     Stream (SSE) do estado ao vivo administrativo
+// @Description Server-Sent Events: um frame liveAdminSnapshotDTO ao conectar, de novo a cada mudança, e um heartbeat a cada 15s. Não é uma chamada request/response comum — não dá pra "experimentar" pelo Swagger UI (a conexão fica aberta); consuma com EventSource no navegador ou um cliente HTTP que aceite streaming.
+// @Tags        ao-vivo (admin)
+// @Produce     text/event-stream
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} liveAdminSnapshotDTO
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/fluxo [get]
 func (a *API) handleAoVivoFluxoAdmin(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -491,6 +698,18 @@ func (a *API) handleAoVivoFluxoAdmin(w http.ResponseWriter, r *http.Request) {
 // a plateia vê, mas restrito ao dono do evento — sem PIN nem token de
 // visitante. Alimenta a janela "Modo apresentação", que só o organizador
 // pode abrir.
+// handleAoVivoEstadoApresentacao godoc
+//
+// @Summary     Snapshot do estado de apresentação, para o organizador (sem SSE)
+// @Description Mesmo formato que a plateia vê (pergunta atual, pendentes, grupos revelados), mas restrito ao dono do evento — alimenta a janela "Modo apresentação".
+// @Tags        ao-vivo (admin)
+// @Produce     json
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} liveSnapshotDTO
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/apresentacao/estado [get]
 func (a *API) handleAoVivoEstadoApresentacao(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -508,6 +727,18 @@ func (a *API) handleAoVivoEstadoApresentacao(w http.ResponseWriter, r *http.Requ
 // handleAoVivoFluxoApresentacao espelha handleAoVivoFluxo (mesmo snapshot,
 // atualizado a cada mudança), mas autenticado pro dono do evento — a janela
 // de apresentação não tem token de visitante nem PIN.
+// handleAoVivoFluxoApresentacao godoc
+//
+// @Summary     Stream (SSE) do estado de apresentação, para o organizador
+// @Description Server-Sent Events, mesmo formato de GET /ao-vivo/fluxo (público) mas autenticado — não requer PIN nem token de visitante. Não dá pra "experimentar" pelo Swagger UI (conexão fica aberta); consuma com EventSource.
+// @Tags        ao-vivo (admin)
+// @Produce     text/event-stream
+// @Param       id path string true "ID do evento"
+// @Success     200 {object} liveSnapshotDTO
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/ao-vivo/apresentacao/fluxo [get]
 func (a *API) handleAoVivoFluxoApresentacao(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := a.resolveEventOwner(w, r)
 	if !ok {
@@ -529,6 +760,20 @@ type liveJoinRequest struct {
 // opcionalmente, e-mail. PIN errado nunca autoriza. Com o PIN certo: e-mail
 // de quem já respondeu vira "participante"; e-mail em branco (entrada como
 // convidado) ou de quem não respondeu vira "observador" (só assiste).
+// handleAoVivoEntrar godoc
+//
+// @Summary     Entra na apresentação ao vivo com PIN (+ e-mail opcional)
+// @Description Público, sem sessão. PIN errado nunca autoriza. E-mail de quem já respondeu vira "participant"; e-mail em branco ou de quem não respondeu vira "observer" (só assiste). O token devolvido é usado como "?token=" nas demais rotas /ao-vivo/* públicas.
+// @Tags        ao-vivo (público)
+// @Accept      json
+// @Produce     json
+// @Param       id   path string             true "ID do evento"
+// @Param       body body liveJoinRequest    true "PIN e e-mail (opcional)"
+// @Success     200 {object} liveEntrarResponse
+// @Failure     400 {object} errorResponse
+// @Failure     401 {object} errorResponse "PIN inválido"
+// @Failure     404 {object} errorResponse
+// @Router      /api/publico/eventos/{id}/ao-vivo/entrar [post]
 func (a *API) handleAoVivoEntrar(w http.ResponseWriter, r *http.Request) {
 	eventID, ok := parseEventID(w, r)
 	if !ok {
@@ -596,6 +841,22 @@ type liveReactRequest struct {
 // handleAoVivoReagir transmite uma reação de emoji pra quem estiver assistindo
 // (participantes + organizador), sem gravar nada no banco — é efêmera por
 // decisão de produto.
+// handleAoVivoReagir godoc
+//
+// @Summary     Manda uma reação de emoji (efêmera, não grava no banco)
+// @Description emoji precisa ser um dos permitidos: 👍 ❤️ 😂 🎉 👏. Exige interações habilitadas no evento.
+// @Tags        ao-vivo (público)
+// @Accept      json
+// @Produce     json
+// @Param       id    path  string           true "ID do evento"
+// @Param       token query string           true "Token de visitante"
+// @Param       body  body  liveReactRequest true "emoji"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     401 {object} errorResponse "sessão inválida"
+// @Failure     403 {object} errorResponse "interações desativadas"
+// @Security    liveViewerToken
+// @Router      /api/publico/eventos/{id}/ao-vivo/reagir [post]
 func (a *API) handleAoVivoReagir(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {
@@ -634,6 +895,22 @@ type liveSubmitQARequest struct {
 // handleAoVivoEnviarPergunta grava uma pergunta/recado de um participante pro
 // organizador. Fica só na caixa de entrada privada do organizador — nunca é
 // exposta a outros participantes nem no snapshot público.
+// handleAoVivoEnviarPergunta godoc
+//
+// @Summary     Envia uma pergunta/recado para a caixa de Q&A do organizador
+// @Description Fica só na caixa privada do organizador — nunca aparece pra outros participantes. clientId (opcional) permite remover a própria mensagem depois. Exige interações habilitadas no evento.
+// @Tags        ao-vivo (público)
+// @Accept      json
+// @Produce     json
+// @Param       id    path  string             true "ID do evento"
+// @Param       token query string             true "Token de visitante"
+// @Param       body  body  liveSubmitQARequest true "Mensagem"
+// @Success     200 {object} enviarPerguntaAoVivoResponse
+// @Failure     400 {object} errorResponse
+// @Failure     401 {object} errorResponse "sessão inválida"
+// @Failure     403 {object} errorResponse "interações desativadas"
+// @Security    liveViewerToken
+// @Router      /api/publico/eventos/{id}/ao-vivo/perguntas [post]
 func (a *API) handleAoVivoEnviarPergunta(w http.ResponseWriter, r *http.Request) {
 	eventID, claims, ok := a.resolveLiveViewer(w, r)
 	if !ok {
@@ -715,6 +992,18 @@ func (a *API) resolveLiveViewer(w http.ResponseWriter, r *http.Request) (int64, 
 	return eventID, claims, true
 }
 
+// handleAoVivoEstado godoc
+//
+// @Summary     Snapshot público do estado ao vivo (sem SSE)
+// @Description Equivalente sem streaming de GET /ao-vivo/fluxo (público).
+// @Tags        ao-vivo (público)
+// @Produce     json
+// @Param       id    path  string true "ID do evento"
+// @Param       token query string true "Token de visitante"
+// @Success     200 {object} liveSnapshotDTO
+// @Failure     401 {object} errorResponse "sessão inválida"
+// @Security    liveViewerToken
+// @Router      /api/publico/eventos/{id}/ao-vivo/estado [get]
 func (a *API) handleAoVivoEstado(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {
@@ -731,6 +1020,18 @@ func (a *API) handleAoVivoEstado(w http.ResponseWriter, r *http.Request) {
 
 // handleAoVivoFluxo mantém uma conexão SSE aberta, mandando o snapshot atual
 // assim que conecta e de novo a cada mudança no estado da apresentação.
+// handleAoVivoFluxo godoc
+//
+// @Summary     Stream (SSE) do estado ao vivo, para participantes/observadores
+// @Description Server-Sent Events: um frame liveSnapshotDTO ao conectar, de novo a cada mudança, e um heartbeat a cada 15s. Também emite eventos nomeados "reaction" (\{"emoji":"👍"\}) para reações ao vivo. Não dá pra "experimentar" pelo Swagger UI (conexão fica aberta); consuma com EventSource no navegador.
+// @Tags        ao-vivo (público)
+// @Produce     text/event-stream
+// @Param       id    path  string true "ID do evento"
+// @Param       token query string true "Token de visitante"
+// @Success     200 {object} liveSnapshotDTO
+// @Failure     401 {object} errorResponse "sessão inválida"
+// @Security    liveViewerToken
+// @Router      /api/publico/eventos/{id}/ao-vivo/fluxo [get]
 func (a *API) handleAoVivoFluxo(w http.ResponseWriter, r *http.Request) {
 	eventID, _, ok := a.resolveLiveViewer(w, r)
 	if !ok {

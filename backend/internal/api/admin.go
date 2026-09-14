@@ -38,6 +38,16 @@ func toAdminUserDTO(us store.UserSummary) adminUserDTO {
 	}
 }
 
+// handleAdminListarUsuarios godoc
+//
+// @Summary     Lista todos os usuários
+// @Description Somente super admin — cada usuário vem com sua contagem de eventos.
+// @Tags        admin
+// @Produce     json
+// @Success     200 {object} adminUsersResponse
+// @Failure     403 {object} errorResponse "acesso restrito ao super admin"
+// @Security    cookieAuth
+// @Router      /api/admin/usuarios [get]
 func (a *API) handleAdminListarUsuarios(w http.ResponseWriter, r *http.Request) {
 	users, err := a.store.ListarUsuariosComContagemDeEventos(r.Context())
 	if err != nil {
@@ -66,6 +76,19 @@ func parseUserID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 // gerenciar outras contas, e um super admin sem outra forma de virar admin de
 // novo (o papel só é atribuído implicitamente ao primeiro cadastro do banco)
 // ficaria travado fora da própria administração.
+// handleAdminExcluirUsuario godoc
+//
+// @Summary     Exclui um usuário (e seus eventos)
+// @Description Somente super admin. Quem está agindo não pode se auto-excluir por aqui.
+// @Tags        admin
+// @Produce     json
+// @Param       id path string true "ID do usuário"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse "auto-exclusão bloqueada"
+// @Failure     403 {object} errorResponse "acesso restrito ao super admin"
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/admin/usuarios/{id} [delete]
 func (a *API) handleAdminExcluirUsuario(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUserID(w, r)
 	if !ok {
@@ -91,6 +114,18 @@ func (a *API) handleAdminExcluirUsuario(w http.ResponseWriter, r *http.Request) 
 // nunca escolhe nem vê a senha da pessoa) para ela mesma definir uma nova
 // senha em /redefinir-senha. O admin copia o link retornado e repassa por
 // fora (chat, e-mail) — o app não envia nada.
+// handleAdminGerarLinkRedefinicao godoc
+//
+// @Summary     Gera um link de redefinição de senha para um usuário
+// @Description Somente super admin. Token de uso único, válido por 1h — o admin copia e envia por fora (o app não envia nada); gerar de novo invalida o anterior.
+// @Tags        admin
+// @Produce     json
+// @Param       id path string true "ID do usuário"
+// @Success     200 {object} adminResetLinkResponse
+// @Failure     403 {object} errorResponse "acesso restrito ao super admin"
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/admin/usuarios/{id}/link-redefinicao [post]
 func (a *API) handleAdminGerarLinkRedefinicao(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUserID(w, r)
 	if !ok {
@@ -138,6 +173,16 @@ type adminEventDTO struct {
 	OwnerEmail string `json:"ownerEmail"`
 }
 
+// handleAdminListarEventos godoc
+//
+// @Summary     Lista todos os eventos, de todos os organizadores
+// @Description Somente super admin.
+// @Tags        admin
+// @Produce     json
+// @Success     200 {object} adminEventsResponse
+// @Failure     403 {object} errorResponse "acesso restrito ao super admin"
+// @Security    cookieAuth
+// @Router      /api/admin/eventos [get]
 func (a *API) handleAdminListarEventos(w http.ResponseWriter, r *http.Request) {
 	events, err := a.store.ListarTodosResumosDeEventos(r.Context())
 	if err != nil {
@@ -156,6 +201,16 @@ func (a *API) handleAdminListarEventos(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"events": dtos})
 }
 
+// handleAdminBuscarConfiguracoes godoc
+//
+// @Summary     Configurações administrativas
+// @Description Somente super admin. Hoje só tem o toggle de cadastro aberto.
+// @Tags        admin
+// @Produce     json
+// @Success     200 {object} adminConfigResponse
+// @Failure     403 {object} errorResponse "acesso restrito ao super admin"
+// @Security    cookieAuth
+// @Router      /api/admin/configuracoes [get]
 func (a *API) handleAdminBuscarConfiguracoes(w http.ResponseWriter, r *http.Request) {
 	enabled, err := a.store.RegistroHabilitado(r.Context())
 	if err != nil {
@@ -170,6 +225,19 @@ type updateAdminConfigRequest struct {
 	RegistrationEnabled bool `json:"registrationEnabled"`
 }
 
+// handleAdminAtualizarConfiguracoes godoc
+//
+// @Summary     Atualiza configurações administrativas
+// @Description Somente super admin. Liga/desliga o cadastro de novas contas organizadoras.
+// @Tags        admin
+// @Accept      json
+// @Produce     json
+// @Param       body body updateAdminConfigRequest true "Nova configuração"
+// @Success     200 {object} adminConfigResponse
+// @Failure     400 {object} errorResponse
+// @Failure     403 {object} errorResponse "acesso restrito ao super admin"
+// @Security    cookieAuth
+// @Router      /api/admin/configuracoes [patch]
 func (a *API) handleAdminAtualizarConfiguracoes(w http.ResponseWriter, r *http.Request) {
 	var req updateAdminConfigRequest
 	if err := readJSON(w, r, &req); err != nil {
@@ -186,6 +254,17 @@ func (a *API) handleAdminAtualizarConfiguracoes(w http.ResponseWriter, r *http.R
 
 // --- Redefinição de senha via link (público, sem sessão) ---
 
+// handlePublicoValidarTokenRedefinicao godoc
+//
+// @Summary     Valida um link de redefinição de senha
+// @Description Público, sem sessão. Usado por /redefinir-senha antes de mostrar o formulário de nova senha.
+// @Tags        conta
+// @Produce     json
+// @Param       token query string true "Token do link gerado pelo super admin"
+// @Success     200 {object} validTokenResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse "link inválido ou expirado"
+// @Router      /api/publico/redefinir-senha [get]
 func (a *API) handlePublicoValidarTokenRedefinicao(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
@@ -214,6 +293,17 @@ type redefinirSenhaRequest struct {
 	NovaSenha string `json:"novaSenha"`
 }
 
+// handlePublicoRedefinirSenha godoc
+//
+// @Summary     Define uma nova senha a partir do link de redefinição
+// @Description Público, sem sessão. O token é de uso único e expira em 1h.
+// @Tags        conta
+// @Accept      json
+// @Produce     json
+// @Param       body body redefinirSenhaRequest true "Token e nova senha"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse "link inválido/expirado ou senha fora das regras"
+// @Router      /api/publico/redefinir-senha [post]
 func (a *API) handlePublicoRedefinirSenha(w http.ResponseWriter, r *http.Request) {
 	var req redefinirSenhaRequest
 	if err := readJSON(w, r, &req); err != nil {
