@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/lucasbaccan/arandu/compare/v1.1.1...v1.2.0) (2026-09-14)
+
+
+### Features
+
+* **api:** documenta a API REST com Swagger (swaggo) e serve Swagger UI ([#13](https://github.com/lucasbaccan/arandu/issues/13)) ([4e30611](https://github.com/lucasbaccan/arandu/commit/4e30611903acd97a6d5ecc675035b9b652a9c680))
+
 ## [1.1.1](https://github.com/lucasbaccan/arandu/compare/v1.1.0...v1.1.1) (2026-09-08)
 
 
