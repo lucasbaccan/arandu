@@ -21,7 +21,7 @@ func TestCreateQuestionWithOptionsAndOrder(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	q1, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Primeira", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
+	q1, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Primeira", Type: "GROUP"}, []QuestionOption{
 		{ID: 1, TextLabel: "A"},
 		{ID: 2, TextLabel: "B"},
 	})
@@ -35,7 +35,7 @@ func TestCreateQuestionWithOptionsAndOrder(t *testing.T) {
 		t.Errorf("opções divergentes: %+v", q1.Options)
 	}
 
-	q2, err := s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Segunda", Type: "INDIVIDUAL", LayoutView: "CENTER"}, []QuestionOption{
+	q2, err := s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Segunda", Type: "GROUP"}, []QuestionOption{
 		{ID: 3, TextLabel: "Único"},
 	})
 	if err != nil {
@@ -70,7 +70,7 @@ func TestListQuestionsByEventWithOptions(t *testing.T) {
 		{ID: 1, TextLabel: "A"},
 		{ID: 2, TextLabel: "B"},
 	})
-	s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Duas", Type: "INDIVIDUAL", LayoutView: "TIMELINE"}, []QuestionOption{
+	s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Duas", Type: "GROUP"}, []QuestionOption{
 		{ID: 3, TextLabel: "C"},
 	})
 
@@ -87,8 +87,8 @@ func TestListQuestionsByEventWithOptions(t *testing.T) {
 	if len(questions[0].Options) != 2 {
 		t.Errorf("primeira pergunta deveria ter 2 opções, got %+v", questions[0].Options)
 	}
-	if questions[1].Type != "INDIVIDUAL" || questions[1].LayoutView != "TIMELINE" {
-		t.Errorf("layout padrão divergente: %+v", questions[1])
+	if questions[1].Type != "GROUP" {
+		t.Errorf("tipo divergente: %+v", questions[1])
 	}
 
 	if others, err := s.ListarPerguntasPorEvento(ctx, 999); err != nil || len(others) != 0 {
@@ -145,7 +145,7 @@ func TestUpdateQuestion(t *testing.T) {
 	s, eventID := setupQuestionStore(t)
 	ctx := context.Background()
 
-	q, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Antes", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
+	q, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "Antes", Type: "GROUP"}, []QuestionOption{
 		{ID: 1, TextLabel: "A"},
 		{ID: 2, TextLabel: "B"},
 	})
@@ -155,7 +155,7 @@ func TestUpdateQuestion(t *testing.T) {
 	s.CriarPergunta(ctx, Question{ID: 200, EventID: eventID, Title: "Outra", Type: "GROUP"}, []QuestionOption{{ID: 3, TextLabel: "C"}})
 
 	updated, err := s.AtualizarPergunta(ctx, Question{
-		ID: 100, EventID: eventID, Title: "Depois", Type: "GROUP", LayoutView: "CENTER", OrderIndex: q.OrderIndex,
+		ID: 100, EventID: eventID, Title: "Depois", Type: "GROUP", OrderIndex: q.OrderIndex,
 	}, []QuestionOption{
 		{ID: 5, TextLabel: "X"},
 		{ID: 6, TextLabel: "Y"},
@@ -163,7 +163,7 @@ func TestUpdateQuestion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("atualizar pergunta: %v", err)
 	}
-	if updated.Title != "Depois" || updated.LayoutView != "CENTER" {
+	if updated.Title != "Depois" {
 		t.Errorf("pergunta atualizada divergente: %+v", updated)
 	}
 	if len(updated.Options) != 2 || updated.Options[0].TextLabel != "X" || updated.Options[1].ID != 6 {
@@ -260,5 +260,29 @@ func TestReorderQuestionsScopedToEventAndNotFound(t *testing.T) {
 
 	if err := s.ReordenarPerguntas(ctx, eventID, []int64{}); err != nil {
 		t.Errorf("reordenação vazia deveria ser no-op, got %v", err)
+	}
+}
+
+func TestQuestionOptionIsOtherPersists(t *testing.T) {
+	s, eventID := setupQuestionStore(t)
+	ctx := context.Background()
+
+	q, err := s.CriarPergunta(ctx, Question{ID: 100, EventID: eventID, Title: "P", Type: "GROUP"}, []QuestionOption{
+		{ID: 1, TextLabel: "A"},
+		{ID: 2, TextLabel: "Outro", IsOther: true},
+	})
+	if err != nil {
+		t.Fatalf("criar pergunta: %v", err)
+	}
+	if q.Options[0].IsOther || !q.Options[1].IsOther {
+		t.Errorf("is_other divergente na criação: %+v", q.Options)
+	}
+
+	questions, err := s.ListarPerguntasPorEvento(ctx, eventID)
+	if err != nil {
+		t.Fatalf("listar perguntas: %v", err)
+	}
+	if questions[0].Options[0].IsOther || !questions[0].Options[1].IsOther {
+		t.Errorf("is_other divergente na listagem: %+v", questions[0].Options)
 	}
 }

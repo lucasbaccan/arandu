@@ -370,6 +370,61 @@ func TestUpdateAnswerOpenTextCensor(t *testing.T) {
 	}
 }
 
+func TestUpdateAnswerOtherOption(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	eventID := createEventAndGetID(t, h, cookie, "Evento com Outro")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
+		"title": "Qual sua linguagem favorita?", "type": "GROUP", "options": []string{"Go", "JS"}, "allowOther": true,
+	}, []*http.Cookie{cookie})
+	var created struct {
+		Question questionDTO `json:"question"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &created)
+	groupQID := created.Question.ID
+	otherOptID := created.Question.Options[2].ID
+
+	doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
+		"title": "Evento com Outro", "status": "OPEN_FOR_ANSWERS", "allowEdit": true,
+	}, []*http.Cookie{cookie})
+
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "ana@exemplo.com", "name": "Ana",
+		"answers": []map[string]string{{"questionId": groupQID, "optionId": created.Question.Options[0].ID}},
+	}, nil)
+
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/respostas", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	participantID := resp.Participants[0].ID
+
+	rec = doJSON(t, h, http.MethodPatch,
+		"/api/eventos/"+eventID+"/respostas/"+participantID+"/resposta/"+groupQID,
+		map[string]any{"optionId": otherOptID}, []*http.Cookie{cookie},
+	)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status esperado 400 sem texto em 'Outro', got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodPatch,
+		"/api/eventos/"+eventID+"/respostas/"+participantID+"/resposta/"+groupQID,
+		map[string]any{"optionId": otherOptID, "text": "Rust"}, []*http.Cookie{cookie},
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200 com texto em 'Outro', got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/respostas", nil, []*http.Cookie{cookie})
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	a := resp.Participants[0].Answers[0]
+	if a.OptionText != "Outro" || a.Text != "Rust" {
+		t.Errorf("resposta 'Outro' divergente após edição: %+v", a)
+	}
+}
+
 func TestUpdateAnswerValidation(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)

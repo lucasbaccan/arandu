@@ -9,7 +9,6 @@
   export let participantCount = 0;
   export let title;
   export let pinCode;
-  export let showRanking = false;
   export let allowEdit;
   export let error = '';
   export let submitting = false;
@@ -64,15 +63,6 @@
       hint="1 a 25 caracteres: letras, números, _ ou -"
       uppercase
     />
-
-    <div class="config-row">
-      <span>Exibir ranking de pontos</span>
-      <Switch
-        aria-label="Exibir ranking de pontos"
-        checked={showRanking}
-        on:change={() => (showRanking = !showRanking)}
-      />
-    </div>
 
     <div class="config-row config-row-hint">
       <span>

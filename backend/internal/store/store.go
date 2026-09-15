@@ -67,7 +67,6 @@ func Migrate(db *sql.DB) error {
 			event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
 			title       TEXT    NOT NULL,
 			type        TEXT    NOT NULL,
-			layout_view TEXT    NOT NULL DEFAULT '',
 			order_index INTEGER NOT NULL DEFAULT 0,
 			created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
@@ -75,7 +74,8 @@ func Migrate(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS question_options (
 			id          INTEGER PRIMARY KEY,
 			question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-			text_label  TEXT    NOT NULL
+			text_label  TEXT    NOT NULL,
+			is_other    BOOLEAN NOT NULL DEFAULT 0
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_questions_event ON questions(event_id);
@@ -245,6 +245,24 @@ func Migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
 	`); err != nil {
 		return fmt.Errorf("store: migração (app_settings/password_reset_tokens): %w", err)
+	}
+
+	// layout_view nunca foi usado pelo frontend (a apresentação ao vivo sempre
+	// renderizou do mesmo jeito, independente do valor) — removido do schema.
+	// Bancos criados antes desta remoção ainda têm a coluna (CREATE TABLE IF
+	// NOT EXISTS acima não altera tabelas já criadas).
+	if _, err := db.Exec(`ALTER TABLE questions DROP COLUMN layout_view`); err != nil {
+		if !strings.Contains(err.Error(), "no such column") {
+			return fmt.Errorf("store: migração (remover questions.layout_view): %w", err)
+		}
+	}
+
+	// Bancos criados antes da opção "Outro" existir: adiciona sem quebrar
+	// dados existentes, default false (nenhuma opção era "Outro" até aqui).
+	if _, err := db.Exec(`ALTER TABLE question_options ADD COLUMN is_other BOOLEAN NOT NULL DEFAULT 0`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("store: migração (question_options.is_other): %w", err)
+		}
 	}
 
 	return nil

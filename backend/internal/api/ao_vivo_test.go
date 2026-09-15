@@ -873,6 +873,106 @@ func TestLiveRevealAllAndReset(t *testing.T) {
 	_ = biaID
 }
 
+// Pergunta criada depois que parte do público já respondeu: quem não tem
+// resposta nessa pergunta não pode aparecer como pendente nem em grupo (nem
+// ao revelar tudo), senão não teria opção pra onde ir.
+func TestLiveSnapshotWithLaterQuestionOnlyShowsAnswerers(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie, eventID, questionID, optAID, _, pin, anaID, biaID := setupLiveEvent(t, h)
+
+	// Segunda pergunta, criada DEPOIS que ana e bia já responderam a primeira.
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
+		"title": "Pergunta criada depois", "type": "GROUP", "options": []string{"X", "Y"},
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("criar pergunta nova: status %d: %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode pergunta nova: %v", err)
+	}
+	newQuestionID := created.Question.ID
+	newOptID := created.Question.Options[0].ID
+
+	// Só a carla responde a pergunta nova (o envio público exige responder
+	// todas, então ela manda a antiga também).
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "carla@exemplo.com",
+		"name":  "Carla",
+		"answers": []map[string]string{
+			{"questionId": questionID, "optionId": optAID},
+			{"questionId": newQuestionID, "optionId": newOptID},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("carla responder: status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/respostas", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode respostas: %v", err)
+	}
+	var carlaID string
+	for _, p := range resp.Participants {
+		if p.Email == "carla@exemplo.com" {
+			carlaID = p.ID
+		}
+	}
+	if carlaID == "" {
+		t.Fatalf("carla nao encontrada: %+v", resp.Participants)
+	}
+
+	// Coloca a pergunta nova no ar.
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/pergunta", map[string]string{
+		"questionId": newQuestionID,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("definir pergunta: status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	viewerToken, _, _ := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+	snap := getLiveState(t, h, eventID, viewerToken)
+
+	if len(snap.Pending) != 1 || snap.Pending[0].ID != carlaID {
+		t.Fatalf("so carla deveria estar pendente, got %+v", snap.Pending)
+	}
+	for _, g := range snap.Groups {
+		if len(g.Participants) != 0 {
+			t.Fatalf("nenhum grupo deveria ter gente antes de revelar: %+v", g)
+		}
+	}
+
+	// Revelar todos não pode puxar ana/bia (que nunca responderam a nova).
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar-todos", map[string]string{
+		"questionId": newQuestionID,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("revelar todos: status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap = getLiveState(t, h, eventID, viewerToken)
+	if len(snap.Pending) != 0 {
+		t.Fatalf("ninguem deveria estar pendente, got %+v", snap.Pending)
+	}
+	revealed := map[string]bool{}
+	for _, g := range snap.Groups {
+		for _, p := range g.Participants {
+			revealed[p.ID] = true
+		}
+	}
+	if !revealed[carlaID] {
+		t.Fatalf("carla deveria estar revelada: %+v", snap.Groups)
+	}
+	if revealed[anaID] || revealed[biaID] {
+		t.Fatalf("ana/bia nao responderam a pergunta nova e nao deveriam aparecer: %+v", snap.Groups)
+	}
+}
+
 func TestLiveRevealThenUnreveal(t *testing.T) {
 	h := newTestAPI(t).Handler()
 	cookie, eventID, questionID, _, _, pin, anaID, _ := setupLiveEvent(t, h)
@@ -1315,6 +1415,109 @@ func TestLiveSnapshotShowsOpenTextGroupsBeforeReveal(t *testing.T) {
 	}
 	if len(snap.Groups[0].Participants) != 1 || snap.Groups[0].Participants[0].ID != anaID {
 		t.Fatalf("esperava ana dentro do balde apos revelar, got %+v", snap.Groups[0].Participants)
+	}
+}
+
+// TestLiveSnapshotGroupsOtherOptionByItsOwnText garante que quem escolhe
+// "Outro" não cai todo mundo no mesmo balde genérico "Outro" — cada resposta
+// digitada vira o próprio balde (igual OPEN_TEXT), já que não é uma opção
+// compartilhável como as demais.
+func TestLiveSnapshotGroupsOtherOptionByItsOwnText(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	pin := "OUTROLIVE"
+
+	rec := createEvent(t, h, cookie, map[string]string{"title": "Evento Outro", "pinCode": pin})
+	var created struct {
+		Event eventDTO `json:"event"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode evento: %v", err)
+	}
+	eventID := created.Event.ID
+
+	rec = doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
+		"title": "Qual sua linguagem favorita?", "type": "GROUP", "options": []string{"Go", "JS"}, "allowOther": true,
+	}, []*http.Cookie{cookie})
+	var q struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &q); err != nil {
+		t.Fatalf("decode pergunta: %v", err)
+	}
+	questionID := q.Question.ID
+	var otherOptionID string
+	for _, o := range q.Question.Options {
+		if o.IsOther {
+			otherOptionID = o.ID
+		}
+	}
+	if otherOptionID == "" {
+		t.Fatalf("esperava opção 'Outro' na pergunta criada: %+v", q.Question.Options)
+	}
+
+	doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
+		"title": "Evento Outro", "status": "OPEN_FOR_ANSWERS",
+	}, []*http.Cookie{cookie})
+
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "ana@exemplo.com", "name": "Ana",
+		"answers": []map[string]string{{"questionId": questionID, "optionId": otherOptionID, "text": "Rust"}},
+	}, nil)
+	doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "bob@exemplo.com", "name": "Bob",
+		"answers": []map[string]string{{"questionId": questionID, "optionId": otherOptionID, "text": "Kotlin"}},
+	}, nil)
+
+	token, _, code := liveJoin(t, h, eventID, pin, "curioso@exemplo.com")
+	if code != http.StatusOK {
+		t.Fatalf("join: status %d", code)
+	}
+
+	// Antes de revelar: 2 opções fixas (Go, JS) + 2 baldes de texto próprio
+	// (Rust, Kotlin) — nunca um balde "Outro" genérico com as duas pessoas.
+	snap := getLiveState(t, h, eventID, token)
+	labels := make(map[string]int, len(snap.Groups))
+	for _, g := range snap.Groups {
+		labels[g.Label] = len(g.Participants)
+	}
+	if _, ok := labels["Outro"]; ok {
+		t.Fatalf("não deveria existir um balde genérico 'Outro', got %+v", snap.Groups)
+	}
+	if n, ok := labels["Rust"]; !ok || n != 0 {
+		t.Fatalf("esperava balde 'Rust' vazio antes de revelar, got %+v", snap.Groups)
+	}
+	if n, ok := labels["Kotlin"]; !ok || n != 0 {
+		t.Fatalf("esperava balde 'Kotlin' vazio antes de revelar, got %+v", snap.Groups)
+	}
+
+	respRec := doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/respostas", nil, []*http.Cookie{cookie})
+	var resp struct {
+		Participants []participantResponseDTO `json:"participants"`
+	}
+	_ = json.Unmarshal(respRec.Body.Bytes(), &resp)
+	var anaID string
+	for _, p := range resp.Participants {
+		if p.Email == "ana@exemplo.com" {
+			anaID = p.ID
+		}
+	}
+	if anaID == "" {
+		t.Fatalf("participante ana não encontrada: %+v", resp.Participants)
+	}
+
+	doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/ao-vivo/revelar", map[string]string{
+		"questionId": questionID, "participantId": anaID,
+	}, []*http.Cookie{cookie})
+
+	snap = getLiveState(t, h, eventID, token)
+	for _, g := range snap.Groups {
+		if g.Label == "Rust" && (len(g.Participants) != 1 || g.Participants[0].ID != anaID) {
+			t.Errorf("esperava só ana no balde 'Rust' após revelar, got %+v", g.Participants)
+		}
+		if g.Label == "Kotlin" && len(g.Participants) != 0 {
+			t.Errorf("balde 'Kotlin' não deveria ter ninguém (bob não foi revelado), got %+v", g.Participants)
+		}
 	}
 }
 

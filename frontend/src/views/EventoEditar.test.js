@@ -38,7 +38,6 @@ const event = {
   title: 'Conecta DevOps',
   pinCode: '123456',
   status: 'PREPARATION',
-  configShowRanking: true,
   createdAt: '2026-08-02T00:00:00Z'
 };
 
@@ -48,7 +47,6 @@ function question(id, title) {
     eventId: '42',
     title,
     type: 'GROUP',
-    layoutView: 'TIMELINE',
     orderIndex: 0,
     options: [
       { id: `${id}-1`, text: 'A' },
@@ -71,6 +69,11 @@ describe('Editar evento', () => {
     document.body.innerHTML = '';
     toast.set(null);
     vi.clearAllMocks();
+    // A tela grava aba/participante selecionado na URL via history.replaceState;
+    // no jsdom o window.location é compartilhado entre os testes do arquivo,
+    // então sem resetar aqui um teste que muda de aba/participante vaza pro
+    // próximo (que herda uma aba/participante que não pediu).
+    window.history.replaceState({}, '', '/');
   });
 
   it('carrega o evento e preenche o formulário', async () => {
@@ -80,10 +83,6 @@ describe('Editar evento', () => {
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
     expect(view.getByText('123456')).toBeInTheDocument();
     expect(view.getByText('Em preparação')).toBeInTheDocument();
-    expect(view.getByRole('switch', { name: 'Exibir ranking de pontos' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
   });
 
   it('mostra a quantidade de pessoas que responderam', async () => {
@@ -121,8 +120,7 @@ describe('Editar evento', () => {
     await waitFor(() =>
       expect(api.eventos.atualizar).toHaveBeenCalledWith('42', {
         title: 'Título novo',
-        pinCode: '123456',
-        configShowRanking: true
+        pinCode: '123456'
       })
     );
     await waitFor(() => expect(get(toast)?.message).toBe('Alterações salvas!'));
@@ -142,8 +140,7 @@ describe('Editar evento', () => {
     await waitFor(() =>
       expect(api.eventos.atualizar).toHaveBeenCalledWith('42', {
         title: 'Conecta DevOps',
-        pinCode: 'dev-team',
-        configShowRanking: true
+        pinCode: 'dev-team'
       })
     );
     expect(view.getByText('DEV-TEAM')).toBeInTheDocument();
@@ -222,7 +219,6 @@ describe('Editar evento', () => {
         eventId: '42',
         title: 'Qual é o seu prato favorito?',
         type: 'GROUP',
-        layoutView: 'TIMELINE',
         orderIndex: 0,
         options: [
           { id: '10', text: 'Pizza' },
@@ -233,10 +229,9 @@ describe('Editar evento', () => {
         id: '2',
         eventId: '42',
         title: 'Frase motivacional',
-        type: 'INDIVIDUAL',
-        layoutView: 'TIMELINE',
+        type: 'OPEN_TEXT',
         orderIndex: 1,
-        options: [{ id: '12', text: 'Rascunho' }]
+        options: []
       }
     ];
     const view = mount(questions);
@@ -245,7 +240,7 @@ describe('Editar evento', () => {
     expect(view.getByText('Pizza')).toBeInTheDocument();
     expect(view.getByText('Sushi')).toBeInTheDocument();
     expect(view.getByText('Frase motivacional')).toBeInTheDocument();
-    expect(view.getByText('Individual')).toBeInTheDocument();
+    expect(view.getByText('Resposta aberta')).toBeInTheDocument();
   });
 
   it('alterna entre as abas Perguntas e Respostas', async () => {
@@ -283,6 +278,132 @@ describe('Editar evento', () => {
     expect(view.queryByText('ana@exemplo.com')).not.toBeInTheDocument();
   });
 
+  function questionWithOther() {
+    return {
+      id: 'q1',
+      eventId: '42',
+      title: 'Qual sua linguagem favorita?',
+      type: 'GROUP',
+      orderIndex: 0,
+      options: [
+        { id: 'o-go', text: 'Go' },
+        { id: 'o-js', text: 'JS' },
+        { id: 'o-other', text: 'Outro', isOther: true }
+      ]
+    };
+  }
+
+  it('mostra "Escolha única" (não "Individual") como o tipo da pergunta nas respostas', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    const q = questionWithOther();
+    const view = mount([q]);
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+    api.eventos.respostas.listar.mockResolvedValue({
+      participantCount: 1,
+      participants: [
+        {
+          id: 'p1',
+          email: 'ana@exemplo.com',
+          photo: '',
+          createdAt: '2026-08-03T00:00:00Z',
+          answers: [
+            { questionId: 'q1', questionTitle: q.title, questionType: 'GROUP', optionId: 'o-go', optionText: 'Go', text: '' }
+          ]
+        }
+      ]
+    });
+
+    await fireEvent.click(view.getByRole('tab', { name: 'Respostas' }));
+    await view.findByLabelText('Copiar link de edição');
+
+    expect(await view.findByText('Escolha única')).toBeInTheDocument();
+    expect(view.queryByText('Individual')).not.toBeInTheDocument();
+  });
+
+  it('organizador escolhendo "Outro" precisa descrever a resposta antes de salvar', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    const q = questionWithOther();
+    const view = mount([q]);
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+    api.eventos.respostas.listar.mockResolvedValue({
+      participantCount: 1,
+      participants: [
+        {
+          id: 'p1',
+          email: 'ana@exemplo.com',
+          photo: '',
+          createdAt: '2026-08-03T00:00:00Z',
+          answers: [
+            { questionId: 'q1', questionTitle: q.title, questionType: 'GROUP', optionId: 'o-go', optionText: 'Go', text: '' }
+          ]
+        }
+      ]
+    });
+
+    await fireEvent.click(view.getByRole('tab', { name: 'Respostas' }));
+    await view.findByLabelText('Copiar link de edição');
+    await view.findByRole('button', { name: 'Go' });
+
+    await fireEvent.click(view.getByRole('button', { name: 'Outro' }));
+    const input = await view.findByPlaceholderText('Descreva a resposta em "Outro"');
+
+    // tenta salvar vazio -> erro, sem chamar a API
+    await fireEvent.change(input, { target: { value: '   ' } });
+    await fireEvent.blur(input);
+    await waitFor(() => expect(get(toast)?.message).toBe('Descreva a resposta em "Outro".'));
+    expect(api.eventos.respostas.atualizarResposta).not.toHaveBeenCalled();
+
+    api.eventos.respostas.atualizarResposta.mockResolvedValue({ ok: true });
+    const updated = {
+      id: 'p1',
+      email: 'ana@exemplo.com',
+      photo: '',
+      createdAt: '2026-08-03T00:00:00Z',
+      answers: [
+        { questionId: 'q1', questionTitle: q.title, questionType: 'GROUP', optionId: 'o-other', optionText: 'Outro', text: 'Rust' }
+      ]
+    };
+    api.eventos.respostas.listar.mockResolvedValue({ participantCount: 1, participants: [updated] });
+
+    await fireEvent.change(input, { target: { value: 'Rust' } });
+    await fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(api.eventos.respostas.atualizarResposta).toHaveBeenCalledWith('42', 'p1', 'q1', {
+        optionId: 'o-other',
+        text: 'Rust'
+      })
+    );
+    expect(await view.findByDisplayValue('Rust')).toBeInTheDocument();
+  });
+
+  it('resposta já salva em "Outro" mostra o texto pré-preenchido sem precisar clicar', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    const q = questionWithOther();
+    const view = mount([q]);
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+    api.eventos.respostas.listar.mockResolvedValue({
+      participantCount: 1,
+      participants: [
+        {
+          id: 'p1',
+          email: 'ana@exemplo.com',
+          photo: '',
+          createdAt: '2026-08-03T00:00:00Z',
+          answers: [
+            { questionId: 'q1', questionTitle: q.title, questionType: 'GROUP', optionId: 'o-other', optionText: 'Outro', text: 'Kotlin' }
+          ]
+        }
+      ]
+    });
+
+    await fireEvent.click(view.getByRole('tab', { name: 'Respostas' }));
+    await view.findByLabelText('Copiar link de edição');
+
+    expect(await view.findByDisplayValue('Kotlin')).toBeInTheDocument();
+    expect(view.getByRole('button', { name: 'Outro' })).toHaveClass('selected');
+  });
+
   it('adiciona uma pergunta em grupo', async () => {
     api.eventos.buscar.mockResolvedValue({ event });
     const view = mount();
@@ -292,7 +413,6 @@ describe('Editar evento', () => {
       eventId: '42',
       title: 'Qual é o seu café preferido?',
       type: 'GROUP',
-      layoutView: 'TIMELINE',
       orderIndex: 0,
       options: [
         { id: '1', text: 'Espresso' },
@@ -312,11 +432,49 @@ describe('Editar evento', () => {
       expect(api.eventos.perguntas.criar).toHaveBeenCalledWith('42', {
         title: 'Qual é o seu café preferido?',
         type: 'GROUP',
-        options: ['Espresso', 'Cappuccino']
+        options: ['Espresso', 'Cappuccino'],
+        allowOther: false
       })
     );
     expect(await view.findByText('Qual é o seu café preferido?')).toBeInTheDocument();
     await waitFor(() => expect(get(toast)?.message).toBe('Pergunta adicionada!'));
+  });
+
+  it('adiciona uma pergunta em grupo com a opção "Outro"', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    const view = mount();
+
+    const created = {
+      id: '9',
+      eventId: '42',
+      title: 'Qual é o seu café preferido?',
+      type: 'GROUP',
+      orderIndex: 0,
+      options: [
+        { id: '1', text: 'Espresso' },
+        { id: '2', text: 'Cappuccino' },
+        { id: '3', text: 'Outro', isOther: true }
+      ]
+    };
+    api.eventos.perguntas.criar.mockResolvedValue({ question: created });
+
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+    await fireEvent.click(view.getByRole('button', { name: '+ Adicionar pergunta' }));
+    await userEvent.type(view.getByLabelText('Pergunta'), 'Qual é o seu café preferido?');
+    await userEvent.type(view.getByPlaceholderText('Opção 1'), 'Espresso');
+    await userEvent.type(view.getByPlaceholderText('Opção 2'), 'Cappuccino');
+    await fireEvent.click(view.getByRole('switch', { name: 'Adicionar opção Outro com resposta livre' }));
+    await fireEvent.click(view.getByRole('button', { name: 'Adicionar' }));
+
+    await waitFor(() =>
+      expect(api.eventos.perguntas.criar).toHaveBeenCalledWith('42', {
+        title: 'Qual é o seu café preferido?',
+        type: 'GROUP',
+        options: ['Espresso', 'Cappuccino'],
+        allowOther: true
+      })
+    );
+    expect(await view.findByText('Qual é o seu café preferido?')).toBeInTheDocument();
   });
 
   it('cria uma pergunta de resposta aberta sem exigir opções', async () => {
@@ -328,7 +486,6 @@ describe('Editar evento', () => {
       eventId: '42',
       title: 'Qual sua comida favorita?',
       type: 'OPEN_TEXT',
-      layoutView: 'TIMELINE',
       orderIndex: 0,
       options: []
     };
@@ -347,7 +504,8 @@ describe('Editar evento', () => {
       expect(api.eventos.perguntas.criar).toHaveBeenCalledWith('42', {
         title: 'Qual sua comida favorita?',
         type: 'OPEN_TEXT',
-        options: []
+        options: [],
+        allowOther: false
       })
     );
     expect(await view.findByText('Qual sua comida favorita?')).toBeInTheDocument();
@@ -365,7 +523,6 @@ describe('Editar evento', () => {
       eventId: '42',
       title: 'Nova pergunta',
       type: 'GROUP',
-      layoutView: 'TIMELINE',
       orderIndex: 2,
       options: [
         { id: '90', text: 'Sim' },
@@ -385,7 +542,8 @@ describe('Editar evento', () => {
       expect(api.eventos.perguntas.criar).toHaveBeenCalledWith('42', {
         title: 'Nova pergunta',
         type: 'GROUP',
-        options: ['Sim', 'Não']
+        options: ['Sim', 'Não'],
+        allowOther: false
       })
     );
     await waitFor(() =>
@@ -622,7 +780,6 @@ describe('Editar evento', () => {
         eventId: '42',
         title: 'Pergunta a remover',
         type: 'GROUP',
-        layoutView: 'TIMELINE',
         orderIndex: 0,
         options: [{ id: '1', text: 'A' }]
       }
@@ -682,7 +839,8 @@ describe('Editar evento', () => {
     await waitFor(() =>
       expect(api.eventos.perguntas.atualizar).toHaveBeenCalledWith('42', '1', {
         title: 'Primeira editada',
-        options: ['X', 'B']
+        options: ['X', 'B'],
+        allowOther: false
       })
     );
     expect(await view.findByText('Primeira editada')).toBeInTheDocument();
@@ -690,6 +848,27 @@ describe('Editar evento', () => {
     await waitFor(() =>
       expect(view.getByLabelText('Editar pergunta Primeira editada')).toBeInTheDocument()
     );
+  });
+
+  it('edita pergunta com "Outro": a opção sintética some da lista e o switch vem ligado', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    const q = question('1', 'Primeira');
+    q.options = [
+      { id: '10', text: 'A' },
+      { id: '11', text: 'B' },
+      { id: '12', text: 'Outro', isOther: true }
+    ];
+    const view = mount([q]);
+    await view.findByText('Primeira');
+
+    await fireEvent.click(view.getByLabelText('Editar pergunta Primeira'));
+
+    expect(view.getByPlaceholderText('Opção 1').value).toBe('A');
+    expect(view.getByPlaceholderText('Opção 2').value).toBe('B');
+    expect(view.queryByPlaceholderText('Opção 3')).not.toBeInTheDocument();
+    expect(
+      view.getByRole('switch', { name: 'Adicionar opção Outro com resposta livre' })
+    ).toHaveAttribute('aria-checked', 'true');
   });
 
   it('cancela a edição de uma pergunta', async () => {

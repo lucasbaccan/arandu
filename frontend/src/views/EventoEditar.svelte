@@ -69,7 +69,6 @@
 
   let title = '';
   let pinCode = '';
-  let showRanking = false;
   let allowEdit = true;
   let status = '';
   let submitting = false;
@@ -166,7 +165,6 @@
       ]);
       title = event.title;
       pinCode = event.pinCode;
-      showRanking = event.configShowRanking;
       allowEdit = event.allowEdit;
       status = event.status;
       questions = qs;
@@ -207,7 +205,6 @@
       await api.eventos.atualizar(id, {
         title: title.trim(),
         pinCode: pinCode.trim(),
-        configShowRanking: showRanking,
         allowEdit
       });
       showToast('Alterações salvas!');
@@ -228,7 +225,6 @@
       const { event } = await api.eventos.atualizar(id, {
         title: title.trim(),
         pinCode: '',
-        configShowRanking: showRanking,
         allowEdit,
         status: nextStatus
       });
@@ -293,7 +289,8 @@
       const body = {
         title: detail.title.trim(),
         type: detail.type,
-        options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean)
+        options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean),
+        allowOther: detail.allowOther
       };
       const { question } = await api.eventos.perguntas.criar(id, body);
       const next = [...questions];
@@ -319,7 +316,8 @@
     try {
       const body = {
         title: detail.title.trim(),
-        options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean)
+        options: detail.type === 'OPEN_TEXT' ? [] : detail.options.map((o) => o.trim()).filter(Boolean),
+        allowOther: detail.allowOther
       };
       const { question } = await api.eventos.perguntas.atualizar(id, questionId, body);
       questions = questions.map((x) => (x.id === questionId ? question : x));
@@ -492,16 +490,55 @@
     return (q && q.options) || [];
   }
 
-  async function pickAnswerOption(participantId, questionId, optionId) {
-    const key = `${participantId}:${questionId}`;
+  function answerKey(participantId, questionId) {
+    return `${participantId}:${questionId}`;
+  }
+
+  // "Outro" precisa de um texto pra ser uma resposta válida (o backend
+  // rejeita optionId da opção "Outro" sem text) — em vez de salvar direto
+  // como as demais opções, clicar nela só abre o campo de texto;
+  // pendingOtherKey guarda pra qual resposta esse campo deve aparecer
+  // antes mesmo de haver algo salvo (ver template).
+  let pendingOtherKey = '';
+
+  async function pickAnswerOption(participantId, questionId, opt) {
+    if (opt.isOther) {
+      pendingOtherKey = answerKey(participantId, questionId);
+      return;
+    }
+    pendingOtherKey = '';
+    const key = answerKey(participantId, questionId);
     savingAnswerKey = key;
     try {
-      await api.eventos.respostas.atualizarResposta(id, participantId, questionId, { optionId });
+      await api.eventos.respostas.atualizarResposta(id, participantId, questionId, { optionId: opt.id });
       await loadResponses();
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
       savingAnswerKey = '';
+    }
+  }
+
+  async function saveOtherAnswer(participantId, questionId, optionId, text) {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      showToast('Descreva a resposta em "Outro".', 'error');
+      return;
+    }
+    const key = answerKey(participantId, questionId);
+    savingAnswerKey = key;
+    try {
+      await api.eventos.respostas.atualizarResposta(id, participantId, questionId, {
+        optionId,
+        text: trimmed
+      });
+      await loadResponses();
+      showToast('Resposta atualizada!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      savingAnswerKey = '';
+      pendingOtherKey = '';
     }
   }
 
@@ -634,7 +671,6 @@
                 {participantCount}
                 bind:title
                 bind:pinCode
-                bind:showRanking
                 bind:allowEdit
                 {error}
                 {submitting}
@@ -758,7 +794,7 @@
                               class:badge-individual={a.questionType !== 'OPEN_TEXT'}
                               class:badge-open-text={a.questionType === 'OPEN_TEXT'}
                             >
-                              {a.questionType === 'OPEN_TEXT' ? 'Resposta aberta' : 'Individual'}
+                              {questionKindInfo(a.questionType).label}
                             </span>
                           </div>
 
@@ -766,7 +802,7 @@
                             <input
                               class="answer-text-input"
                               value={a.text}
-                              disabled={savingAnswerKey === `${selectedParticipant.id}:${a.questionId}`}
+                              disabled={savingAnswerKey === answerKey(selectedParticipant.id, a.questionId)}
                               on:change={(e) =>
                                 saveAnswerText(selectedParticipant.id, a.questionId, e.currentTarget.value)}
                               placeholder="Sem resposta"
@@ -777,14 +813,30 @@
                                 <button
                                   type="button"
                                   class="answer-option"
-                                  class:selected={opt.id === a.optionId}
-                                  disabled={savingAnswerKey === `${selectedParticipant.id}:${a.questionId}`}
-                                  on:click={() => pickAnswerOption(selectedParticipant.id, a.questionId, opt.id)}
+                                  class:selected={opt.id === a.optionId ||
+                                    (opt.isOther && pendingOtherKey === answerKey(selectedParticipant.id, a.questionId))}
+                                  disabled={savingAnswerKey === answerKey(selectedParticipant.id, a.questionId)}
+                                  on:click={() => pickAnswerOption(selectedParticipant.id, a.questionId, opt)}
                                 >
                                   {opt.text}
                                 </button>
                               {/each}
                             </div>
+                            {#if pendingOtherKey === answerKey(selectedParticipant.id, a.questionId) || questionOptionsFor(a.questionId).find((o) => o.id === a.optionId)?.isOther}
+                              <input
+                                class="answer-text-input"
+                                value={a.text}
+                                placeholder="Descreva a resposta em &quot;Outro&quot;"
+                                disabled={savingAnswerKey === answerKey(selectedParticipant.id, a.questionId)}
+                                on:change={(e) =>
+                                  saveOtherAnswer(
+                                    selectedParticipant.id,
+                                    a.questionId,
+                                    questionOptionsFor(a.questionId).find((o) => o.isOther).id,
+                                    e.currentTarget.value
+                                  )}
+                              />
+                            {/if}
                           {/if}
                         </div>
                       {/each}
@@ -858,8 +910,9 @@
                         submitLabel="Salvar pergunta"
                         showCancel
                         initialTitle={q.title}
-                        initialOptions={q.options.map((o) => o.text)}
+                        initialOptions={q.options.filter((o) => !o.isOther).map((o) => o.text)}
                         initialType={q.type}
+                        initialAllowOther={q.options.some((o) => o.isOther)}
                         typeEditable={false}
                         error={formError}
                         submitting={formBusy}
@@ -1023,7 +1076,6 @@
               {participantCount}
               bind:title
               bind:pinCode
-              bind:showRanking
               bind:allowEdit
               {error}
               {submitting}

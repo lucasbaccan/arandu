@@ -282,6 +282,48 @@ describe('Tela de respostas do participante', () => {
     expect(screen.queryByText('Confira antes de enviar')).not.toBeInTheDocument();
   });
 
+  it('pergunta com opção "Outro" exige o texto livre pra contar como respondida', async () => {
+    const otherGroupQuestion = {
+      id: 'q3',
+      title: 'Qual sua linguagem favorita?',
+      type: 'GROUP',
+      options: [
+        { id: 'opt-go', text: 'Go' },
+        { id: 'opt-other', text: 'Outro', isOther: true }
+      ]
+    };
+    mockLoad({ questions: [otherGroupQuestion] });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await identifyAndContinue();
+    await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' });
+
+    await fireEvent.click(screen.getByLabelText('Outro'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeDisabled();
+
+    await fireEvent.click(screen.getByText('Qual sua linguagem favorita?'));
+    await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' });
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Rust');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+
+    expect(await screen.findByText('Outro: Rust')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).not.toBeDisabled();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
+
+    await waitFor(() =>
+      expect(api.publico.eventos.enviar).toHaveBeenCalledWith('42', {
+        email: 'ana@exemplo.com',
+        name: 'Ana',
+        photo: '',
+        editToken: '',
+        answers: [{ questionId: 'q3', optionId: 'opt-other', text: 'Rust' }]
+      })
+    );
+  });
+
   it('mostra o link de edição na tela de agradecimento', async () => {
     mockLoad();
     api.publico.eventos.enviar.mockResolvedValue({ ok: true, editToken: 'tok123' });

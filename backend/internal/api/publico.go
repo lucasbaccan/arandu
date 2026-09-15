@@ -23,8 +23,9 @@ type publicEventDTO struct {
 }
 
 type publicOptionDTO struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
+	ID      string `json:"id"`
+	Text    string `json:"text"`
+	IsOther bool   `json:"isOther,omitempty"`
 }
 
 type publicQuestionDTO struct {
@@ -182,7 +183,7 @@ func (a *API) handlePublicoBuscarEvento(w http.ResponseWriter, r *http.Request) 
 	for _, q := range questions {
 		opts := make([]publicOptionDTO, 0, len(q.Options))
 		for _, o := range q.Options {
-			opts = append(opts, publicOptionDTO{ID: strconv.FormatInt(o.ID, 10), Text: o.TextLabel})
+			opts = append(opts, publicOptionDTO{ID: strconv.FormatInt(o.ID, 10), Text: o.TextLabel, IsOther: o.IsOther})
 		}
 		dtos = append(dtos, publicQuestionDTO{
 			ID:      strconv.FormatInt(q.ID, 10),
@@ -369,18 +370,30 @@ func (a *API) handleEnviarRespostas(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusBadRequest, `Selecione uma opção para "`+q.Title+`".`)
 				return
 			}
-			valid := false
-			for _, o := range q.Options {
-				if o.ID == optID {
-					valid = true
+			var matched *store.QuestionOption
+			for i := range q.Options {
+				if q.Options[i].ID == optID {
+					matched = &q.Options[i]
 					break
 				}
 			}
-			if !valid {
+			if matched == nil {
 				writeError(w, http.StatusBadRequest, "Opção inválida.")
 				return
 			}
 			answer.OptionID = optID
+			if matched.IsOther {
+				text := strings.TrimSpace(ans.Text)
+				if text == "" {
+					writeError(w, http.StatusBadRequest, `Descreva sua resposta em "Outro" para "`+q.Title+`".`)
+					return
+				}
+				if len(text) > maxFreeTextLength {
+					writeError(w, http.StatusBadRequest, "Resposta muito longa.")
+					return
+				}
+				answer.FreeText = text
+			}
 		}
 		answers = append(answers, answer)
 	}

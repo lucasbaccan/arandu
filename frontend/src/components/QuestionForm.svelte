@@ -7,10 +7,12 @@
   import { createEventDispatcher } from 'svelte';
   import Button from './Button.svelte';
   import Input from './Input.svelte';
+  import Switch from './Switch.svelte';
 
   export let initialTitle = '';
   export let initialOptions = ['', ''];
   export let initialType = 'GROUP';
+  export let initialAllowOther = false;
   export let typeEditable = true;
   export let heading = 'Adicionar pergunta';
   export let submitLabel = 'Adicionar';
@@ -21,6 +23,7 @@
   let title = initialTitle;
   let options = [...initialOptions];
   let type = initialType;
+  let allowOther = initialAllowOther;
 
   const dispatch = createEventDispatcher();
 
@@ -44,7 +47,12 @@
   }
 
   function handleSubmit() {
-    dispatch('submit', { title, options: type === 'OPEN_TEXT' ? [] : options, type });
+    dispatch('submit', {
+      title,
+      options: type === 'OPEN_TEXT' ? [] : options,
+      type,
+      allowOther: type === 'OPEN_TEXT' ? false : allowOther
+    });
   }
 
   function handleCancel() {
@@ -68,7 +76,7 @@
       <label class="type-option type-group" class:selected={type === 'GROUP'}>
         <input type="radio" class="sr-only" bind:group={type} value="GROUP" disabled={!typeEditable} />
         <span class="type-dot" aria-hidden="true"></span>
-        <span class="type-text">Múltipla escolha</span>
+        <span class="type-text">Escolha única</span>
       </label>
       <label class="type-option type-open" class:selected={type === 'OPEN_TEXT'}>
         <input type="radio" class="sr-only" bind:group={type} value="OPEN_TEXT" disabled={!typeEditable} />
@@ -117,9 +125,22 @@
           </div>
         </div>
       {/each}
-      {#if options.length < MAX_OPTIONS}
-        <Button variant="secondary" type="button" on:click={addOption}>+ Adicionar opção</Button>
-      {/if}
+      <div class="options-footer">
+        {#if options.length < MAX_OPTIONS}
+          <Button variant="secondary" type="button" on:click={addOption}>+ Adicionar opção</Button>
+        {/if}
+        <div
+          class="other-toggle"
+          title={'Além das opções acima, os participantes podem escolher "Outro" e escrever a própria resposta.'}
+        >
+          <span>Opção "Outro"</span>
+          <Switch
+            aria-label="Adicionar opção Outro com resposta livre"
+            checked={allowOther}
+            on:change={() => (allowOther = !allowOther)}
+          />
+        </div>
+      </div>
     </div>
   {/if}
 
@@ -289,7 +310,31 @@
     font-size: 0.85rem;
   }
 
-  /* Em 375px as duas opções lado a lado truncam o rótulo ("Múltipla es…");
+  .options-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .options-footer :global(.btn) {
+    flex: 1;
+  }
+
+  .other-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    padding: 8px 12px;
+    background: var(--accent-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  /* Em 375px as duas opções lado a lado truncam o rótulo ("Escolha ún…");
      empilha e deixa o texto quebrar. */
   @media (max-width: 480px) {
     .type-toggle {

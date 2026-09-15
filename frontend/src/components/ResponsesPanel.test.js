@@ -110,7 +110,7 @@ describe('ResponsesPanel', () => {
     expect(await view.findByText('[removido]')).toBeInTheDocument();
   });
 
-  it('permite editar uma resposta de múltipla escolha', async () => {
+  it('permite editar uma resposta de escolha única', async () => {
     api.eventos.respostas.listar.mockResolvedValueOnce({ participantCount: 1, participants: [participant] });
     api.eventos.respostas.atualizarResposta.mockResolvedValue({ ok: true });
     const updated = {
@@ -133,7 +133,8 @@ describe('ResponsesPanel', () => {
 
     await waitFor(() =>
       expect(api.eventos.respostas.atualizarResposta).toHaveBeenCalledWith('42', 'p1', 'q1', {
-        optionId: 'opt-js'
+        optionId: 'opt-js',
+        text: ''
       })
     );
     expect(await view.findByText('JS')).toBeInTheDocument();

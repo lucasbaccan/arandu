@@ -10,7 +10,6 @@ type Question struct {
 	EventID    int64
 	Title      string
 	Type       string
-	LayoutView string
 	OrderIndex int64
 }
 
@@ -18,6 +17,7 @@ type QuestionOption struct {
 	ID         int64
 	QuestionID int64
 	TextLabel  string
+	IsOther    bool
 }
 
 type QuestionWithOptions struct {
@@ -44,9 +44,9 @@ func (s *Store) CriarPergunta(ctx context.Context, q Question, options []Questio
 	defer tx.Rollback()
 
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO questions (id, event_id, title, type, layout_view, order_index)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		q.ID, q.EventID, q.Title, q.Type, q.LayoutView, q.OrderIndex,
+		`INSERT INTO questions (id, event_id, title, type, order_index)
+		 VALUES (?, ?, ?, ?, ?)`,
+		q.ID, q.EventID, q.Title, q.Type, q.OrderIndex,
 	)
 	if err != nil {
 		return QuestionWithOptions{}, fmt.Errorf("store: criar pergunta: %w", err)
@@ -58,13 +58,13 @@ func (s *Store) CriarPergunta(ctx context.Context, q Question, options []Questio
 			continue
 		}
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO question_options (id, question_id, text_label) VALUES (?, ?, ?)`,
-			opt.ID, q.ID, opt.TextLabel,
+			`INSERT INTO question_options (id, question_id, text_label, is_other) VALUES (?, ?, ?, ?)`,
+			opt.ID, q.ID, opt.TextLabel, opt.IsOther,
 		)
 		if err != nil {
 			return QuestionWithOptions{}, fmt.Errorf("store: criar opção: %w", err)
 		}
-		opts = append(opts, QuestionOption{ID: opt.ID, QuestionID: q.ID, TextLabel: opt.TextLabel})
+		opts = append(opts, QuestionOption{ID: opt.ID, QuestionID: q.ID, TextLabel: opt.TextLabel, IsOther: opt.IsOther})
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -76,7 +76,7 @@ func (s *Store) CriarPergunta(ctx context.Context, q Question, options []Questio
 // ListarPerguntasPorEvento retorna as perguntas do evento na ordem definida, com opções.
 func (s *Store) ListarPerguntasPorEvento(ctx context.Context, eventID int64) ([]QuestionWithOptions, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, event_id, title, type, layout_view, order_index
+		`SELECT id, event_id, title, type, order_index
 		 FROM questions WHERE event_id = ? ORDER BY order_index, id`,
 		eventID,
 	)
@@ -88,7 +88,7 @@ func (s *Store) ListarPerguntasPorEvento(ctx context.Context, eventID int64) ([]
 	questions := make([]QuestionWithOptions, 0)
 	for rows.Next() {
 		var q Question
-		if err := rows.Scan(&q.ID, &q.EventID, &q.Title, &q.Type, &q.LayoutView, &q.OrderIndex); err != nil {
+		if err := rows.Scan(&q.ID, &q.EventID, &q.Title, &q.Type, &q.OrderIndex); err != nil {
 			return nil, fmt.Errorf("store: ler pergunta: %w", err)
 		}
 		questions = append(questions, QuestionWithOptions{Question: q})
@@ -109,7 +109,7 @@ func (s *Store) ListarPerguntasPorEvento(ctx context.Context, eventID int64) ([]
 
 func (s *Store) listOptionsByQuestion(ctx context.Context, questionID int64) ([]QuestionOption, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, question_id, text_label FROM question_options WHERE question_id = ? ORDER BY id`,
+		`SELECT id, question_id, text_label, is_other FROM question_options WHERE question_id = ? ORDER BY id`,
 		questionID,
 	)
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *Store) listOptionsByQuestion(ctx context.Context, questionID int64) ([]
 	opts := make([]QuestionOption, 0)
 	for rows.Next() {
 		var o QuestionOption
-		if err := rows.Scan(&o.ID, &o.QuestionID, &o.TextLabel); err != nil {
+		if err := rows.Scan(&o.ID, &o.QuestionID, &o.TextLabel, &o.IsOther); err != nil {
 			return nil, fmt.Errorf("store: ler opção: %w", err)
 		}
 		opts = append(opts, o)
@@ -132,7 +132,7 @@ func (s *Store) listOptionsByQuestion(ctx context.Context, questionID int64) ([]
 }
 
 // AtualizarPergunta atualiza o texto e substitui as opções de uma pergunta do evento.
-// Tipo, layout e ordem são preservados.
+// Tipo e ordem são preservados.
 func (s *Store) AtualizarPergunta(ctx context.Context, q Question, options []QuestionOption) (QuestionWithOptions, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -141,8 +141,8 @@ func (s *Store) AtualizarPergunta(ctx context.Context, q Question, options []Que
 	defer tx.Rollback()
 
 	res, err := tx.ExecContext(ctx,
-		`UPDATE questions SET title = ?, layout_view = ? WHERE id = ? AND event_id = ?`,
-		q.Title, q.LayoutView, q.ID, q.EventID,
+		`UPDATE questions SET title = ? WHERE id = ? AND event_id = ?`,
+		q.Title, q.ID, q.EventID,
 	)
 	if err != nil {
 		return QuestionWithOptions{}, fmt.Errorf("store: atualizar pergunta: %w", err)
@@ -167,12 +167,12 @@ func (s *Store) AtualizarPergunta(ctx context.Context, q Question, options []Que
 			continue
 		}
 		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO question_options (id, question_id, text_label) VALUES (?, ?, ?)`,
-			opt.ID, q.ID, opt.TextLabel,
+			`INSERT INTO question_options (id, question_id, text_label, is_other) VALUES (?, ?, ?, ?)`,
+			opt.ID, q.ID, opt.TextLabel, opt.IsOther,
 		); err != nil {
 			return QuestionWithOptions{}, fmt.Errorf("store: criar opção: %w", err)
 		}
-		opts = append(opts, QuestionOption{ID: opt.ID, QuestionID: q.ID, TextLabel: opt.TextLabel})
+		opts = append(opts, QuestionOption{ID: opt.ID, QuestionID: q.ID, TextLabel: opt.TextLabel, IsOther: opt.IsOther})
 	}
 
 	if err := tx.Commit(); err != nil {

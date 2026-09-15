@@ -130,7 +130,7 @@ type updateAnswerRequest struct {
 // handleAtualizarResposta godoc
 //
 // @Summary     Corrige a resposta de um participante a uma pergunta
-// @Description Edição feita pelo organizador (não pelo próprio participante). optionId para GROUP/INDIVIDUAL, text para OPEN_TEXT.
+// @Description Edição feita pelo organizador (não pelo próprio participante). optionId para GROUP (+ text se a opção for "Outro"), text para OPEN_TEXT.
 // @Tags        respostas
 // @Accept      json
 // @Produce     json
@@ -217,16 +217,27 @@ func (a *API) handleAtualizarResposta(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "Opção inválida.")
 			return
 		}
-		valid := false
-		for _, o := range question.Options {
-			if o.ID == optionID {
-				valid = true
+		var matched *store.QuestionOption
+		for i := range question.Options {
+			if question.Options[i].ID == optionID {
+				matched = &question.Options[i]
 				break
 			}
 		}
-		if !valid {
+		if matched == nil {
 			writeError(w, http.StatusBadRequest, "Opção inválida.")
 			return
+		}
+		if matched.IsOther {
+			text = strings.TrimSpace(req.Text)
+			if text == "" {
+				writeError(w, http.StatusBadRequest, `Descreva a resposta em "Outro".`)
+				return
+			}
+			if len(text) > maxFreeTextLength {
+				writeError(w, http.StatusBadRequest, "Resposta muito longa.")
+				return
+			}
 		}
 	}
 

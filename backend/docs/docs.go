@@ -1649,7 +1649,7 @@ const docTemplate = `{
                         "cookieAuth": []
                     }
                 ],
-                "description": "type: GROUP ou INDIVIDUAL (opções, min. 2 pra GROUP) ou OPEN_TEXT (sem opções). layoutView: TIMELINE, DUAL, CLOUD ou CENTER (default TIMELINE).",
+                "description": "type: GROUP (opções, min. 2) ou OPEN_TEXT (sem opções). allowOther adiciona uma opção \"Outro\" com resposta livre opcional (só GROUP).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1806,7 +1806,7 @@ const docTemplate = `{
                         "cookieAuth": []
                     }
                 ],
-                "description": "O tipo (GROUP/INDIVIDUAL/OPEN_TEXT) não muda depois de criada — só título e opções.",
+                "description": "O tipo (GROUP/OPEN_TEXT) não muda depois de criada — só título, opções e a opção \"Outro\" (allowOther).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1981,7 +1981,7 @@ const docTemplate = `{
                         "cookieAuth": []
                     }
                 ],
-                "description": "Edição feita pelo organizador (não pelo próprio participante). optionId para GROUP/INDIVIDUAL, text para OPEN_TEXT.",
+                "description": "Edição feita pelo organizador (não pelo próprio participante). optionId para GROUP (+ text se a opção for \"Outro\"), text para OPEN_TEXT.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2876,8 +2876,8 @@ const docTemplate = `{
         "api.createQuestionRequest": {
             "type": "object",
             "properties": {
-                "layoutView": {
-                    "type": "string"
+                "allowOther": {
+                    "type": "boolean"
                 },
                 "options": {
                     "type": "array",
@@ -3376,6 +3376,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "isOther": {
+                    "type": "boolean"
+                },
                 "text": {
                     "type": "string"
                 }
@@ -3452,9 +3455,6 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "layoutView": {
-                    "type": "string"
-                },
                 "options": {
                     "type": "array",
                     "items": {
@@ -3485,6 +3485,9 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "string"
+                },
+                "isOther": {
+                    "type": "boolean"
                 },
                 "text": {
                     "type": "string"
@@ -3655,6 +3658,9 @@ const docTemplate = `{
         "api.updateQuestionRequest": {
             "type": "object",
             "properties": {
+                "allowOther": {
+                    "type": "boolean"
+                },
                 "options": {
                     "type": "array",
                     "items": {
