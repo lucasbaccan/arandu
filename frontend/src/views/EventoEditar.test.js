@@ -38,7 +38,6 @@ const event = {
   title: 'Conecta DevOps',
   pinCode: '123456',
   status: 'PREPARATION',
-  configShowRanking: true,
   createdAt: '2026-08-02T00:00:00Z'
 };
 
@@ -80,10 +79,6 @@ describe('Editar evento', () => {
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
     expect(view.getByText('123456')).toBeInTheDocument();
     expect(view.getByText('Em preparação')).toBeInTheDocument();
-    expect(view.getByRole('switch', { name: 'Exibir ranking de pontos' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
   });
 
   it('mostra a quantidade de pessoas que responderam', async () => {
@@ -121,8 +116,7 @@ describe('Editar evento', () => {
     await waitFor(() =>
       expect(api.eventos.atualizar).toHaveBeenCalledWith('42', {
         title: 'Título novo',
-        pinCode: '123456',
-        configShowRanking: true
+        pinCode: '123456'
       })
     );
     await waitFor(() => expect(get(toast)?.message).toBe('Alterações salvas!'));
@@ -142,8 +136,7 @@ describe('Editar evento', () => {
     await waitFor(() =>
       expect(api.eventos.atualizar).toHaveBeenCalledWith('42', {
         title: 'Conecta DevOps',
-        pinCode: 'dev-team',
-        configShowRanking: true
+        pinCode: 'dev-team'
       })
     );
     expect(view.getByText('DEV-TEAM')).toBeInTheDocument();

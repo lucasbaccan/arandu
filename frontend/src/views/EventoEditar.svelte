@@ -69,7 +69,6 @@
 
   let title = '';
   let pinCode = '';
-  let showRanking = false;
   let allowEdit = true;
   let status = '';
   let submitting = false;
@@ -166,7 +165,6 @@
       ]);
       title = event.title;
       pinCode = event.pinCode;
-      showRanking = event.configShowRanking;
       allowEdit = event.allowEdit;
       status = event.status;
       questions = qs;
@@ -207,7 +205,6 @@
       await api.eventos.atualizar(id, {
         title: title.trim(),
         pinCode: pinCode.trim(),
-        configShowRanking: showRanking,
         allowEdit
       });
       showToast('Alterações salvas!');
@@ -228,7 +225,6 @@
       const { event } = await api.eventos.atualizar(id, {
         title: title.trim(),
         pinCode: '',
-        configShowRanking: showRanking,
         allowEdit,
         status: nextStatus
       });
@@ -634,7 +630,6 @@
                 {participantCount}
                 bind:title
                 bind:pinCode
-                bind:showRanking
                 bind:allowEdit
                 {error}
                 {submitting}
@@ -1023,7 +1018,6 @@
               {participantCount}
               bind:title
               bind:pinCode
-              bind:showRanking
               bind:allowEdit
               {error}
               {submitting}
