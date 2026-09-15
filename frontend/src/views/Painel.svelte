@@ -105,57 +105,59 @@
         </div>
       </div>
 
-      <div class="eventos-table-head">
-        <span class="col-title">Evento</span>
-        <span class="col-status">Situação</span>
-        <span class="col-pin">PIN</span>
-        <span class="col-created">Criado</span>
-        <span class="col-chevron"></span>
-      </div>
-
-      {#if eventosFiltrados.length === 0}
-        <p class="text-muted eventos-empty-search">Nenhum evento encontrado.</p>
-      {:else}
-        <div class="eventos-table-body">
-          {#each eventosFiltrados as ev (ev.id)}
-            <div
-              class="evento-row"
-              style="--row-accent:{statusInfo(ev.status).color}"
-              role="button"
-              tabindex="0"
-              on:click={() => abrirEvento(ev.id)}
-              on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && abrirEvento(ev.id)}
-            >
-              <div class="col-title evento-title-cell">
-                <span class="evento-title-text" title={ev.title}>{ev.title}</span>
-                <div class="evento-counts">
-                  <span class="text-muted evento-question-count">
-                    {ev.questionCount} pergunta{ev.questionCount === 1 ? '' : 's'}
-                  </span>
-                  <span class="evento-responses">
-                    {ev.participantCount} respost{ev.participantCount === 1 ? 'a' : 'as'}
-                  </span>
-                </div>
-              </div>
-              <span class="col-status">
-                <Chip
-                  dot
-                  label={statusInfo(ev.status).label}
-                  tint={statusInfo(ev.status).tint}
-                  color={statusInfo(ev.status).color}
-                />
-              </span>
-              <span class="meta-group">
-                <span class="col-pin">
-                  <PinChip pin={ev.pinCode} />
-                </span>
-              </span>
-              <span class="col-created text-muted">{formatDate(ev.createdAt)}</span>
-              <span class="col-chevron evento-chevron">❯</span>
-            </div>
-          {/each}
+      <div class="eventos-table">
+        <div class="eventos-table-head">
+          <span class="col-title">Evento</span>
+          <span class="col-status">Situação</span>
+          <span class="col-pin">PIN</span>
+          <span class="col-created">Criado</span>
+          <span class="col-chevron"></span>
         </div>
-      {/if}
+
+        {#if eventosFiltrados.length === 0}
+          <p class="text-muted eventos-empty-search">Nenhum evento encontrado.</p>
+        {:else}
+          <div class="eventos-table-body">
+            {#each eventosFiltrados as ev (ev.id)}
+              <div
+                class="evento-row"
+                style="--row-accent:{statusInfo(ev.status).color}"
+                role="button"
+                tabindex="0"
+                on:click={() => abrirEvento(ev.id)}
+                on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && abrirEvento(ev.id)}
+              >
+                <div class="col-title evento-title-cell">
+                  <span class="evento-title-text" title={ev.title}>{ev.title}</span>
+                  <div class="evento-counts">
+                    <span class="text-muted evento-question-count">
+                      {ev.questionCount} pergunta{ev.questionCount === 1 ? '' : 's'}
+                    </span>
+                    <span class="evento-responses">
+                      {ev.participantCount} respost{ev.participantCount === 1 ? 'a' : 'as'}
+                    </span>
+                  </div>
+                </div>
+                <span class="col-status">
+                  <Chip
+                    dot
+                    label={statusInfo(ev.status).label}
+                    tint={statusInfo(ev.status).tint}
+                    color={statusInfo(ev.status).color}
+                  />
+                </span>
+                <span class="meta-group">
+                  <span class="col-pin">
+                    <PinChip pin={ev.pinCode} />
+                  </span>
+                </span>
+                <span class="col-created text-muted">{formatDate(ev.createdAt)}</span>
+                <span class="col-chevron evento-chevron">❯</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
     {/if}
 
     <footer class="painel-footer" aria-hidden="true"></footer>
@@ -251,10 +253,21 @@
     color: var(--on-accent);
   }
 
-  .eventos-table-head {
+  /* Grid único dono das colunas: cabeçalho e linhas subgridam daqui, então o
+     track do PIN (max-content) é dimensionado pelo maior PIN do evento e o
+     cabeçalho continua alinhado — sem sobrepor a coluna "Criado". */
+  .eventos-table {
     display: grid;
-    grid-template-columns: minmax(160px, 1fr) 170px 140px 110px 24px;
-    gap: 16px;
+    grid-template-columns: minmax(160px, 1fr) 170px minmax(140px, max-content) 110px 24px;
+    column-gap: 16px;
+    row-gap: 8px;
+    flex: none;
+  }
+
+  .eventos-table-head {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
     padding: 0 18px;
     color: var(--text-muted);
     font-size: 0.6875rem;
@@ -263,18 +276,15 @@
     text-transform: uppercase;
   }
 
+  /* display: contents — as linhas viram itens diretos de .eventos-table para
+     participar do mesmo cálculo de colunas (subgrid), em vez de uma caixa
+     própria. O espaçamento entre linhas vem do row-gap do grid pai. */
   .eventos-table-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    /* Sem overflow próprio: a lista cresce com o conteúdo e a página rola
-       como um todo — scrollbar do navegador na borda, não uma barra flutuando
-       no meio da tela. flex: none impede o flex-shrink do pai (shell-body)
-       de comprimir a lista quando o conteúdo passa da altura da janela. */
-    flex: none;
+    display: contents;
   }
 
   .eventos-empty-search {
+    grid-column: 1 / -1;
     margin: 0;
   }
 
@@ -289,14 +299,11 @@
   /* A cor da situação vira a borda esquerda da linha — o mesmo sinal do chip,
      legível de relance na lista inteira. */
   .evento-row {
+    grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(160px, 1fr) 170px 140px 110px 24px;
-    gap: 16px;
+    grid-template-columns: subgrid;
     align-items: center;
     min-height: 64px;
-    /* flex-shrink: 0 — a linha é item de .eventos-table-body (coluna flex).
-       O card nunca comprime abaixo da altura do conteúdo. */
-    flex-shrink: 0;
     padding: 12px 18px;
     background: var(--bg-elev);
     border: 1px solid var(--border);
@@ -364,12 +371,12 @@
       display: none;
     }
 
-    .eventos-table-head,
-    .evento-row {
+    .eventos-table {
       grid-template-columns: minmax(120px, 1fr) 150px 24px;
     }
 
     .col-pin,
+    .meta-group,
     .col-created {
       display: none;
     }
