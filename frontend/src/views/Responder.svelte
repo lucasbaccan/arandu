@@ -1,6 +1,7 @@
 <script>
   export let id = '';
 
+  import { tick } from 'svelte';
   import { api } from '../lib/api.js';
   import Button from '../components/Button.svelte';
   import Card from '../components/Card.svelte';
@@ -215,6 +216,30 @@
     currentIndex = questions.length - 1;
   }
 
+  // Com a barra de progresso e o rodapé de ações fixos (position: sticky), a
+  // única pista de que dá pra rolar pra ver mais opções é o próprio conteúdo
+  // cortado na borda da tela — daí o indicador abaixo, calculado a partir da
+  // posição de scroll real da página (não há um contêiner interno com
+  // overflow: a rolagem é da página toda, como no resto do app).
+  let hasMoreBelow = false;
+
+  function checkScroll() {
+    if (typeof window === 'undefined') return;
+    const doc = document.documentElement;
+    hasMoreBelow = doc.scrollHeight - window.scrollY - window.innerHeight > 24;
+  }
+
+  // Reagenda a checagem sempre que a pergunta atual ou as respostas mudam —
+  // selecionar "Outro" ou digitar num campo aberto muda a altura do
+  // conteúdo sem disparar um evento de scroll.
+  $: if (step === 'question') {
+    currentIndex;
+    answers;
+    tick().then(checkScroll);
+  } else {
+    hasMoreBelow = false;
+  }
+
   function handleKeydown(e) {
     if (step !== 'question' || e.key !== 'Enter') return;
     if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
@@ -264,7 +289,7 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window on:keydown={handleKeydown} on:scroll={checkScroll} on:resize={checkScroll} />
 
 <main class="responder-root">
   {#if loading}
@@ -471,6 +496,13 @@
           {/if}
         </div>
       </div>
+
+      {#if hasMoreBelow}
+        <div class="scroll-hint" aria-hidden="true">
+          <span class="scroll-hint-chevron">⌄</span>
+          Mais opções abaixo
+        </div>
+      {/if}
 
       <div class="dock">
         <div class="dock-col">
@@ -738,6 +770,12 @@
   /* --- Faixa de progresso (mesma altura do breadcrumb do organizador) --- */
 
   .progress-bar {
+    /* #app/body só têm min-height (crescem com o conteúdo), então quem rola
+       é a página inteira, não um contêiner interno — position: sticky (igual
+       TopBar/CrumbBar do organizador) é o que mantém a faixa visível. */
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 19;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -915,6 +953,9 @@
   /* --- Rodapé de ações --- */
 
   .dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 19;
     flex-shrink: 0;
     display: flex;
     justify-content: center;
@@ -937,6 +978,46 @@
 
   .dock-hint {
     font-size: 0.75rem;
+  }
+
+  /* Pista de que dá pra rolar pra ver mais opções — flutua acima do rodapé
+     fixo (não teria como "grudar" no fim do conteúdo do jeito que
+     TopBar/progress-bar/dock fazem, já que quem rola é a página inteira).
+     hasMoreBelow (calculado em checkScroll) decide quando ela aparece. */
+  .scroll-hint {
+    position: fixed;
+    left: 50%;
+    bottom: 96px; /* ~20px acima do rodapé de ações (76px de altura) */
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent, #fff);
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    animation: scroll-hint-bounce 1.6s ease-in-out infinite;
+  }
+
+  .scroll-hint-chevron {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  @keyframes scroll-hint-bounce {
+    0%,
+    100% {
+      transform: translateX(-50%) translateY(0);
+    }
+    50% {
+      transform: translateX(-50%) translateY(4px);
+    }
   }
 
   /* --- Revisão --- */
@@ -1239,6 +1320,10 @@
 
     .dock {
       padding: 14px 20px calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .scroll-hint {
+      bottom: calc(102px + env(safe-area-inset-bottom));
     }
 
     .dock-hint {
