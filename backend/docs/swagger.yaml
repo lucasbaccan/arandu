@@ -102,8 +102,8 @@ definitions:
     type: object
   api.createQuestionRequest:
     properties:
-      layoutView:
-        type: string
+      allowOther:
+        type: boolean
       options:
         items:
           type: string
@@ -440,6 +440,8 @@ definitions:
     properties:
       id:
         type: string
+      isOther:
+        type: boolean
       text:
         type: string
     type: object
@@ -489,8 +491,6 @@ definitions:
         type: string
       id:
         type: string
-      layoutView:
-        type: string
       options:
         items:
           $ref: '#/definitions/api.questionOptionDTO'
@@ -511,6 +511,8 @@ definitions:
     properties:
       id:
         type: string
+      isOther:
+        type: boolean
       text:
         type: string
     type: object
@@ -619,6 +621,8 @@ definitions:
     type: object
   api.updateQuestionRequest:
     properties:
+      allowOther:
+        type: boolean
       options:
         items:
           type: string
@@ -1708,8 +1712,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'type: GROUP ou INDIVIDUAL (opções, min. 2 pra GROUP) ou OPEN_TEXT
-        (sem opções). layoutView: TIMELINE, DUAL, CLOUD ou CENTER (default TIMELINE).'
+      description: 'type: GROUP (opções, min. 2) ou OPEN_TEXT (sem opções). allowOther
+        adiciona uma opção "Outro" com resposta livre opcional (só GROUP).'
       parameters:
       - description: ID do evento
         in: path
@@ -1774,8 +1778,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: O tipo (GROUP/INDIVIDUAL/OPEN_TEXT) não muda depois de criada —
-        só título e opções.
+      description: O tipo (GROUP/OPEN_TEXT) não muda depois de criada — só título,
+        opções e a opção "Outro" (allowOther).
       parameters:
       - description: ID do evento
         in: path
@@ -1925,7 +1929,7 @@ paths:
       consumes:
       - application/json
       description: Edição feita pelo organizador (não pelo próprio participante).
-        optionId para GROUP/INDIVIDUAL, text para OPEN_TEXT.
+        optionId para GROUP (+ text se a opção for "Outro"), text para OPEN_TEXT.
       parameters:
       - description: ID do evento
         in: path
