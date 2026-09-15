@@ -172,7 +172,11 @@
   function isAnswered(q, ans) {
     const a = ans[q.id];
     if (!a) return false;
-    return q.type === 'OPEN_TEXT' ? a.text.trim() !== '' : a.optionId !== '';
+    if (q.type === 'OPEN_TEXT') return a.text.trim() !== '';
+    if (a.optionId === '') return false;
+    const opt = q.options.find((o) => o.id === a.optionId);
+    if (opt && opt.isOther) return a.text.trim() !== '';
+    return true;
   }
 
   function answerPreview(q, ans) {
@@ -180,7 +184,9 @@
     if (!a) return '';
     if (q.type === 'OPEN_TEXT') return a.text.trim();
     const opt = q.options.find((o) => o.id === a.optionId);
-    return opt ? opt.text : '';
+    if (!opt) return '';
+    if (opt.isOther) return a.text.trim() ? `${opt.text}: ${a.text.trim()}` : opt.text;
+    return opt.text;
   }
 
   function goBack() {
@@ -453,6 +459,13 @@
                     {answers[currentQuestion.id].optionId === opt.id ? '✓' : ''}
                   </span>
                 </label>
+                {#if opt.isOther && answers[currentQuestion.id].optionId === opt.id}
+                  <Input
+                    bind:value={answers[currentQuestion.id].text}
+                    placeholder="Escreva sua resposta"
+                    autocomplete="off"
+                  />
+                {/if}
               {/each}
             </div>
           {/if}

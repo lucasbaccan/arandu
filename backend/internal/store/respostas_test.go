@@ -13,14 +13,14 @@ func setupAnswerStore(t *testing.T) (s *Store, groupQID, openQID, optA, optB, pa
 	s, eventID = setupQuestionStore(t)
 	ctx := context.Background()
 
-	q, err := s.CriarPergunta(ctx, Question{ID: 300, EventID: eventID, Title: "Escolha", Type: "GROUP", LayoutView: "TIMELINE"}, []QuestionOption{
+	q, err := s.CriarPergunta(ctx, Question{ID: 300, EventID: eventID, Title: "Escolha", Type: "GROUP"}, []QuestionOption{
 		{ID: 301, TextLabel: "A"},
 		{ID: 302, TextLabel: "B"},
 	})
 	if err != nil {
 		t.Fatalf("criar pergunta de grupo: %v", err)
 	}
-	oq, err := s.CriarPergunta(ctx, Question{ID: 310, EventID: eventID, Title: "Aberta", Type: "OPEN_TEXT", LayoutView: "TIMELINE"}, nil)
+	oq, err := s.CriarPergunta(ctx, Question{ID: 310, EventID: eventID, Title: "Aberta", Type: "OPEN_TEXT"}, nil)
 	if err != nil {
 		t.Fatalf("criar pergunta aberta: %v", err)
 	}

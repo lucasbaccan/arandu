@@ -175,11 +175,10 @@ func seedQuestions(ctx context.Context, st *store.Store, gen *ids.Generator, rng
 	result := make([]seededQuestion, 0, 10)
 	for _, def := range openDefs {
 		q, err := st.CriarPergunta(ctx, store.Question{
-			ID:         gen.NextID(),
-			EventID:    eventID,
-			Title:      def.title,
-			Type:       "OPEN_TEXT",
-			LayoutView: "TIMELINE",
+			ID:      gen.NextID(),
+			EventID: eventID,
+			Title:   def.title,
+			Type:    "OPEN_TEXT",
 		}, nil)
 		if err != nil {
 			return nil, fmt.Errorf("criar pergunta aberta: %w", err)
@@ -195,11 +194,10 @@ func seedQuestions(ctx context.Context, st *store.Store, gen *ids.Generator, rng
 			opts = append(opts, store.QuestionOption{ID: gen.NextID(), TextLabel: label})
 		}
 		q, err := st.CriarPergunta(ctx, store.Question{
-			ID:         gen.NextID(),
-			EventID:    eventID,
-			Title:      gq.Title,
-			Type:       "GROUP",
-			LayoutView: "TIMELINE",
+			ID:      gen.NextID(),
+			EventID: eventID,
+			Title:   gq.Title,
+			Type:    "GROUP",
 		}, opts)
 		if err != nil {
 			return nil, fmt.Errorf("criar pergunta de múltipla escolha: %w", err)

@@ -72,7 +72,6 @@ const questions = [
     id: 'q1',
     title: 'Qual sua linguagem favorita?',
     type: 'GROUP',
-    layoutView: 'TIMELINE',
     orderIndex: 0,
     options: [
       { id: 'o1', text: 'Go' },
@@ -83,7 +82,6 @@ const questions = [
     id: 'q2',
     title: 'Deixe um recado',
     type: 'OPEN_TEXT',
-    layoutView: 'TIMELINE',
     orderIndex: 1,
     options: []
   }
@@ -158,6 +156,61 @@ describe('Preview da apresentação', () => {
     expect(view.getByLabelText('Revelar resposta de bob@exemplo.com')).toBeInTheDocument();
     expect(view.getByText('Go')).toBeInTheDocument();
     expect(view.getByText('JS')).toBeInTheDocument();
+  });
+
+  it('não lista como pendente quem não respondeu a pergunta atual', async () => {
+    const laterQuestions = [
+      {
+        id: 'q9',
+        title: 'Pergunta criada depois',
+        type: 'GROUP',
+        orderIndex: 0,
+        options: [
+          { id: 'o1', text: 'A' },
+          { id: 'o2', text: 'B' }
+        ]
+      }
+    ];
+    const laterParticipants = [
+      {
+        id: 'p1',
+        email: 'ana@exemplo.com',
+        photo: '',
+        editToken: 't1',
+        createdAt: '2026-08-03T00:00:00Z',
+        answers: [
+          {
+            questionId: 'q9',
+            questionTitle: laterQuestions[0].title,
+            questionType: 'GROUP',
+            optionId: 'o1',
+            optionText: 'A',
+            text: ''
+          }
+        ]
+      },
+      {
+        id: 'p2',
+        email: 'bob@exemplo.com',
+        photo: '',
+        editToken: 't2',
+        createdAt: '2026-08-03T00:05:00Z',
+        answers: []
+      }
+    ];
+    api.eventos.perguntas.listar.mockResolvedValue({ questions: laterQuestions });
+    api.eventos.respostas.listar.mockResolvedValue({
+      participantCount: laterParticipants.length,
+      participants: laterParticipants
+    });
+
+    const view = mount();
+    await view.findByRole('heading', { name: 'Pergunta criada depois' });
+
+    // ana respondeu a pergunta nova → aparece como pendente pra revelar
+    expect(view.getByLabelText('Revelar resposta de ana@exemplo.com')).toBeInTheDocument();
+    // bob não respondeu → não tem opção pra onde ir, então nem aparece
+    expect(view.queryByLabelText('Revelar resposta de bob@exemplo.com')).not.toBeInTheDocument();
   });
 
   it('retoma na pergunta e na revelação salvas no servidor, sem forçar a pergunta 1', async () => {
@@ -763,5 +816,68 @@ describe('Preview da apresentação', () => {
 
     await new Promise((r) => setTimeout(r, 700));
     expect(view.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('agrupa quem respondeu "Outro" pelo próprio texto, não num balde genérico "Outro"', async () => {
+    const otherQuestions = [
+      {
+        id: 'q3',
+        title: 'Qual sua linguagem favorita?',
+        type: 'GROUP',
+        orderIndex: 0,
+        options: [
+          { id: 'o1', text: 'Go' },
+          { id: 'o-other', text: 'Outro', isOther: true }
+        ]
+      }
+    ];
+    const otherParticipants = [
+      {
+        id: 'p1',
+        email: 'ana@exemplo.com',
+        photo: '',
+        editToken: 't1',
+        createdAt: '2026-08-03T00:00:00Z',
+        answers: [
+          {
+            questionId: 'q3',
+            questionTitle: otherQuestions[0].title,
+            questionType: 'GROUP',
+            optionId: 'o-other',
+            optionText: 'Outro',
+            text: 'Rust'
+          }
+        ]
+      },
+      {
+        id: 'p2',
+        email: 'bob@exemplo.com',
+        photo: '',
+        editToken: 't2',
+        createdAt: '2026-08-03T00:05:00Z',
+        answers: [
+          {
+            questionId: 'q3',
+            questionTitle: otherQuestions[0].title,
+            questionType: 'GROUP',
+            optionId: 'o-other',
+            optionText: 'Outro',
+            text: 'Kotlin'
+          }
+        ]
+      }
+    ];
+    api.eventos.perguntas.listar.mockResolvedValue({ questions: otherQuestions });
+    api.eventos.respostas.listar.mockResolvedValue({
+      participantCount: otherParticipants.length,
+      participants: otherParticipants
+    });
+
+    const view = mount();
+    await view.findByRole('heading', { name: 'Qual sua linguagem favorita?' });
+
+    expect(view.getByText('Rust')).toBeInTheDocument();
+    expect(view.getByText('Kotlin')).toBeInTheDocument();
+    expect(view.queryByText('Outro')).not.toBeInTheDocument();
   });
 });

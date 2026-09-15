@@ -38,9 +38,6 @@ func TestCreateQuestion(t *testing.T) {
 	if q.Title != "Qual é o seu prato favorito?" || q.Type != "GROUP" {
 		t.Errorf("pergunta divergente: %+v", q)
 	}
-	if q.LayoutView != "TIMELINE" {
-		t.Errorf("layout padrão esperado TIMELINE, got %s", q.LayoutView)
-	}
 	if len(q.Options) != 3 || q.Options[0].Text != "Pizza" || q.Options[0].ID == "" {
 		t.Errorf("opções divergentes: %+v", q.Options)
 	}
@@ -58,7 +55,7 @@ func TestCreateQuestionOrdering(t *testing.T) {
 		"title": "Primeira", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
 	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
-		"title": "Segunda", "type": "INDIVIDUAL", "options": []string{"Única"},
+		"title": "Segunda", "type": "GROUP", "options": []string{"X", "Y"},
 	}, []*http.Cookie{cookie})
 
 	var resp struct {
@@ -83,13 +80,12 @@ func TestCreateQuestionValidation(t *testing.T) {
 		{"sem título", map[string]any{"type": "GROUP", "options": []string{"A", "B"}}, http.StatusBadRequest},
 		{"título vazio", map[string]any{"title": "  ", "type": "GROUP", "options": []string{"A", "B"}}, http.StatusBadRequest},
 		{"tipo inválido", map[string]any{"title": "P", "type": "OUTRO", "options": []string{"A", "B"}}, http.StatusBadRequest},
-		{"layout inválido", map[string]any{"title": "P", "type": "GROUP", "layoutView": "XYZ", "options": []string{"A", "B"}}, http.StatusBadRequest},
 		{"sem opções", map[string]any{"title": "P", "type": "GROUP", "options": []string{}}, http.StatusBadRequest},
 		{"opção vazia", map[string]any{"title": "P", "type": "GROUP", "options": []string{"A", ""}}, http.StatusBadRequest},
 		{"opções duplicadas", map[string]any{"title": "P", "type": "GROUP", "options": []string{"A", "A"}}, http.StatusBadRequest},
 		{"group com uma opção", map[string]any{"title": "P", "type": "GROUP", "options": []string{"A"}}, http.StatusBadRequest},
 		{"opção longa demais", map[string]any{"title": "P", "type": "GROUP", "options": []string{"A", "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"}}, http.StatusBadRequest},
-		{"muitas opções", map[string]any{"title": "P", "type": "INDIVIDUAL", "options": []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"}}, http.StatusBadRequest},
+		{"muitas opções", map[string]any{"title": "P", "type": "GROUP", "options": []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"}}, http.StatusBadRequest},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -190,7 +186,7 @@ func TestListQuestions(t *testing.T) {
 		"title": "Primeira", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
 	doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
-		"title": "Segunda", "type": "INDIVIDUAL", "options": []string{"Única"},
+		"title": "Segunda", "type": "GROUP", "options": []string{"X", "Y"},
 	}, []*http.Cookie{cookie})
 
 	rec := doJSON(t, h, http.MethodGet, "/api/eventos/"+id+"/perguntas", nil, []*http.Cookie{cookie})
@@ -209,7 +205,7 @@ func TestListQuestions(t *testing.T) {
 	if resp.Questions[0].Title != "Primeira" || resp.Questions[1].Title != "Segunda" {
 		t.Errorf("ordem divergente: %+v", resp.Questions)
 	}
-	if len(resp.Questions[0].Options) != 2 || resp.Questions[1].Type != "INDIVIDUAL" {
+	if len(resp.Questions[0].Options) != 2 || resp.Questions[1].Type != "GROUP" {
 		t.Errorf("perguntas divergentes: %+v", resp.Questions)
 	}
 }
@@ -323,7 +319,7 @@ func TestUpdateQuestion(t *testing.T) {
 	id := createEventForQuestions(t, h, cookie)
 
 	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
-		"title": "Antes", "type": "GROUP", "layoutView": "CENTER", "options": []string{"A", "B"},
+		"title": "Antes", "type": "GROUP", "options": []string{"A", "B"},
 	}, []*http.Cookie{cookie})
 	var created struct {
 		Question questionDTO `json:"question"`
@@ -344,7 +340,7 @@ func TestUpdateQuestion(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if resp.Question.Title != "Depois" || resp.Question.Type != "GROUP" || resp.Question.LayoutView != "CENTER" {
+	if resp.Question.Title != "Depois" || resp.Question.Type != "GROUP" {
 		t.Errorf("pergunta atualizada divergente: %+v", resp.Question)
 	}
 	if len(resp.Question.Options) != 3 || resp.Question.Options[0].Text != "X" || resp.Question.Options[2].Text != "Z" {
@@ -532,5 +528,99 @@ func TestReorderQuestionsOwnershipAndAuth(t *testing.T) {
 				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestCreateQuestionAllowOther(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventForQuestions(t, h, cookie)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
+		"title": "Qual seu framework favorito?", "type": "GROUP", "options": []string{"React", "Svelte"}, "allowOther": true,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status esperado 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Question.Options) != 3 {
+		t.Fatalf("esperado 3 opções (2 + Outro), got %+v", resp.Question.Options)
+	}
+	last := resp.Question.Options[2]
+	if !last.IsOther || last.Text != "Outro" {
+		t.Errorf("última opção deveria ser 'Outro' sintética, got %+v", last)
+	}
+	if resp.Question.Options[0].IsOther || resp.Question.Options[1].IsOther {
+		t.Errorf("opções do organizador não deveriam ser marcadas isOther: %+v", resp.Question.Options)
+	}
+}
+
+func TestCreateQuestionAllowOtherIgnoredForOpenText(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventForQuestions(t, h, cookie)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
+		"title": "Comentário livre", "type": "OPEN_TEXT", "allowOther": true,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status esperado 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Question questionDTO `json:"question"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Question.Options) != 0 {
+		t.Errorf("OPEN_TEXT não deveria ganhar opção 'Outro': %+v", resp.Question.Options)
+	}
+}
+
+func TestUpdateQuestionTogglesAllowOther(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	cookie := registerUser(t, h)
+	id := createEventForQuestions(t, h, cookie)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+id+"/perguntas", map[string]any{
+		"title": "P", "type": "GROUP", "options": []string{"A", "B"},
+	}, []*http.Cookie{cookie})
+	var created struct {
+		Question questionDTO `json:"question"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &created)
+	if len(created.Question.Options) != 2 {
+		t.Fatalf("esperado 2 opções antes de ligar 'Outro', got %+v", created.Question.Options)
+	}
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+id+"/perguntas/"+created.Question.ID, map[string]any{
+		"title": "P", "options": []string{"A", "B"}, "allowOther": true,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var withOther struct {
+		Question questionDTO `json:"question"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &withOther)
+	if len(withOther.Question.Options) != 3 || !withOther.Question.Options[2].IsOther {
+		t.Fatalf("esperado 3 opções com 'Outro' ao ligar allowOther, got %+v", withOther.Question.Options)
+	}
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+id+"/perguntas/"+created.Question.ID, map[string]any{
+		"title": "P", "options": []string{"A", "B"}, "allowOther": false,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var withoutOther struct {
+		Question questionDTO `json:"question"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &withoutOther)
+	if len(withoutOther.Question.Options) != 2 {
+		t.Fatalf("esperado 2 opções ao desligar allowOther, got %+v", withoutOther.Question.Options)
 	}
 }

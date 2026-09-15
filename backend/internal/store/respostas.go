@@ -70,6 +70,38 @@ func (s *Store) ListarRespostasPorParticipante(ctx context.Context, participantI
 	return answers, nil
 }
 
+// ListarRespostasPorPergunta devolve as respostas de todos os participantes a
+// uma pergunta, indexadas por participant_id. Uma consulta só — evita N idas
+// ao banco ao montar o snapshot do ao vivo, e deixa explícito quem respondeu
+// a pergunta (quem não está no mapa não respondeu).
+func (s *Store) ListarRespostasPorPergunta(ctx context.Context, questionID int64) (map[int64]Answer, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, question_id, participant_id, COALESCE(option_id, 0), free_text
+		 FROM answers WHERE question_id = ?`,
+		questionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: listar respostas da pergunta: %w", err)
+	}
+	defer rows.Close()
+
+	byParticipant := make(map[int64]Answer)
+	for rows.Next() {
+		var (
+			a             Answer
+			participantID int64
+		)
+		if err := rows.Scan(&a.ID, &a.QuestionID, &participantID, &a.OptionID, &a.FreeText); err != nil {
+			return nil, fmt.Errorf("store: ler resposta da pergunta: %w", err)
+		}
+		byParticipant[participantID] = a
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: iterar respostas da pergunta: %w", err)
+	}
+	return byParticipant, nil
+}
+
 // AtualizarResposta atualiza a resposta de um participante a uma pergunta (moderação
 // pelo organizador). Retorna ErrNotFound se a resposta não existir.
 func (s *Store) AtualizarResposta(ctx context.Context, participantID, questionID, optionID int64, freeText string) error {

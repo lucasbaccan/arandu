@@ -11,28 +11,24 @@ import (
 )
 
 const (
-	questionTypeGroup      = "GROUP"
-	questionTypeIndividual = "INDIVIDUAL"
-	questionTypeOpenText   = "OPEN_TEXT"
-	defaultLayoutView      = "TIMELINE"
+	questionTypeGroup    = "GROUP"
+	questionTypeOpenText = "OPEN_TEXT"
 
 	maxQuestionTitleLength = 300
 	maxOptionTextLength    = 120
-	minOptions             = 1
 	minGroupOptions        = 2
 	maxOptions             = 10
+
+	// otherOptionLabel é o texto fixo da opção sintética adicionada quando
+	// allowOther é true — não é digitada pelo organizador (ver
+	// createQuestionRequest.AllowOther).
+	otherOptionLabel = "Outro"
 )
 
-var allowedLayoutViews = map[string]bool{
-	"TIMELINE": true,
-	"DUAL":     true,
-	"CLOUD":    true,
-	"CENTER":   true,
-}
-
 type questionOptionDTO struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
+	ID      string `json:"id"`
+	Text    string `json:"text"`
+	IsOther bool   `json:"isOther,omitempty"`
 }
 
 type questionDTO struct {
@@ -40,7 +36,6 @@ type questionDTO struct {
 	EventID    string              `json:"eventId"`
 	Title      string              `json:"title"`
 	Type       string              `json:"type"`
-	LayoutView string              `json:"layoutView"`
 	OrderIndex int64               `json:"orderIndex"`
 	Options    []questionOptionDTO `json:"options"`
 }
@@ -49,8 +44,9 @@ func toQuestionDTO(q store.QuestionWithOptions) questionDTO {
 	opts := make([]questionOptionDTO, 0, len(q.Options))
 	for _, o := range q.Options {
 		opts = append(opts, questionOptionDTO{
-			ID:   strconv.FormatInt(o.ID, 10),
-			Text: o.TextLabel,
+			ID:      strconv.FormatInt(o.ID, 10),
+			Text:    o.TextLabel,
+			IsOther: o.IsOther,
 		})
 	}
 	return questionDTO{
@@ -58,10 +54,16 @@ func toQuestionDTO(q store.QuestionWithOptions) questionDTO {
 		EventID:    strconv.FormatInt(q.EventID, 10),
 		Title:      q.Title,
 		Type:       q.Type,
-		LayoutView: q.LayoutView,
 		OrderIndex: q.OrderIndex,
 		Options:    opts,
 	}
+}
+
+// otherOption cria a opção sintética "Outro", incluída além das opções do
+// organizador quando allowOther é true. Só se aplica a perguntas com opções
+// (GROUP) — OPEN_TEXT já é resposta livre por definição.
+func (a *API) otherOption() store.QuestionOption {
+	return store.QuestionOption{ID: a.ids.NextID(), TextLabel: otherOptionLabel, IsOther: true}
 }
 
 // handleListarPerguntas godoc
@@ -96,14 +98,14 @@ func (a *API) handleListarPerguntas(w http.ResponseWriter, r *http.Request) {
 type createQuestionRequest struct {
 	Title      string   `json:"title"`
 	Type       string   `json:"type"`
-	LayoutView string   `json:"layoutView"`
 	Options    []string `json:"options"`
+	AllowOther bool     `json:"allowOther"`
 }
 
 // handleCriarPergunta godoc
 //
 // @Summary     Cria uma pergunta no evento
-// @Description type: GROUP ou INDIVIDUAL (opções, min. 2 pra GROUP) ou OPEN_TEXT (sem opções). layoutView: TIMELINE, DUAL, CLOUD ou CENTER (default TIMELINE).
+// @Description type: GROUP (opções, min. 2) ou OPEN_TEXT (sem opções). allowOther adiciona uma opção "Outro" com resposta livre opcional (só GROUP).
 // @Tags        perguntas
 // @Accept      json
 // @Produce     json
@@ -128,7 +130,6 @@ func (a *API) handleCriarPergunta(w http.ResponseWriter, r *http.Request) {
 
 	req.Title = strings.TrimSpace(req.Title)
 	req.Type = strings.TrimSpace(req.Type)
-	req.LayoutView = strings.TrimSpace(req.LayoutView)
 
 	if req.Title == "" {
 		writeError(w, http.StatusBadRequest, "Informe o texto da pergunta.")
@@ -138,15 +139,8 @@ func (a *API) handleCriarPergunta(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Pergunta muito longa (máximo "+strconv.Itoa(maxQuestionTitleLength)+" caracteres).")
 		return
 	}
-	if req.Type != questionTypeGroup && req.Type != questionTypeIndividual && req.Type != questionTypeOpenText {
-		writeError(w, http.StatusBadRequest, "Tipo de pergunta inválido. Use GROUP, INDIVIDUAL ou OPEN_TEXT.")
-		return
-	}
-	if req.LayoutView == "" {
-		req.LayoutView = defaultLayoutView
-	}
-	if !allowedLayoutViews[req.LayoutView] {
-		writeError(w, http.StatusBadRequest, "Layout de pergunta inválido.")
+	if req.Type != questionTypeGroup && req.Type != questionTypeOpenText {
+		writeError(w, http.StatusBadRequest, "Tipo de pergunta inválido. Use GROUP ou OPEN_TEXT.")
 		return
 	}
 
@@ -156,17 +150,19 @@ func (a *API) handleCriarPergunta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	optionEnts := make([]store.QuestionOption, 0, len(options))
+	optionEnts := make([]store.QuestionOption, 0, len(options)+1)
 	for _, text := range options {
 		optionEnts = append(optionEnts, store.QuestionOption{ID: a.ids.NextID(), TextLabel: text})
 	}
+	if req.AllowOther && req.Type == questionTypeGroup {
+		optionEnts = append(optionEnts, a.otherOption())
+	}
 
 	question, err := a.store.CriarPergunta(r.Context(), store.Question{
-		ID:         a.ids.NextID(),
-		EventID:    id,
-		Title:      req.Title,
-		Type:       req.Type,
-		LayoutView: req.LayoutView,
+		ID:      a.ids.NextID(),
+		EventID: id,
+		Title:   req.Title,
+		Type:    req.Type,
 	}, optionEnts)
 	if err != nil {
 		log.Printf("api: criar pergunta: %v", err)
@@ -210,14 +206,15 @@ func (a *API) handleRemoverPergunta(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateQuestionRequest struct {
-	Title   string   `json:"title"`
-	Options []string `json:"options"`
+	Title      string   `json:"title"`
+	Options    []string `json:"options"`
+	AllowOther bool     `json:"allowOther"`
 }
 
 // handleAtualizarPergunta godoc
 //
 // @Summary     Atualiza o título/opções de uma pergunta
-// @Description O tipo (GROUP/INDIVIDUAL/OPEN_TEXT) não muda depois de criada — só título e opções.
+// @Description O tipo (GROUP/OPEN_TEXT) não muda depois de criada — só título, opções e a opção "Outro" (allowOther).
 // @Tags        perguntas
 // @Accept      json
 // @Produce     json
@@ -280,9 +277,12 @@ func (a *API) handleAtualizarPergunta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	optionEnts := make([]store.QuestionOption, 0, len(options))
+	optionEnts := make([]store.QuestionOption, 0, len(options)+1)
 	for _, text := range options {
 		optionEnts = append(optionEnts, store.QuestionOption{ID: a.ids.NextID(), TextLabel: text})
+	}
+	if req.AllowOther && current.Type == questionTypeGroup {
+		optionEnts = append(optionEnts, a.otherOption())
 	}
 
 	question, err := a.store.AtualizarPergunta(r.Context(), store.Question{
@@ -290,7 +290,6 @@ func (a *API) handleAtualizarPergunta(w http.ResponseWriter, r *http.Request) {
 		EventID:    eventID,
 		Title:      req.Title,
 		Type:       current.Type,
-		LayoutView: current.LayoutView,
 		OrderIndex: current.OrderIndex,
 	}, optionEnts)
 	if err != nil {
@@ -403,14 +402,15 @@ func (a *API) resolveEventOwner(w http.ResponseWriter, r *http.Request) (int64, 
 	return eventID, true
 }
 
-// normalizeOptions valida e limpa as opções, exigindo mínimo por tipo de pergunta.
-// Perguntas de resposta aberta (OPEN_TEXT) não têm opções.
+// normalizeOptions valida e limpa as opções de uma pergunta GROUP (mínimo
+// minGroupOptions, máximo maxOptions). Perguntas de resposta aberta
+// (OPEN_TEXT) não têm opções.
 func normalizeOptions(options []string, qType string) ([]string, string) {
 	if qType == questionTypeOpenText {
 		return []string{}, ""
 	}
-	if len(options) < minOptions || len(options) > maxOptions {
-		return nil, "Informe entre 1 e " + strconv.Itoa(maxOptions) + " opções."
+	if len(options) > maxOptions {
+		return nil, "Informe até " + strconv.Itoa(maxOptions) + " opções."
 	}
 	seen := make(map[string]bool, len(options))
 	clean := make([]string, 0, len(options))
@@ -428,7 +428,7 @@ func normalizeOptions(options []string, qType string) ([]string, string) {
 		seen[o] = true
 		clean = append(clean, o)
 	}
-	if qType == questionTypeGroup && len(clean) < minGroupOptions {
+	if len(clean) < minGroupOptions {
 		return nil, "Perguntas em grupo precisam de pelo menos " + strconv.Itoa(minGroupOptions) + " opções."
 	}
 	return clean, ""

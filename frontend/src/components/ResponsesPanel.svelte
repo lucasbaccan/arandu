@@ -16,6 +16,7 @@
   let expandedId = null;
   let editing = null;
   let editValue = '';
+  let editOtherText = '';
   let saving = false;
   let saveError = '';
 
@@ -47,9 +48,14 @@
     return (q && q.options) || [];
   }
 
+  function isOtherOption(qid, optionId) {
+    return questionOptions(qid).some((o) => o.id === optionId && o.isOther);
+  }
+
   function startEdit(participantId, answer) {
     editing = { participantId, questionId: answer.questionId };
     editValue = answer.questionType === 'OPEN_TEXT' ? answer.text : answer.optionId;
+    editOtherText = answer.text || '';
     saveError = '';
   }
 
@@ -62,8 +68,16 @@
     saving = true;
     saveError = '';
     try {
+      const otherSelected = answer.questionType !== 'OPEN_TEXT' && isOtherOption(answer.questionId, editValue);
+      if (otherSelected && !editOtherText.trim()) {
+        saveError = 'Descreva a resposta em "Outro".';
+        saving = false;
+        return;
+      }
       const body =
-        answer.questionType === 'OPEN_TEXT' ? { text: editValue.trim() } : { optionId: editValue };
+        answer.questionType === 'OPEN_TEXT'
+          ? { text: editValue.trim() }
+          : { optionId: editValue, text: otherSelected ? editOtherText.trim() : '' };
       await api.eventos.respostas.atualizarResposta(
         eventId,
         editing.participantId,
@@ -213,6 +227,14 @@
                             <option value={opt.id}>{opt.text}</option>
                           {/each}
                         </select>
+                        {#if isOtherOption(a.questionId, editValue)}
+                          <input
+                            class="answer-edit-text"
+                            type="text"
+                            bind:value={editOtherText}
+                            placeholder="Resposta em &quot;Outro&quot;"
+                          />
+                        {/if}
                       {/if}
                       {#if saveError}
                         <p class="form-error">{saveError}</p>
@@ -233,7 +255,13 @@
                     {:else}
                       <div class="answer-value-row">
                         <span class="answer-value">
-                          {a.questionType === 'OPEN_TEXT' ? a.text || '—' : a.optionText}
+                          {#if a.questionType === 'OPEN_TEXT'}
+                            {a.text || '—'}
+                          {:else if a.text}
+                            {a.optionText}: {a.text}
+                          {:else}
+                            {a.optionText}
+                          {/if}
                         </span>
                         <button
                           type="button"

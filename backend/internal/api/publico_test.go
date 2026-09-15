@@ -604,3 +604,64 @@ func TestSubmitAnswersValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestSubmitAnswersOtherOption(t *testing.T) {
+	app := newTestAPI(t)
+	h := app.Handler()
+	cookie := registerUser(t, h)
+	eventID := createEventAndGetID(t, h, cookie, "Evento com Outro")
+
+	rec := doJSON(t, h, http.MethodPost, "/api/eventos/"+eventID+"/perguntas", map[string]any{
+		"title": "Qual sua linguagem favorita?", "type": "GROUP", "options": []string{"Go", "JS"}, "allowOther": true,
+	}, []*http.Cookie{cookie})
+	var created struct {
+		Question questionDTO `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode pergunta: %v", err)
+	}
+	if len(created.Question.Options) != 3 || !created.Question.Options[2].IsOther {
+		t.Fatalf("terceira opção deveria ser 'Outro': %+v", created.Question.Options)
+	}
+	otherOptID := created.Question.Options[2].ID
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/eventos/"+eventID, map[string]any{
+		"title": "Evento com Outro", "status": "OPEN_FOR_ANSWERS", "allowEdit": true,
+	}, []*http.Cookie{cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("abrir respostas: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "ana@exemplo.com", "name": "Ana",
+		"answers": []map[string]string{{"questionId": created.Question.ID, "optionId": otherOptID}},
+	}, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status esperado 400 sem texto em 'Outro', got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "ana@exemplo.com", "name": "Ana",
+		"answers": []map[string]string{{"questionId": created.Question.ID, "optionId": otherOptID, "text": "Rust"}},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200 com texto em 'Outro', got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/eventos/"+eventID+"/respostas", nil, []*http.Cookie{cookie})
+	var listResp struct {
+		Participants []struct {
+			Answers []answerDTO `json:"answers"`
+		} `json:"participants"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &listResp); err != nil {
+		t.Fatalf("decode respostas: %v", err)
+	}
+	if len(listResp.Participants) != 1 || len(listResp.Participants[0].Answers) != 1 {
+		t.Fatalf("resposta não persistida corretamente: %+v", listResp)
+	}
+	a := listResp.Participants[0].Answers[0]
+	if a.OptionText != "Outro" || a.Text != "Rust" {
+		t.Errorf("resposta 'Outro' divergente: %+v", a)
+	}
+}

@@ -192,15 +192,15 @@ func (a *API) handleAoVivoRevelarTodos(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ID de pergunta inválido.")
 		return
 	}
-	participants, err := a.store.ListarParticipantesPorEvento(r.Context(), eventID)
+	answers, err := a.store.ListarRespostasPorPergunta(r.Context(), questionID)
 	if err != nil {
-		log.Printf("api: listar participantes para revelar todos: %v", err)
+		log.Printf("api: listar respondentes para revelar todos: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno.")
 		return
 	}
-	ids := make([]int64, len(participants))
-	for i, p := range participants {
-		ids[i] = p.ID
+	ids := make([]int64, 0, len(answers))
+	for participantID := range answers {
+		ids = append(ids, participantID)
 	}
 	if err := a.store.RevelarTodasRespostas(r.Context(), eventID, questionID, ids); err != nil {
 		log.Printf("api: salvar revelar todos: %v", err)
@@ -1329,123 +1329,146 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 	}
 	snapshot.CurrentQuestionID = strconv.FormatInt(current.ID, 10)
 
+	var currentOtherOptionID int64
+	for _, opt := range current.Options {
+		if opt.IsOther {
+			currentOtherOptionID = opt.ID
+			break
+		}
+	}
+
 	revealed := state.Revealed[current.ID]
 	pending := make([]liveParticipantDTO, 0, len(participants))
 	revealedAnswers := make([]revealedLiveAnswer, 0, len(participants))
-	// allOpenTexts só é preenchido pra perguntas de resposta aberta: ao
-	// contrário de múltipla escolha (cujas opções já existem de antemão e
-	// sempre aparecem, mesmo com 0 pessoas), os "baldes" de resposta aberta
-	// só existem pelo que foi digitado — então pra eles aparecerem na tela
-	// antes de qualquer revelação (igual às opções fixas), é preciso saber
-	// o texto de todo mundo que respondeu, revelado ou não. A identidade de
-	// quem ainda não foi revelado nunca é anexada a esse texto no payload —
-	// só usamos aqui pra descobrir quais baldes existem.
+	// allOpenTexts/allOtherTexts só são preenchidos pra OPEN_TEXT e pra opção
+	// "Outro" de uma GROUP, respectivamente: ao contrário das opções fixas
+	// (que já existem de antemão e sempre aparecem, mesmo com 0 pessoas),
+	// esses baldes só existem pelo que foi digitado — então pra eles
+	// aparecerem na tela antes de qualquer revelação (igual às opções
+	// fixas), é preciso saber o texto de todo mundo que respondeu, revelado
+	// ou não. A identidade de quem ainda não foi revelado nunca é anexada a
+	// esse texto no payload — só usamos aqui pra descobrir quais baldes
+	// existem.
 	var allOpenTexts []string
+	var allOtherTexts []string
+	// Quem não está no mapa não respondeu a esta pergunta (ex.: pergunta criada
+	// depois do prazo) e fica fora do snapshot — não aparece como pendente nem
+	// em nenhum grupo, porque não tem opção/resposta pra encaixar.
+	answersByParticipant, err := a.store.ListarRespostasPorPergunta(ctx, current.ID)
+	if err != nil {
+		return liveSnapshotDTO{}, fmt.Errorf("listar respostas da pergunta: %w", err)
+	}
 	for _, p := range participants {
+		found, ok := answersByParticipant[p.ID]
+		if !ok {
+			continue
+		}
 		if !revealed[p.ID] {
 			pending = append(pending, a.toLiveParticipantDTO(p))
-			if current.Type == questionTypeOpenText {
-				if text, ok := freeTextAnswerFor(ctx, a.store, p.ID, current.ID); ok {
-					allOpenTexts = append(allOpenTexts, text)
-				}
-			}
-			continue
+		} else {
+			revealedAnswers = append(revealedAnswers, revealedLiveAnswer{participant: p, optionID: found.OptionID, text: found.FreeText})
 		}
-		answers, err := a.store.ListarRespostasPorParticipante(ctx, p.ID)
-		if err != nil {
-			return liveSnapshotDTO{}, fmt.Errorf("listar respostas do participante: %w", err)
-		}
-		var found *store.Answer
-		for i := range answers {
-			if answers[i].QuestionID == current.ID {
-				found = &answers[i]
-				break
-			}
-		}
-		if found == nil {
-			// revelado mas sem resposta pra essa pergunta ainda — trata
-			// como pendente pra não travar o snapshot.
-			pending = append(pending, a.toLiveParticipantDTO(p))
-			continue
-		}
-		revealedAnswers = append(revealedAnswers, revealedLiveAnswer{participant: p, optionID: found.OptionID, text: found.FreeText})
 		if current.Type == questionTypeOpenText {
 			allOpenTexts = append(allOpenTexts, found.FreeText)
+		} else if currentOtherOptionID != 0 && found.OptionID == currentOtherOptionID {
+			allOtherTexts = append(allOtherTexts, found.FreeText)
 		}
 	}
 
 	snapshot.Pending = pending
-	snapshot.Groups = a.buildLiveGroups(current, revealedAnswers, allOpenTexts)
+	snapshot.Groups = a.buildLiveGroups(current, revealedAnswers, allOpenTexts, allOtherTexts)
 	return snapshot, nil
 }
 
-// freeTextAnswerFor busca a resposta de texto livre de um participante pra
-// uma pergunta específica, sem expor o restante das respostas dele.
-func freeTextAnswerFor(ctx context.Context, st *store.Store, participantID, questionID int64) (string, bool) {
-	answers, err := st.ListarRespostasPorParticipante(ctx, participantID)
-	if err != nil {
-		return "", false
-	}
-	for i := range answers {
-		if answers[i].QuestionID == questionID {
-			return answers[i].FreeText, true
+// buildTextGroups agrupa por texto normalizado (trim + primeira letra
+// maiúscula), um balde por resposta distinta — usado tanto por perguntas
+// OPEN_TEXT quanto pela opção "Outro" dentro de uma pergunta GROUP (nos dois
+// casos o balde não existe de antemão, só depois de alguém escrever algo).
+// allTexts cobre quem ainda não foi revelado, pra o balde já aparecer na
+// tela antes da revelação (mesma lógica de allOpenTexts em buildLiveSnapshot).
+func (a *API) buildTextGroups(allTexts []string, revealed []revealedLiveAnswer) []liveGroupDTO {
+	order := make([]string, 0, len(allTexts))
+	byLabel := make(map[string]*liveGroupDTO, len(allTexts))
+	for _, text := range allTexts {
+		label := normalizeOpenText(text)
+		if label == "" {
+			label = "—"
+		}
+		if _, ok := byLabel[label]; !ok {
+			byLabel[label] = &liveGroupDTO{Label: label, Participants: []liveParticipantDTO{}}
+			order = append(order, label)
 		}
 	}
-	return "", false
+	for _, r := range revealed {
+		label := normalizeOpenText(r.text)
+		if label == "" {
+			label = "—"
+		}
+		g, ok := byLabel[label]
+		if !ok {
+			// não deveria acontecer (allTexts inclui os revelados também),
+			// mas cria o balde se faltar por algum motivo.
+			g = &liveGroupDTO{Label: label, Participants: []liveParticipantDTO{}}
+			byLabel[label] = g
+			order = append(order, label)
+		}
+		g.Participants = append(g.Participants, a.toLiveParticipantDTO(r.participant))
+	}
+	groups := make([]liveGroupDTO, 0, len(order))
+	for _, label := range order {
+		groups = append(groups, *byLabel[label])
+	}
+	return groups
 }
 
-func (a *API) buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer, allOpenTexts []string) []liveGroupDTO {
+// buildLiveGroups agrupa as respostas reveladas em "baldes" pro telão. Pra
+// GROUP, cada opção fixa já existe de antemão (aparece com 0 pessoas até
+// alguém ser revelado nela) — exceto a opção "Outro", que não é uma escolha
+// compartilhável: cada pessoa escreveu a própria resposta, então ela usa o
+// mesmo agrupamento por texto de OPEN_TEXT (allOtherTexts), em vez de um
+// único balde genérico "Outro" misturando respostas diferentes.
+func (a *API) buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedLiveAnswer, allOpenTexts, allOtherTexts []string) []liveGroupDTO {
 	if q.Type == questionTypeOpenText {
-		order := make([]string, 0, len(allOpenTexts))
-		byLabel := make(map[string]*liveGroupDTO, len(allOpenTexts))
-		for _, text := range allOpenTexts {
-			label := normalizeOpenText(text)
-			if label == "" {
-				label = "—"
-			}
-			if _, ok := byLabel[label]; !ok {
-				byLabel[label] = &liveGroupDTO{Label: label, Participants: []liveParticipantDTO{}}
-				order = append(order, label)
-			}
+		return a.buildTextGroups(allOpenTexts, revealed)
+	}
+
+	var otherOptionID int64
+	for _, opt := range q.Options {
+		if opt.IsOther {
+			otherOptionID = opt.ID
+			break
 		}
-		for _, r := range revealed {
-			label := normalizeOpenText(r.text)
-			if label == "" {
-				label = "—"
-			}
-			g, ok := byLabel[label]
-			if !ok {
-				// não deveria acontecer (allOpenTexts inclui os revelados
-				// também), mas cria o balde se faltar por algum motivo.
-				g = &liveGroupDTO{Label: label, Participants: []liveParticipantDTO{}}
-				byLabel[label] = g
-				order = append(order, label)
-			}
-			g.Participants = append(g.Participants, a.toLiveParticipantDTO(r.participant))
-		}
-		groups := make([]liveGroupDTO, 0, len(order))
-		for _, label := range order {
-			groups = append(groups, *byLabel[label])
-		}
-		return groups
 	}
 
 	order := make([]int64, 0, len(q.Options))
 	byOption := make(map[int64]*liveGroupDTO, len(q.Options))
 	for _, opt := range q.Options {
+		if opt.ID == otherOptionID {
+			continue
+		}
 		byOption[opt.ID] = &liveGroupDTO{Label: opt.TextLabel, Participants: []liveParticipantDTO{}}
 		order = append(order, opt.ID)
 	}
+
+	otherRevealed := make([]revealedLiveAnswer, 0)
 	for _, r := range revealed {
+		if otherOptionID != 0 && r.optionID == otherOptionID {
+			otherRevealed = append(otherRevealed, r)
+			continue
+		}
 		g, ok := byOption[r.optionID]
 		if !ok {
 			continue
 		}
 		g.Participants = append(g.Participants, a.toLiveParticipantDTO(r.participant))
 	}
+
 	groups := make([]liveGroupDTO, 0, len(order))
 	for _, id := range order {
 		groups = append(groups, *byOption[id])
+	}
+	if otherOptionID != 0 {
+		groups = append(groups, a.buildTextGroups(allOtherTexts, otherRevealed)...)
 	}
 	return groups
 }

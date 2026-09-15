@@ -25,7 +25,9 @@ export function questionKindInfo(type) {
     return { label: 'Resposta aberta', tint: 'var(--tint-orange)', color: 'var(--orange-text)' };
   }
   if (type === 'GROUP') {
-    return { label: 'Múltipla escolha', tint: 'var(--tint-cyan)', color: 'var(--cyan-text)' };
+    // GROUP sempre foi single-select (radio) — nunca deu pra marcar mais de
+    // uma opção, então "Escolha única" descreve o comportamento real.
+    return { label: 'Escolha única', tint: 'var(--tint-cyan)', color: 'var(--cyan-text)' };
   }
-  return { label: 'Individual', tint: 'var(--tint-purple)', color: 'var(--purple-text)' };
+  return { label: type, tint: 'var(--tint-neutral)', color: 'var(--text-muted)' };
 }

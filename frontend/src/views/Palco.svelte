@@ -399,21 +399,47 @@
     return p.answers.find((a) => a.questionId === q.id) || null;
   }
 
-  $: pending = currentQuestion ? participants.filter((p) => !revealedIds.has(p.id)) : [];
+  // Só entra na fila de pendentes quem respondeu a pergunta atual: perguntas
+  // criadas depois do prazo podem ter gente que não respondeu, e revelar essas
+  // pessoas não teria onde encaixá-las (não marcaram opção nenhuma).
+  $: pending = currentQuestion
+    ? participants.filter((p) => !revealedIds.has(p.id) && answerFor(p, currentQuestion) !== null)
+    : [];
+
+  // "Outro" não é uma opção compartilhável como as demais — cada pessoa
+  // escreveu a própria resposta, então ela agrupa por texto (como resposta
+  // aberta) em vez de cair num balde genérico "Outro" misturando gente
+  // diferente. otherOptionIdFor acha o id dessa opção sintética, se houver.
+  function otherOptionIdFor(q) {
+    const opt = q.options.find((o) => o.isOther);
+    return opt ? opt.id : null;
+  }
 
   $: choiceGroups =
     currentQuestion && currentQuestion.type !== 'OPEN_TEXT'
-      ? [...currentQuestion.options]
-          .sort((a, b) => a.text.localeCompare(b.text))
-          .map((opt) => ({
-            label: opt.text,
-            participants: participants.filter((p) => {
-              if (!revealedIds.has(p.id)) return false;
-              const a = answerFor(p, currentQuestion);
-              return a && a.optionId === opt.id;
-            })
-          }))
+      ? buildChoiceGroups(currentQuestion, participants, revealedIds)
       : [];
+
+  function buildChoiceGroups(q, allParticipants, revealedSet) {
+    const otherId = otherOptionIdFor(q);
+    const fixed = [...q.options]
+      .filter((opt) => opt.id !== otherId)
+      .sort((a, b) => a.text.localeCompare(b.text))
+      .map((opt) => ({
+        label: opt.text,
+        participants: allParticipants.filter((p) => {
+          if (!revealedSet.has(p.id)) return false;
+          const a = answerFor(p, q);
+          return a && a.optionId === opt.id;
+        })
+      }));
+    if (!otherId) return fixed;
+    const other = groupByText(allParticipants, revealedSet, (p) => {
+      const a = answerFor(p, q);
+      return a && a.optionId === otherId ? a.text : null;
+    });
+    return [...fixed, ...other];
+  }
 
   // Normaliza a resposta aberta (trim + primeira letra maiúscula) e usa o
   // resultado para agrupar quem respondeu a mesma coisa num único balão.
@@ -423,50 +449,68 @@
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
   }
 
-  // As caixas de resposta aberta ficam visíveis desde o início (com base em
-  // todo mundo que respondeu), igual às opções de múltipla escolha — só os
+  // Agrupa por texto normalizado quem tem uma resposta — usado por
+  // OPEN_TEXT (todo mundo) e pela opção "Outro" dentro de uma GROUP
+  // (só quem escolheu ela; textFor retorna null pra quem não pertence a
+  // esse agrupamento, e é pulado). As caixas ficam visíveis desde o início
+  // (com base em todo mundo que respondeu), igual às opções fixas — só os
   // rostos dentro de cada caixa dependem de quem já foi revelado.
-  $: openGroups =
-    currentQuestion && currentQuestion.type === 'OPEN_TEXT'
-      ? groupOpenAnswers(participants, currentQuestion, revealedIds)
-      : [];
-
-  function groupOpenAnswers(allParticipants, q, revealedSet) {
+  function groupByText(allParticipants, revealedSet, textFor) {
     const groups = new Map();
     for (const p of allParticipants) {
-      const label = normalizeOpenText(answerFor(p, q)?.text) || '—';
+      const text = textFor(p);
+      if (text === null) continue;
+      const label = normalizeOpenText(text) || '—';
       if (!groups.has(label)) groups.set(label, { label, participants: [] });
       if (revealedSet.has(p.id)) groups.get(label).participants.push(p);
     }
     return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  $: openGroups =
+    currentQuestion && currentQuestion.type === 'OPEN_TEXT'
+      ? groupByText(participants, revealedIds, (p) => answerFor(p, currentQuestion)?.text ?? null)
+      : [];
+
   $: groups = currentQuestion && currentQuestion.type === 'OPEN_TEXT' ? openGroups : choiceGroups;
 
   // Pro tooltip de zona (hoverHints): TODOS os participantes por resposta
   // (revelados + pendentes) — mostra quem já está na zona e quem ainda vai
   // aparecer nela quando for revelado. Mesmo agrupamento do placar, então os
-  // rótulos batem 1:1 com as zonas (opção de múltipla escolha ou resposta
-  // aberta normalizada).
+  // rótulos batem 1:1 com as zonas (opção de múltipla escolha, "Outro" por
+  // texto próprio, ou resposta aberta normalizada).
   $: zoneAll = currentQuestion ? buildZoneAll(participants, currentQuestion) : new Map();
 
   function buildZoneAll(allParticipants, q) {
     const m = new Map();
     if (q.type === 'OPEN_TEXT') {
       for (const p of allParticipants) {
-        const label = normalizeOpenText(answerFor(p, q)?.text) || '—';
+        const a = answerFor(p, q);
+        if (!a) continue;
+        const label = normalizeOpenText(a.text) || '—';
         if (!m.has(label)) m.set(label, []);
         m.get(label).push(p);
       }
-    } else {
-      for (const opt of q.options) {
-        m.set(
-          opt.text,
-          allParticipants.filter((p) => {
-            const a = answerFor(p, q);
-            return a && a.optionId === opt.id;
-          })
-        );
+      return m;
+    }
+    const otherId = otherOptionIdFor(q);
+    for (const opt of q.options) {
+      if (opt.id === otherId) continue;
+      m.set(
+        opt.text,
+        allParticipants.filter((p) => {
+          const a = answerFor(p, q);
+          return a && a.optionId === opt.id;
+        })
+      );
+    }
+    if (otherId) {
+      for (const p of allParticipants) {
+        const a = answerFor(p, q);
+        if (!a || a.optionId !== otherId) continue;
+        const label = normalizeOpenText(a.text) || '—';
+        if (!m.has(label)) m.set(label, []);
+        m.get(label).push(p);
       }
     }
     return m;
@@ -479,6 +523,10 @@
     if (!a) return null;
     if (currentQuestion.type === 'OPEN_TEXT') {
       return normalizeOpenText(a.text) || '—';
+    }
+    const opt = currentQuestion.options.find((o) => o.id === a.optionId);
+    if (opt && opt.isOther && a.text) {
+      return `${opt.text}: ${a.text}`;
     }
     return a.optionText || '—';
   }
