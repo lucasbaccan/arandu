@@ -22,6 +22,7 @@ type userEnvelope struct {
 type contaConfiguracaoResponse struct {
 	MinPasswordLength   int  `json:"minPasswordLength"`
 	RegistrationEnabled bool `json:"registrationEnabled"`
+	EmailEnabled        bool `json:"emailEnabled"`
 }
 
 type validTokenResponse struct {
@@ -44,6 +45,7 @@ type adminEventsResponse struct {
 
 type adminConfigResponse struct {
 	RegistrationEnabled bool `json:"registrationEnabled"`
+	EmailEnabled        bool `json:"emailEnabled"`
 }
 
 type eventEnvelope struct {
@@ -76,6 +78,10 @@ type enviarRespostasResponse struct {
 
 type pinResolvidoResponse struct {
 	ID string `json:"id"`
+}
+
+type nomeExisteResponse struct {
+	Exists bool `json:"exists"`
 }
 
 type publicoEventoResponse struct {

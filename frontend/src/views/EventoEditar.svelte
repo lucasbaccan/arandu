@@ -5,6 +5,7 @@
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { showToast } from '../lib/toastStore.js';
+  import { authConfig } from '../lib/authStore.js';
   import { formatDateTime } from '../lib/formatDate.js';
   import { statusInfo, questionKindInfo } from '../lib/eventStatus.js';
   import Button from '../components/Button.svelte';
@@ -72,6 +73,14 @@
   let allowEdit = true;
   let status = '';
   let submitting = false;
+  let allowEditBusy = false;
+
+  // Título/PIN só salvam ao clicar em "Salvar alterações" (botão só aparece
+  // se algum dos dois tiver mudado); "Permitir editar depois" salva sozinho
+  // ao alternar o switch, então não entra nessa comparação.
+  let savedTitle = '';
+  let savedPinCode = '';
+  $: settingsDirty = title.trim() !== savedTitle || pinCode.trim().toUpperCase() !== savedPinCode;
 
   let questions = [];
   let questionsLoading = true;
@@ -165,6 +174,8 @@
       ]);
       title = event.title;
       pinCode = event.pinCode;
+      savedTitle = event.title.trim();
+      savedPinCode = event.pinCode.trim().toUpperCase();
       allowEdit = event.allowEdit;
       status = event.status;
       questions = qs;
@@ -202,17 +213,42 @@
     if (error) return;
     submitting = true;
     try {
+      const trimmedTitle = title.trim();
+      const trimmedPinCode = pinCode.trim();
       await api.eventos.atualizar(id, {
-        title: title.trim(),
-        pinCode: pinCode.trim(),
+        title: trimmedTitle,
+        pinCode: trimmedPinCode,
         allowEdit
       });
+      savedTitle = trimmedTitle;
+      savedPinCode = trimmedPinCode.toUpperCase();
       showToast('Alterações salvas!');
     } catch (e) {
       showToast(e.message, 'error');
       error = e.message;
     } finally {
       submitting = false;
+    }
+  }
+
+  // "Permitir editar depois" salva sozinho ao alternar, sem passar pelo botão
+  // "Salvar alterações" (esse fica reservado a título/PIN) — mesmo padrão do
+  // toggleAnswersOpen abaixo: manda o título atual e pinCode vazio (mantém).
+  async function toggleAllowEdit() {
+    const next = !allowEdit;
+    allowEditBusy = true;
+    try {
+      const { event } = await api.eventos.atualizar(id, {
+        title: title.trim(),
+        pinCode: '',
+        allowEdit: next
+      });
+      allowEdit = event.allowEdit;
+      showToast('Salvo');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      allowEditBusy = false;
     }
   }
 
@@ -671,7 +707,10 @@
                 {participantCount}
                 bind:title
                 bind:pinCode
-                bind:allowEdit
+                {allowEdit}
+                {allowEditBusy}
+                {toggleAllowEdit}
+                {settingsDirty}
                 {error}
                 {submitting}
                 {toggleAnswersOpen}
@@ -690,7 +729,7 @@
                     class="people-search"
                     type="text"
                     bind:value={personSearch}
-                    placeholder="Buscar pessoa ou e-mail"
+                    placeholder={$authConfig.emailEnabled ? 'Buscar pessoa ou e-mail' : 'Buscar pessoa'}
                   />
                   <div class="sort-toggle">
                     <button
@@ -769,7 +808,7 @@
                       <div class="detail-identity">
                         <strong class="detail-name" title={selectedParticipant.name || selectedParticipant.email}>{selectedParticipant.name || selectedParticipant.email}</strong>
                         <div class="detail-meta">
-                          {#if selectedParticipant.name}
+                          {#if selectedParticipant.name && $authConfig.emailEnabled}
                             <span>{selectedParticipant.email}</span>
                           {/if}
                           <span class="detail-meta-order">envio #{selectedOrder}</span>
@@ -1076,7 +1115,10 @@
               {participantCount}
               bind:title
               bind:pinCode
-              bind:allowEdit
+              {allowEdit}
+              {allowEditBusy}
+              {toggleAllowEdit}
+              {settingsDirty}
               {error}
               {submitting}
               {toggleAnswersOpen}

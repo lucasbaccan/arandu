@@ -216,7 +216,7 @@ func TestAdminConfiguracoesRegistro(t *testing.T) {
 		t.Error("registro deveria começar habilitado")
 	}
 
-	rec = doJSON(t, h, http.MethodPatch, "/api/admin/configuracoes", map[string]any{"registrationEnabled": false}, []*http.Cookie{admin})
+	rec = doJSON(t, h, http.MethodPatch, "/api/admin/configuracoes", map[string]any{"registrationEnabled": false, "emailEnabled": true}, []*http.Cookie{admin})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -235,7 +235,7 @@ func TestAdminConfiguracoesRegistro(t *testing.T) {
 	}
 
 	// Reabilitando, o cadastro volta a funcionar.
-	rec = doJSON(t, h, http.MethodPatch, "/api/admin/configuracoes", map[string]any{"registrationEnabled": true}, []*http.Cookie{admin})
+	rec = doJSON(t, h, http.MethodPatch, "/api/admin/configuracoes", map[string]any{"registrationEnabled": true, "emailEnabled": true}, []*http.Cookie{admin})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -244,6 +244,38 @@ func TestAdminConfiguracoesRegistro(t *testing.T) {
 	}, nil)
 	if rec.Code != http.StatusCreated {
 		t.Errorf("cadastro deveria voltar a funcionar, status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminConfiguracoesEmail(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	admin := registerUser(t, h)
+
+	// Padrão: e-mail habilitado.
+	rec := doJSON(t, h, http.MethodGet, "/api/conta/configuracao", nil, nil)
+	var cfg struct {
+		EmailEnabled bool `json:"emailEnabled"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &cfg)
+	if !cfg.EmailEnabled {
+		t.Error("e-mail deveria começar habilitado")
+	}
+
+	rec = doJSON(t, h, http.MethodPatch, "/api/admin/configuracoes", map[string]any{"registrationEnabled": true, "emailEnabled": false}, []*http.Cookie{admin})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, h, http.MethodGet, "/api/conta/configuracao", nil, nil)
+	_ = json.Unmarshal(rec.Body.Bytes(), &cfg)
+	if cfg.EmailEnabled {
+		t.Error("e-mail deveria refletir desabilitado")
+	}
+
+	// Não é super admin nem está logado: a rota de admin continua negando.
+	rec = doJSON(t, h, http.MethodPatch, "/api/admin/configuracoes", map[string]any{"registrationEnabled": true, "emailEnabled": true}, nil)
+	if rec.Code != http.StatusForbidden && rec.Code != http.StatusUnauthorized {
+		t.Errorf("sem sessão deveria negar, status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

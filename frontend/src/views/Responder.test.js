@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import Responder from './Responder.svelte';
+import { authConfig } from '../lib/authStore.js';
 
 vi.mock('../lib/api.js', () => ({
   api: {
@@ -9,7 +10,8 @@ vi.mock('../lib/api.js', () => ({
       eventos: {
         buscar: vi.fn(),
         enviar: vi.fn(),
-        buscarParticipante: vi.fn()
+        buscarParticipante: vi.fn(),
+        nomeExiste: vi.fn()
       }
     }
   }
@@ -55,6 +57,39 @@ async function identifyAndContinue(name = 'Ana', email = 'ana@exemplo.com') {
 describe('Tela de respostas do participante', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: true });
+    api.publico.eventos.nomeExiste.mockResolvedValue({ exists: false });
+  });
+
+  it('com e-mail desativado pelo admin, não pergunta e-mail e envia vazio', async () => {
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: false });
+    mockLoad();
+    api.publico.eventos.enviar.mockResolvedValue({ editToken: 'tok-1' });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    expect(screen.queryByLabelText('E-mail')).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Nome completo'), 'Ana');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+
+    await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' });
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await screen.findByText('Qual sua comida favorita?', { selector: 'h1' });
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+
+    await screen.findByText('Confira antes de enviar');
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
+
+    await waitFor(() =>
+      expect(api.publico.eventos.enviar).toHaveBeenCalledWith(
+        '42',
+        expect.objectContaining({ email: '', name: 'Ana' })
+      )
+    );
   });
 
   it('mostra a tela de identificação com o título do evento', async () => {
@@ -95,6 +130,33 @@ describe('Tela de respostas do participante', () => {
     await userEvent.type(screen.getByLabelText('E-mail'), 'não-é-email');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
+  });
+
+  it('avisa (sem bloquear) quando o nome já existe no evento', async () => {
+    mockLoad();
+    api.publico.eventos.nomeExiste.mockResolvedValue({ exists: true });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    expect(screen.queryByText(/já existe/)).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Nome completo'), 'Ana');
+
+    await waitFor(
+      () => expect(api.publico.eventos.nomeExiste).toHaveBeenCalledWith('42', 'Ana'),
+      { timeout: 2000 }
+    );
+    expect(
+      await screen.findByText('Esse nome já existe — seria legal usar uma identificação única.', {}, { timeout: 2000 })
+    ).toBeInTheDocument();
+
+    // não é um erro: continua dando pra avançar normalmente.
+    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+    expect(
+      await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' })
+    ).toBeInTheDocument();
   });
 
   it('rejeita na identificação um e-mail que o backend também rejeitaria', async () => {
@@ -168,8 +230,12 @@ describe('Tela de respostas do participante', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
     expect(await screen.findByText('Confira antes de enviar')).toBeInTheDocument();
 
-    // sem todas as respostas, o envio fica bloqueado
+    // sem todas as respostas, o envio fica bloqueado — e o hover explica o motivo
     expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).toHaveAttribute(
+      'title',
+      'Faltam 2 de 2 perguntas'
+    );
     expect(api.publico.eventos.enviar).not.toHaveBeenCalled();
 
     // volta pela lista de revisão e responde o que faltou
@@ -194,6 +260,7 @@ describe('Tela de respostas do participante', () => {
     expect(screen.getByText('Go')).toBeInTheDocument();
     expect(screen.getByText('Pizza')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Enviar respostas' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).not.toHaveAttribute('title');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
 
@@ -211,6 +278,41 @@ describe('Tela de respostas do participante', () => {
     );
 
     expect(await screen.findByText('Prontinho, Ana!')).toBeInTheDocument();
+  });
+
+  it('com allowEdit, mostra o link de edição depois de enviar', async () => {
+    mockLoad({ allowEdit: true });
+    api.publico.eventos.enviar.mockResolvedValue({ editToken: 'tok-1' });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await identifyAndContinue('Ana', 'ana@exemplo.com');
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
+
+    await screen.findByText('Prontinho, Ana!');
+    expect(screen.getByText(/Guarde este link para editar/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/\/responder\/42\?edit=tok-1/)).toBeInTheDocument();
+  });
+
+  it('sem allowEdit, não mostra o link de edição depois de enviar', async () => {
+    mockLoad({ allowEdit: false });
+    api.publico.eventos.enviar.mockResolvedValue({ editToken: 'tok-1' });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await identifyAndContinue('Ana', 'ana@exemplo.com');
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
+
+    await screen.findByText('Prontinho, Ana!');
+    expect(screen.queryByText(/Guarde este link para editar/)).not.toBeInTheDocument();
   });
 
   it('mantém a resposta ao voltar para a pergunta anterior', async () => {
@@ -394,5 +496,21 @@ describe('Tela de respostas do participante', () => {
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
 
     window.history.pushState({}, '', '/responder/42');
+  });
+
+  it('mostra a dica de rolagem na revisão quando a lista de perguntas não cabe na tela', async () => {
+    mockLoad();
+    Object.defineProperty(document.documentElement, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true });
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await identifyAndContinue('Ana', 'ana@exemplo.com');
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+
+    expect(await screen.findByText('Mais perguntas abaixo')).toBeInTheDocument();
   });
 });

@@ -147,6 +147,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/publico/eventos/por-pin", a.handlePublicoResolverPIN)
 	mux.HandleFunc("GET /api/publico/eventos/{id}", a.handlePublicoBuscarEvento)
 	mux.HandleFunc("GET /api/publico/eventos/{id}/participante", a.handlePublicoBuscarParticipante)
+	mux.HandleFunc("GET /api/publico/eventos/{id}/nome-existe", a.handlePublicoNomeExiste)
 	mux.HandleFunc("POST /api/publico/eventos/{id}/enviar", a.handleEnviarRespostas)
 	mux.HandleFunc("POST /api/publico/eventos/{id}/ao-vivo/entrar", a.handleAoVivoEntrar)
 	mux.HandleFunc("GET /api/publico/eventos/{id}/ao-vivo/estado", a.handleAoVivoEstado)
@@ -475,7 +476,7 @@ func (a *API) handleEu(w http.ResponseWriter, r *http.Request) {
 // handleConfiguracao godoc
 //
 // @Summary     Configuração pública de conta
-// @Description Tamanho mínimo de senha e se o cadastro de novas contas está aberto — checado por /criar-conta antes de mostrar o formulário.
+// @Description Tamanho mínimo de senha, se o cadastro de novas contas está aberto (checado por /criar-conta antes de mostrar o formulário) e se o e-mail de participantes está habilitado (checado por /evento/{id} e /plateia/{id}).
 // @Tags        conta
 // @Produce     json
 // @Success     200 {object} contaConfiguracaoResponse
@@ -486,9 +487,15 @@ func (a *API) handleConfiguracao(w http.ResponseWriter, r *http.Request) {
 		log.Printf("api: verificar registro habilitado: %v", err)
 		registrationEnabled = true
 	}
+	emailEnabled, err := a.store.EmailHabilitado(r.Context())
+	if err != nil {
+		log.Printf("api: verificar e-mail habilitado: %v", err)
+		emailEnabled = true
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"minPasswordLength":   a.cfg.MinPasswordLength,
 		"registrationEnabled": registrationEnabled,
+		"emailEnabled":        emailEnabled,
 	})
 }
 

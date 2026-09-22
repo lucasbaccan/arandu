@@ -149,6 +149,8 @@ export const api = {
       buscar: (id) => request(`/api/publico/eventos/${id}`),
       buscarParticipante: (id, token) =>
         request(`/api/publico/eventos/${id}/participante?token=${encodeURIComponent(token)}`),
+      nomeExiste: (id, nome) =>
+        request(`/api/publico/eventos/${id}/nome-existe?nome=${encodeURIComponent(nome)}`),
       enviar: (id, body) => request(`/api/publico/eventos/${id}/enviar`, { method: 'POST', body }),
       aoVivo: {
         entrar: (id, body) => request(`/api/publico/eventos/${id}/ao-vivo/entrar`, { method: 'POST', body }),

@@ -13,6 +13,7 @@
   import ReactionBurstLayer from '../components/ReactionBurstLayer.svelte';
   import ThemeToggle from '../components/ThemeToggle.svelte';
   import { fireReaction } from '../lib/reactionStore.js';
+  import { authConfig } from '../lib/authStore.js';
 
   const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]+$/;
 
@@ -170,32 +171,49 @@
   {:else if step === 'identify'}
     <PublicShell>
       <div class="card join-card">
-        <div class="card-head">
-          <h1>Entrar na apresentação</h1>
-          <p class="card-sub">Identifique-se com seu e-mail ou entre como convidado.</p>
-        </div>
-        <form class="form" novalidate on:submit|preventDefault={() => joinAs(false)}>
-          <Input
-            label="E-mail"
-            type="email"
-            bind:value={email}
-            error={identifyError}
-            placeholder="seu@melhor.email"
-            autocomplete="email"
-          />
-          <Button type="submit" block disabled={joining}>
-            {joining ? 'Entrando…' : 'Entrar'}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            block
-            disabled={joining}
-            on:click={() => joinAs(true)}
-          >
-            Entrar como convidado
-          </Button>
-        </form>
+        {#if $authConfig.emailEnabled}
+          <div class="card-head">
+            <h1>Entrar na apresentação</h1>
+            <p class="card-sub">Identifique-se com seu e-mail ou entre como convidado.</p>
+          </div>
+          <form class="form" novalidate on:submit|preventDefault={() => joinAs(false)}>
+            <Input
+              label="E-mail"
+              type="email"
+              bind:value={email}
+              error={identifyError}
+              placeholder="seu@melhor.email"
+              autocomplete="email"
+            />
+            <Button type="submit" block disabled={joining}>
+              {joining ? 'Entrando…' : 'Entrar'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              block
+              disabled={joining}
+              on:click={() => joinAs(true)}
+            >
+              Entrar como convidado
+            </Button>
+          </form>
+        {:else}
+          <!-- E-mail desativado pelo super admin: nada pra identificar, entra
+               direto como convidado sem pedir nada. -->
+          <div class="card-head">
+            <h1>Entrar na apresentação</h1>
+            <p class="card-sub">Toque para acompanhar ao vivo.</p>
+          </div>
+          <form class="form" novalidate on:submit|preventDefault={() => joinAs(true)}>
+            {#if identifyError}
+              <p class="form-error">{identifyError}</p>
+            {/if}
+            <Button type="submit" block disabled={joining}>
+              {joining ? 'Entrando…' : 'Entrar'}
+            </Button>
+          </form>
+        {/if}
       </div>
     </PublicShell>
   {:else if loadError}

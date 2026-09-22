@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -107,6 +108,46 @@ func (a *API) handlePublicoBuscarParticipante(w http.ResponseWriter, r *http.Req
 			Answers: adtos,
 		},
 	})
+}
+
+// handlePublicoNomeExiste godoc
+//
+// @Summary     Verifica se um nome já foi usado neste evento
+// @Description Público, sem sessão. Não é uma restrição de fato — nomes duplicados continuam permitidos; só alimenta um aviso no formulário de resposta, incentivando uma identificação única (ex: nome + sobrenome, ou apelido do time).
+// @Tags        publico
+// @Produce     json
+// @Param       id   path  string true "ID do evento"
+// @Param       nome query string true "Nome a verificar (comparado após trim; vazio sempre responde exists=false)"
+// @Success     200 {object} nomeExisteResponse
+// @Failure     404 {object} errorResponse
+// @Router      /api/publico/eventos/{id}/nome-existe [get]
+func (a *API) handlePublicoNomeExiste(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	if _, err := a.store.BuscarEventoPorID(r.Context(), id); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "Evento não encontrado.")
+			return
+		}
+		log.Printf("api: buscar evento para checar nome: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao verificar o nome.")
+		return
+	}
+
+	name := strings.TrimSpace(r.URL.Query().Get("nome"))
+	if name == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"exists": false})
+		return
+	}
+	exists, err := a.store.NomeExisteNoEvento(r.Context(), id, name)
+	if err != nil {
+		log.Printf("api: verificar nome existente: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao verificar o nome.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"exists": exists})
 }
 
 // handlePublicoResolverPIN acha o evento a partir só do PIN, pra tela inicial
@@ -221,7 +262,7 @@ type submitRequest struct {
 // handleEnviarRespostas godoc
 //
 // @Summary     Envia (ou edita) as respostas de um participante
-// @Description Público, sem sessão. Sem editToken, identifica por e-mail (cria um novo participante, ou falha se o evento não permitir reenvio). Com editToken, edita as respostas já enviadas — exige allowEdit habilitado no evento. answers deve cobrir todas as perguntas do evento.
+// @Description Público, sem sessão. Sem editToken, identifica por e-mail (cria um novo participante, ou falha se o evento não permitir reenvio); com email vazio (e-mail desativado nas configurações), sempre cria um participante novo. Com editToken, edita as respostas já enviadas — exige allowEdit habilitado no evento. answers deve cobrir todas as perguntas do evento.
 // @Tags        publico
 // @Accept      json
 // @Produce     json
@@ -277,20 +318,34 @@ func (a *API) handleEnviarRespostas(w http.ResponseWriter, r *http.Request) {
 		req.Email = p.Email
 	} else {
 		req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-		if !isValidEmail(req.Email) {
-			writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
-			return
-		}
-		if !ev.AllowEdit {
-			_, err := a.store.BuscarParticipantePorEventoEEmail(r.Context(), id, req.Email)
-			if err == nil {
-				writeError(w, http.StatusForbidden, "Você já enviou suas respostas. A edição está desabilitada para este evento.")
+		if req.Email == "" {
+			// E-mail desativado pelo super admin (GET /api/conta/configuracao,
+			// emailEnabled) — o formulário nem pergunta. Gera um identificador
+			// interno só pra satisfazer o UNIQUE(event_id, email) do schema;
+			// o valor continua saindo nos DTOs (organizador e busca por token
+			// de edição) como sempre saiu, mas o frontend não mostra e-mail
+			// nenhum nessas telas quando emailEnabled é false (ver EventoEditar
+			// e Responder). Sem e-mail real não dá pra saber se a pessoa já
+			// respondeu, então cada envio sem token vira um participante novo,
+			// mesmo com allowEdit desligado — só o link de edição volta a essa
+			// resposta depois.
+			req.Email = fmt.Sprintf("sem-email-%d@participante.invalid", a.ids.NextID())
+		} else {
+			if !isValidEmail(req.Email) {
+				writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
 				return
 			}
-			if !errors.Is(err, store.ErrNotFound) {
-				log.Printf("api: buscar participante por e-mail: %v", err)
-				writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
-				return
+			if !ev.AllowEdit {
+				_, err := a.store.BuscarParticipantePorEventoEEmail(r.Context(), id, req.Email)
+				if err == nil {
+					writeError(w, http.StatusForbidden, "Você já enviou suas respostas. A edição está desabilitada para este evento.")
+					return
+				}
+				if !errors.Is(err, store.ErrNotFound) {
+					log.Printf("api: buscar participante por e-mail: %v", err)
+					writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
+					return
+				}
 			}
 		}
 	}

@@ -25,6 +25,7 @@ vi.mock('../lib/router.js', () => ({
 
 import { api } from '../lib/api.js';
 import { navigate } from '../lib/router.js';
+import { authConfig } from '../lib/authStore.js';
 
 const snapshot = {
   eventTitle: 'Evento Live',
@@ -90,6 +91,7 @@ describe('Tela pública da apresentação (Audience)', () => {
     FakeEventSource.instances = [];
     global.EventSource = FakeEventSource;
     sessionStorage.clear();
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: true });
   });
 
   it('sem PIN na URL, redireciona pra Home sem chamar a API', () => {
@@ -107,6 +109,24 @@ describe('Tela pública da apresentação (Audience)', () => {
     expect(view.getByLabelText('E-mail')).toBeInTheDocument();
     expect(view.getByRole('button', { name: 'Entrar como convidado' })).toBeInTheDocument();
     expect(view.queryByLabelText('Código do evento')).not.toBeInTheDocument();
+  });
+
+  it('com e-mail desativado pelo admin, entra direto como convidado sem pedir nada', async () => {
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: false });
+    api.publico.eventos.aoVivo.entrar.mockResolvedValue({ token: 'tok-123', role: 'participante' });
+    api.publico.eventos.aoVivo.estado.mockResolvedValue(snapshot);
+    const view = mount('?pin=dev-team');
+
+    expect(view.queryByLabelText('E-mail')).not.toBeInTheDocument();
+    expect(view.queryByRole('button', { name: 'Entrar como convidado' })).not.toBeInTheDocument();
+
+    await fireEvent.click(view.getByRole('button', { name: 'Entrar' }));
+
+    expect(await view.findByText('Evento Live')).toBeInTheDocument();
+    expect(api.publico.eventos.aoVivo.entrar).toHaveBeenCalledWith('42', {
+      pinCode: 'dev-team',
+      email: ''
+    });
   });
 
   it('valida e-mail inválido antes de enviar', async () => {

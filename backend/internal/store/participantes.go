@@ -177,6 +177,23 @@ func (s *Store) ListarParticipantesPorEvento(ctx context.Context, eventID int64)
 	return participants, nil
 }
 
+// NomeExisteNoEvento indica se algum participante do evento já usa esse nome
+// exatamente (mesmo trim de espaços do chamador, sensível a maiúsculas e
+// minúsculas — não faz normalização própria). Não é uma restrição: nomes
+// duplicados continuam permitidos, isso só alimenta um aviso no formulário de
+// resposta, incentivando uma identificação única.
+func (s *Store) NomeExisteNoEvento(ctx context.Context, eventID int64, name string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM participants WHERE event_id = ? AND name = ?)`,
+		eventID, name,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("store: verificar nome existente: %w", err)
+	}
+	return exists, nil
+}
+
 func scanParticipant(row scanner) (Participant, error) {
 	var p Participant
 	var createdAt string

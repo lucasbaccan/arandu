@@ -204,7 +204,7 @@ func (a *API) handleAdminListarEventos(w http.ResponseWriter, r *http.Request) {
 // handleAdminBuscarConfiguracoes godoc
 //
 // @Summary     Configurações administrativas
-// @Description Somente super admin. Hoje só tem o toggle de cadastro aberto.
+// @Description Somente super admin. Toggles de cadastro aberto e de e-mail de participantes.
 // @Tags        admin
 // @Produce     json
 // @Success     200 {object} adminConfigResponse
@@ -212,23 +212,33 @@ func (a *API) handleAdminListarEventos(w http.ResponseWriter, r *http.Request) {
 // @Security    cookieAuth
 // @Router      /api/admin/configuracoes [get]
 func (a *API) handleAdminBuscarConfiguracoes(w http.ResponseWriter, r *http.Request) {
-	enabled, err := a.store.RegistroHabilitado(r.Context())
+	registrationEnabled, err := a.store.RegistroHabilitado(r.Context())
 	if err != nil {
 		log.Printf("api: buscar configurações: %v", err)
 		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar configurações.")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"registrationEnabled": enabled})
+	emailEnabled, err := a.store.EmailHabilitado(r.Context())
+	if err != nil {
+		log.Printf("api: buscar configurações: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao buscar configurações.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"registrationEnabled": registrationEnabled,
+		"emailEnabled":        emailEnabled,
+	})
 }
 
 type updateAdminConfigRequest struct {
 	RegistrationEnabled bool `json:"registrationEnabled"`
+	EmailEnabled        bool `json:"emailEnabled"`
 }
 
 // handleAdminAtualizarConfiguracoes godoc
 //
 // @Summary     Atualiza configurações administrativas
-// @Description Somente super admin. Liga/desliga o cadastro de novas contas organizadoras.
+// @Description Somente super admin. Liga/desliga o cadastro de novas contas organizadoras e o e-mail de participantes. Os dois campos são sempre gravados (não é um PATCH parcial) — quem chama manda o par completo, com o valor atual do campo que não está mudando.
 // @Tags        admin
 // @Accept      json
 // @Produce     json
@@ -249,7 +259,15 @@ func (a *API) handleAdminAtualizarConfiguracoes(w http.ResponseWriter, r *http.R
 		writeError(w, http.StatusInternalServerError, "Erro interno ao salvar configurações.")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"registrationEnabled": req.RegistrationEnabled})
+	if err := a.store.DefinirEmailHabilitado(r.Context(), req.EmailEnabled); err != nil {
+		log.Printf("api: atualizar configurações: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao salvar configurações.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"registrationEnabled": req.RegistrationEnabled,
+		"emailEnabled":        req.EmailEnabled,
+	})
 }
 
 // --- Redefinição de senha via link (público, sem sessão) ---

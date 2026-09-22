@@ -1,4 +1,78 @@
 /*
+ * Fontes hospedadas como arquivo estático do projeto (frontend/public/fonts),
+ * em vez de <link> pro Google Fonts em index.html. Dois motivos:
+ *   1. Nunito Sans (texto): evita uma origem externa a mais no carregamento —
+ *      mesmo com display:swap não há "flash" visível de texto, é só uma
+ *      requisição/DNS a menos.
+ *   2. Material Symbols Rounded (ícones, ligadura — ver .msr abaixo): a fonte
+ *      completa do Google tem ~5.3MB (milhares de ícones). Aqui vai só um
+ *      subconjunto com os glifos realmente usados no produto (baixado via
+ *      `family=Material+Symbols+Rounded...&icon_names=...` da API do Google
+ *      Fonts), ~18KB. display:block junto com o arquivo já local faz o ícone
+ *      aparecer praticamente instantâneo, sem passar pelo nome do glifo como
+ *      texto (era o "vem o texto e depois carrega o ícone").
+ *      A página interna /opcoes usa dezenas de outros glifos só para
+ *      comparação (não é fluxo do produto) — ela injeta o link do Google
+ *      Fonts completo sozinha, em tempo de execução (ver Opcoes.svelte).
+ *      Novo ícone usado no produto real: baixar de novo o subconjunto
+ *      incluindo o novo glifo e substituir
+ *      public/fonts/material-symbols-rounded-subset.woff2 (mesmo espírito
+ *      manual do api.js/swagger, ver CLAUDE.md).
+ */
+@font-face {
+  font-family: 'Nunito Sans';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/nunito-sans-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Nunito Sans';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/nunito-sans-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Nunito Sans';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/nunito-sans-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0,
+    U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Nunito Sans';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/nunito-sans-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Nunito Sans';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/nunito-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Material Symbols Rounded';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-rounded-subset.woff2') format('woff2');
+}
+
+/*
  * Tokens do sistema padronizado (ver propostas "telas padronizadas").
  *
  * Duas superfícies de tela: o shell público (partículas + gradiente, coluna de

@@ -38,7 +38,7 @@ describe('Administração (super admin)', () => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
     api.admin.eventos.listar.mockResolvedValue({ events: [] });
-    api.admin.configuracoes.buscar.mockResolvedValue({ registrationEnabled: true });
+    api.admin.configuracoes.buscar.mockResolvedValue({ registrationEnabled: true, emailEnabled: true });
   });
 
   it('lista usuários com papel e contagem de eventos', async () => {
@@ -141,17 +141,39 @@ describe('Administração (super admin)', () => {
 
   it('alterna se novos cadastros são permitidos na aba Configurações', async () => {
     api.admin.usuarios.listar.mockResolvedValue({ users: [] });
-    api.admin.configuracoes.atualizar.mockResolvedValue({ registrationEnabled: false });
+    api.admin.configuracoes.atualizar.mockResolvedValue({ registrationEnabled: false, emailEnabled: true });
     const view = mountAdmin();
 
     await fireEvent.click(view.getByRole('tab', { name: 'Configurações' }));
-    const toggle = await view.findByRole('switch');
+    const toggle = await view.findByRole('switch', { name: 'Permitir novos cadastros de organizador' });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
 
     await fireEvent.click(toggle);
 
     await waitFor(() =>
-      expect(api.admin.configuracoes.atualizar).toHaveBeenCalledWith({ registrationEnabled: false })
+      expect(api.admin.configuracoes.atualizar).toHaveBeenCalledWith({
+        registrationEnabled: false,
+        emailEnabled: true
+      })
+    );
+  });
+
+  it('alterna se o e-mail dos participantes é mostrado na aba Configurações', async () => {
+    api.admin.usuarios.listar.mockResolvedValue({ users: [] });
+    api.admin.configuracoes.atualizar.mockResolvedValue({ registrationEnabled: true, emailEnabled: false });
+    const view = mountAdmin();
+
+    await fireEvent.click(view.getByRole('tab', { name: 'Configurações' }));
+    const toggle = await view.findByRole('switch', { name: 'Mostrar e-mail dos participantes' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    await fireEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(api.admin.configuracoes.atualizar).toHaveBeenCalledWith({
+        registrationEnabled: true,
+        emailEnabled: false
+      })
     );
   });
 });

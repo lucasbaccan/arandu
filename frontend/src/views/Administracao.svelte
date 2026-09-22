@@ -103,6 +103,7 @@
   let configLoading = true;
   let configError = '';
   let registrationEnabled = true;
+  let emailEnabled = true;
   let savingConfig = false;
 
   async function carregarConfiguracoes() {
@@ -110,6 +111,7 @@
     try {
       const data = await api.admin.configuracoes.buscar();
       registrationEnabled = data.registrationEnabled;
+      emailEnabled = data.emailEnabled;
     } catch (e) {
       configError = e.message;
     } finally {
@@ -118,12 +120,28 @@
   }
   carregarConfiguracoes();
 
+  // O PATCH grava os dois campos juntos (não é parcial no backend), então
+  // cada toggle manda o par completo: o valor que está mudando + o outro
+  // como já está carregado.
   async function alternarRegistro() {
     const next = !registrationEnabled;
     savingConfig = true;
     try {
-      await api.admin.configuracoes.atualizar({ registrationEnabled: next });
+      await api.admin.configuracoes.atualizar({ registrationEnabled: next, emailEnabled });
       registrationEnabled = next;
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      savingConfig = false;
+    }
+  }
+
+  async function alternarEmail() {
+    const next = !emailEnabled;
+    savingConfig = true;
+    try {
+      await api.admin.configuracoes.atualizar({ registrationEnabled, emailEnabled: next });
+      emailEnabled = next;
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
@@ -240,7 +258,27 @@
                 Desativado, a tela de criar conta some para quem não está logado — só quem já tem conta continua entrando.
               </span>
             </div>
-            <Switch checked={registrationEnabled} disabled={savingConfig} on:change={alternarRegistro} />
+            <Switch
+              aria-label="Permitir novos cadastros de organizador"
+              checked={registrationEnabled}
+              disabled={savingConfig}
+              on:change={alternarRegistro}
+            />
+          </div>
+
+          <div class="config-row">
+            <div class="config-text">
+              <span class="config-label">Mostrar e-mail dos participantes</span>
+              <span class="text-muted config-hint">
+                Desativado, o e-mail some do painel de respostas do organizador e a tela da plateia deixa de pedir e-mail pra entrar — todo mundo entra direto como convidado.
+              </span>
+            </div>
+            <Switch
+              aria-label="Mostrar e-mail dos participantes"
+              checked={emailEnabled}
+              disabled={savingConfig}
+              on:change={alternarEmail}
+            />
           </div>
         {/if}
       </section>

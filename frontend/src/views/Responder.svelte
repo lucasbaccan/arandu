@@ -10,25 +10,32 @@
   import CopyButton from '../components/CopyButton.svelte';
   import PublicShell from '../components/PublicShell.svelte';
   import TopBar from '../components/TopBar.svelte';
+  import { authConfig } from '../lib/authStore.js';
 
   // Mesma regra usada pelo backend (isValidEmail em server.go) — precisa ficar
   // idêntica para o erro aparecer aqui, na identificação, e não só depois de
   // responder tudo e tentar finalizar.
   const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]+$/;
 
-  const PRIVACY_ITEMS = [
+  $: PRIVACY_ITEMS = [
     {
       title: 'O que pedimos',
-      body: 'Seu nome, seu e-mail e, se você quiser, uma foto de rosto. Nada além disso.'
+      body: $authConfig.emailEnabled
+        ? 'Seu nome, seu e-mail e, se você quiser, uma foto de rosto. Nada além disso.'
+        : 'Seu nome e, se você quiser, uma foto de rosto. Nada além disso.'
     },
     {
       title: 'O que aparece no telão',
       body: 'Seu nome, sua foto e a resposta escolhida — e só no momento em que o organizador revelar você. Antes disso, o servidor não envia sua resposta para a tela pública.'
     },
-    {
-      title: 'O que ninguém vê',
-      body: 'Seu e-mail nunca aparece na apresentação. Ele fica visível apenas para o organizador do evento, para identificar sua participação.'
-    },
+    ...($authConfig.emailEnabled
+      ? [
+          {
+            title: 'O que ninguém vê',
+            body: 'Seu e-mail nunca aparece na apresentação. Ele fica visível apenas para o organizador do evento, para identificar sua participação.'
+          }
+        ]
+      : []),
     {
       title: 'A foto é opcional',
       body: 'Sem foto, você aparece com a inicial do seu nome. A dinâmica funciona do mesmo jeito.'
@@ -139,7 +146,37 @@
     return '';
   }
 
+  // Aviso (não bloqueia o envio) de que já existe alguém com esse nome exato
+  // neste evento — checa com o servidor, debounced, enquanto a pessoa digita
+  // na tela de identificação. nameCheckSeq descarta respostas de checagens
+  // antigas que voltam depois de o nome já ter mudado de novo.
+  let nameExists = false;
+  let nameCheckTimer = null;
+  let nameCheckSeq = 0;
+
+  function scheduleNameCheck(trimmed) {
+    clearTimeout(nameCheckTimer);
+    nameExists = false;
+    if (!trimmed) return;
+    const seq = ++nameCheckSeq;
+    nameCheckTimer = setTimeout(async () => {
+      try {
+        const { exists } = await api.publico.eventos.nomeExiste(id, trimmed);
+        if (seq === nameCheckSeq) nameExists = exists;
+      } catch {
+        // aviso não-bloqueante: falha de rede aqui não deve incomodar o fluxo
+      }
+    }, 500);
+  }
+
+  $: if (step === 'identify') {
+    scheduleNameCheck(name.trim());
+  } else {
+    clearTimeout(nameCheckTimer);
+  }
+
   function validateEmail() {
+    if (!$authConfig.emailEnabled) return '';
     const trimmed = email.trim();
     if (!trimmed) return 'Informe seu e-mail.';
     if (!emailRe.test(trimmed)) return 'Informe um e-mail válido.';
@@ -217,10 +254,11 @@
   }
 
   // Com a barra de progresso e o rodapé de ações fixos (position: sticky), a
-  // única pista de que dá pra rolar pra ver mais opções é o próprio conteúdo
-  // cortado na borda da tela — daí o indicador abaixo, calculado a partir da
-  // posição de scroll real da página (não há um contêiner interno com
-  // overflow: a rolagem é da página toda, como no resto do app).
+  // única pista de que dá pra rolar pra ver mais opções (ou, na revisão, mais
+  // perguntas da lista) é o próprio conteúdo cortado na borda da tela — daí o
+  // indicador abaixo, calculado a partir da posição de scroll real da página
+  // (não há um contêiner interno com overflow: a rolagem é da página toda,
+  // como no resto do app).
   let hasMoreBelow = false;
 
   function checkScroll() {
@@ -232,7 +270,7 @@
   // Reagenda a checagem sempre que a pergunta atual ou as respostas mudam —
   // selecionar "Outro" ou digitar num campo aberto muda a altura do
   // conteúdo sem disparar um evento de scroll.
-  $: if (step === 'question') {
+  $: if (step === 'question' || step === 'review') {
     currentIndex;
     answers;
     tick().then(checkScroll);
@@ -339,19 +377,22 @@
           label="Nome completo"
           bind:value={name}
           error={nameError}
+          hint={nameExists ? 'Esse nome já existe — seria legal usar uma identificação única.' : ''}
           placeholder="Seu nome"
           autocomplete="name"
           required
         />
-        <Input
-          label="E-mail"
-          type="email"
-          bind:value={email}
-          error={emailError}
-          placeholder="seu@melhor.email"
-          autocomplete="email"
-          required
-        />
+        {#if $authConfig.emailEnabled}
+          <Input
+            label="E-mail"
+            type="email"
+            bind:value={email}
+            error={emailError}
+            placeholder="seu@melhor.email"
+            autocomplete="email"
+            required
+          />
+        {/if}
         {#if photoWarning}
           <p class="form-warning">A dinâmica não será a mesma sem sua foto.</p>
         {/if}
@@ -554,7 +595,9 @@
             </span>
             <span class="review-identity-text">
               <span class="review-identity-name">{name || 'Sem nome'}</span>
-              <span class="text-muted">{email}</span>
+              {#if $authConfig.emailEnabled && email}
+                <span class="text-muted">{email}</span>
+              {/if}
             </span>
             <span class="review-edit-label">Editar</span>
           </button>
@@ -578,6 +621,13 @@
         </div>
       </div>
 
+      {#if hasMoreBelow}
+        <div class="scroll-hint" aria-hidden="true">
+          <span class="scroll-hint-chevron">⌄</span>
+          Mais perguntas abaixo
+        </div>
+      {/if}
+
       <div class="dock">
         <div class="dock-col">
           <Button variant="secondary" type="button" on:click={backToLast} disabled={submitting}>
@@ -588,6 +638,9 @@
             type="button"
             on:click={finish}
             disabled={submitting || answeredCount < questions.length}
+            title={answeredCount < questions.length
+              ? `Faltam ${questions.length - answeredCount} de ${questions.length} perguntas`
+              : undefined}
           >
             {submitting ? 'Enviando…' : 'Enviar respostas'}
           </Button>
@@ -604,7 +657,7 @@
         <p class="text-muted done-sub">
           Suas respostas ficam escondidas até o organizador revelar você no telão, no dia do evento.
         </p>
-        {#if linkEdicao}
+        {#if linkEdicao && event.allowEdit}
           <div class="edit-link-box">
             <p class="edit-link-label">
               Guarde este link para editar ou atualizar suas respostas depois:
