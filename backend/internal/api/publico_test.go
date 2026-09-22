@@ -567,7 +567,6 @@ func TestSubmitAnswersValidation(t *testing.T) {
 		mutate func(m map[string]any)
 		want   int
 	}{
-		{"email vazio", func(m map[string]any) { m["email"] = "" }, http.StatusBadRequest},
 		{"email inválido", func(m map[string]any) { m["email"] = "não-é-email" }, http.StatusBadRequest},
 		{"nome vazio", func(m map[string]any) { m["name"] = "" }, http.StatusBadRequest},
 		{"faltando resposta", func(m map[string]any) {
@@ -602,6 +601,76 @@ func TestSubmitAnswersValidation(t *testing.T) {
 				t.Errorf("status esperado %d, got %d: %s", tc.want, rec.Code, rec.Body.String())
 			}
 		})
+	}
+}
+
+// TestSubmitAnswersSemEmail cobre o fluxo de /responder com o e-mail
+// desativado nas configurações (GET /api/conta/configuracao, emailEnabled):
+// o frontend simplesmente não manda o campo. Sem e-mail real pra comparar,
+// cada envio sem token vira um participante novo — mesmo repetindo nome e
+// mesmo com allowEdit desligado.
+func TestSubmitAnswersSemEmail(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, groupQID, openQID, optAID, optBID := setupPublicEvent(t, h)
+
+	rec := doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "",
+		"name":  "Ana",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("envio sem e-mail: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var first struct {
+		EditToken string `json:"editToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if first.EditToken == "" {
+		t.Fatal("esperava um editToken mesmo sem e-mail")
+	}
+
+	// Segundo envio sem e-mail, mesmo nome, sem token: não é tratado como
+	// reenvio da mesma pessoa (não tem como comparar) — cria outro participante.
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"name": "Ana",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optBID},
+			{"questionId": openQID, "text": "Sushi"},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("segundo envio sem e-mail: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var second struct {
+		EditToken string `json:"editToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &second); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if second.EditToken == first.EditToken {
+		t.Error("dois envios sem e-mail deveriam virar participantes diferentes")
+	}
+
+	// O link de edição do primeiro envio continua funcionando normalmente.
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/participante?token="+first.EditToken, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("buscar participante pelo token: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var participant struct {
+		Participant struct {
+			Name string `json:"name"`
+		} `json:"participant"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &participant); err != nil {
+		t.Fatalf("decode participante: %v", err)
+	}
+	if participant.Participant.Name != "Ana" {
+		t.Errorf("esperava nome 'Ana', got %q", participant.Participant.Name)
 	}
 }
 

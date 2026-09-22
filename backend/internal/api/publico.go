@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -221,7 +222,7 @@ type submitRequest struct {
 // handleEnviarRespostas godoc
 //
 // @Summary     Envia (ou edita) as respostas de um participante
-// @Description Público, sem sessão. Sem editToken, identifica por e-mail (cria um novo participante, ou falha se o evento não permitir reenvio). Com editToken, edita as respostas já enviadas — exige allowEdit habilitado no evento. answers deve cobrir todas as perguntas do evento.
+// @Description Público, sem sessão. Sem editToken, identifica por e-mail (cria um novo participante, ou falha se o evento não permitir reenvio); com email vazio (e-mail desativado nas configurações), sempre cria um participante novo. Com editToken, edita as respostas já enviadas — exige allowEdit habilitado no evento. answers deve cobrir todas as perguntas do evento.
 // @Tags        publico
 // @Accept      json
 // @Produce     json
@@ -277,20 +278,34 @@ func (a *API) handleEnviarRespostas(w http.ResponseWriter, r *http.Request) {
 		req.Email = p.Email
 	} else {
 		req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-		if !isValidEmail(req.Email) {
-			writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
-			return
-		}
-		if !ev.AllowEdit {
-			_, err := a.store.BuscarParticipantePorEventoEEmail(r.Context(), id, req.Email)
-			if err == nil {
-				writeError(w, http.StatusForbidden, "Você já enviou suas respostas. A edição está desabilitada para este evento.")
+		if req.Email == "" {
+			// E-mail desativado pelo super admin (GET /api/conta/configuracao,
+			// emailEnabled) — o formulário nem pergunta. Gera um identificador
+			// interno só pra satisfazer o UNIQUE(event_id, email) do schema;
+			// o valor continua saindo nos DTOs (organizador e busca por token
+			// de edição) como sempre saiu, mas o frontend não mostra e-mail
+			// nenhum nessas telas quando emailEnabled é false (ver EventoEditar
+			// e Responder). Sem e-mail real não dá pra saber se a pessoa já
+			// respondeu, então cada envio sem token vira um participante novo,
+			// mesmo com allowEdit desligado — só o link de edição volta a essa
+			// resposta depois.
+			req.Email = fmt.Sprintf("sem-email-%d@participante.invalid", a.ids.NextID())
+		} else {
+			if !isValidEmail(req.Email) {
+				writeError(w, http.StatusBadRequest, "Informe um e-mail válido.")
 				return
 			}
-			if !errors.Is(err, store.ErrNotFound) {
-				log.Printf("api: buscar participante por e-mail: %v", err)
-				writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
-				return
+			if !ev.AllowEdit {
+				_, err := a.store.BuscarParticipantePorEventoEEmail(r.Context(), id, req.Email)
+				if err == nil {
+					writeError(w, http.StatusForbidden, "Você já enviou suas respostas. A edição está desabilitada para este evento.")
+					return
+				}
+				if !errors.Is(err, store.ErrNotFound) {
+					log.Printf("api: buscar participante por e-mail: %v", err)
+					writeError(w, http.StatusInternalServerError, "Erro interno ao enviar as respostas.")
+					return
+				}
 			}
 		}
 	}

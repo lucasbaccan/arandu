@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { get } from 'svelte/store';
 import EventoEditar from './EventoEditar.svelte';
 import { toast } from '../lib/toastStore.js';
+import { authConfig } from '../lib/authStore.js';
 
 vi.mock('../lib/router.js', () => ({
   navigate: vi.fn()
@@ -74,6 +75,7 @@ describe('Editar evento', () => {
     // então sem resetar aqui um teste que muda de aba/participante vaza pro
     // próximo (que herda uma aba/participante que não pediu).
     window.history.replaceState({}, '', '/');
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: true });
   });
 
   it('carrega o evento e preenche o formulário', async () => {
@@ -313,6 +315,31 @@ describe('Editar evento', () => {
 
     expect(view.getByLabelText('Título')).toBeInTheDocument();
     expect(view.getByText('Nenhuma pergunta ainda.')).toBeInTheDocument();
+    expect(view.queryByText('ana@exemplo.com')).not.toBeInTheDocument();
+  });
+
+  it('esconde o e-mail do participante no painel de detalhe quando desativado pelo admin', async () => {
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: false });
+    api.eventos.buscar.mockResolvedValue({ event });
+    const view = mount();
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+    api.eventos.respostas.listar.mockResolvedValue({
+      participantCount: 1,
+      participants: [
+        {
+          id: 'p1',
+          name: 'Ana Silva',
+          email: 'ana@exemplo.com',
+          photo: '',
+          createdAt: '2026-08-03T00:00:00Z',
+          answers: []
+        }
+      ]
+    });
+
+    await fireEvent.click(view.getByRole('tab', { name: 'Respostas' }));
+
+    expect((await view.findAllByText('Ana Silva')).length).toBeGreaterThan(0);
     expect(view.queryByText('ana@exemplo.com')).not.toBeInTheDocument();
   });
 

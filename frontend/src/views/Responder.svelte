@@ -10,25 +10,32 @@
   import CopyButton from '../components/CopyButton.svelte';
   import PublicShell from '../components/PublicShell.svelte';
   import TopBar from '../components/TopBar.svelte';
+  import { authConfig } from '../lib/authStore.js';
 
   // Mesma regra usada pelo backend (isValidEmail em server.go) — precisa ficar
   // idêntica para o erro aparecer aqui, na identificação, e não só depois de
   // responder tudo e tentar finalizar.
   const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]+$/;
 
-  const PRIVACY_ITEMS = [
+  $: PRIVACY_ITEMS = [
     {
       title: 'O que pedimos',
-      body: 'Seu nome, seu e-mail e, se você quiser, uma foto de rosto. Nada além disso.'
+      body: $authConfig.emailEnabled
+        ? 'Seu nome, seu e-mail e, se você quiser, uma foto de rosto. Nada além disso.'
+        : 'Seu nome e, se você quiser, uma foto de rosto. Nada além disso.'
     },
     {
       title: 'O que aparece no telão',
       body: 'Seu nome, sua foto e a resposta escolhida — e só no momento em que o organizador revelar você. Antes disso, o servidor não envia sua resposta para a tela pública.'
     },
-    {
-      title: 'O que ninguém vê',
-      body: 'Seu e-mail nunca aparece na apresentação. Ele fica visível apenas para o organizador do evento, para identificar sua participação.'
-    },
+    ...($authConfig.emailEnabled
+      ? [
+          {
+            title: 'O que ninguém vê',
+            body: 'Seu e-mail nunca aparece na apresentação. Ele fica visível apenas para o organizador do evento, para identificar sua participação.'
+          }
+        ]
+      : []),
     {
       title: 'A foto é opcional',
       body: 'Sem foto, você aparece com a inicial do seu nome. A dinâmica funciona do mesmo jeito.'
@@ -140,6 +147,7 @@
   }
 
   function validateEmail() {
+    if (!$authConfig.emailEnabled) return '';
     const trimmed = email.trim();
     if (!trimmed) return 'Informe seu e-mail.';
     if (!emailRe.test(trimmed)) return 'Informe um e-mail válido.';
@@ -343,15 +351,17 @@
           autocomplete="name"
           required
         />
-        <Input
-          label="E-mail"
-          type="email"
-          bind:value={email}
-          error={emailError}
-          placeholder="seu@melhor.email"
-          autocomplete="email"
-          required
-        />
+        {#if $authConfig.emailEnabled}
+          <Input
+            label="E-mail"
+            type="email"
+            bind:value={email}
+            error={emailError}
+            placeholder="seu@melhor.email"
+            autocomplete="email"
+            required
+          />
+        {/if}
         {#if photoWarning}
           <p class="form-warning">A dinâmica não será a mesma sem sua foto.</p>
         {/if}
@@ -554,7 +564,9 @@
             </span>
             <span class="review-identity-text">
               <span class="review-identity-name">{name || 'Sem nome'}</span>
-              <span class="text-muted">{email}</span>
+              {#if $authConfig.emailEnabled && email}
+                <span class="text-muted">{email}</span>
+              {/if}
             </span>
             <span class="review-edit-label">Editar</span>
           </button>

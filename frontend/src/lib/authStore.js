@@ -5,7 +5,7 @@ import { navigate } from './router.js';
 import { showToast } from './toastStore.js';
 
 export const user = writable(null);
-export const authConfig = writable({ minPasswordLength: 3, registrationEnabled: true });
+export const authConfig = writable({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: true });
 export const authReady = writable(false);
 
 // Qualquer rota autenticada que responda 401 derruba a sessão local e manda pro

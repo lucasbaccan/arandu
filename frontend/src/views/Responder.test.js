@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import Responder from './Responder.svelte';
+import { authConfig } from '../lib/authStore.js';
 
 vi.mock('../lib/api.js', () => ({
   api: {
@@ -55,6 +56,38 @@ async function identifyAndContinue(name = 'Ana', email = 'ana@exemplo.com') {
 describe('Tela de respostas do participante', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: true });
+  });
+
+  it('com e-mail desativado pelo admin, não pergunta e-mail e envia vazio', async () => {
+    authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: false });
+    mockLoad();
+    api.publico.eventos.enviar.mockResolvedValue({ editToken: 'tok-1' });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    expect(screen.queryByLabelText('E-mail')).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Nome completo'), 'Ana');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+
+    await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' });
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await screen.findByText('Qual sua comida favorita?', { selector: 'h1' });
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+
+    await screen.findByText('Confira antes de enviar');
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
+
+    await waitFor(() =>
+      expect(api.publico.eventos.enviar).toHaveBeenCalledWith(
+        '42',
+        expect.objectContaining({ email: '', name: 'Ana' })
+      )
+    );
   });
 
   it('mostra a tela de identificação com o título do evento', async () => {

@@ -5,6 +5,7 @@
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
   import { showToast } from '../lib/toastStore.js';
+  import { authConfig } from '../lib/authStore.js';
   import { formatDateTime } from '../lib/formatDate.js';
   import { statusInfo, questionKindInfo } from '../lib/eventStatus.js';
   import Button from '../components/Button.svelte';
@@ -728,7 +729,7 @@
                     class="people-search"
                     type="text"
                     bind:value={personSearch}
-                    placeholder="Buscar pessoa ou e-mail"
+                    placeholder={$authConfig.emailEnabled ? 'Buscar pessoa ou e-mail' : 'Buscar pessoa'}
                   />
                   <div class="sort-toggle">
                     <button
@@ -807,7 +808,7 @@
                       <div class="detail-identity">
                         <strong class="detail-name" title={selectedParticipant.name || selectedParticipant.email}>{selectedParticipant.name || selectedParticipant.email}</strong>
                         <div class="detail-meta">
-                          {#if selectedParticipant.name}
+                          {#if selectedParticipant.name && $authConfig.emailEnabled}
                             <span>{selectedParticipant.email}</span>
                           {/if}
                           <span class="detail-meta-order">envio #{selectedOrder}</span>
