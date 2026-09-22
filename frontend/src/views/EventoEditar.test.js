@@ -166,11 +166,49 @@ describe('Editar evento', () => {
     const view = mount();
     await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
 
+    await fireEvent.input(view.getByLabelText('Título'), { target: { value: 'Título novo' } });
     await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
 
     expect(
       await view.findByText('Este PIN já está em uso. Escolha outro.')
     ).toBeInTheDocument();
+  });
+
+  it('não mostra "Salvar alterações" sem mudar título/PIN, e some de novo após salvar', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.atualizar.mockResolvedValue({ event });
+    const view = mount();
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+
+    expect(view.queryByRole('button', { name: 'Salvar alterações' })).not.toBeInTheDocument();
+
+    await fireEvent.input(view.getByLabelText('Título'), { target: { value: 'Título novo' } });
+    expect(view.getByRole('button', { name: 'Salvar alterações' })).toBeInTheDocument();
+
+    await fireEvent.click(view.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() =>
+      expect(view.queryByRole('button', { name: 'Salvar alterações' })).not.toBeInTheDocument()
+    );
+  });
+
+  it('salva "Permitir editar depois" sozinho, sem precisar do botão de salvar', async () => {
+    api.eventos.buscar.mockResolvedValue({ event });
+    api.eventos.atualizar.mockResolvedValue({ event: { ...event, allowEdit: true } });
+    const view = mount();
+    await waitFor(() => expect(view.getByLabelText('Título').value).toBe('Conecta DevOps'));
+
+    await fireEvent.click(view.getByRole('switch', { name: 'Permitir editar depois' }));
+
+    await waitFor(() =>
+      expect(api.eventos.atualizar).toHaveBeenCalledWith('42', {
+        title: 'Conecta DevOps',
+        pinCode: '',
+        allowEdit: true
+      })
+    );
+    await waitFor(() => expect(get(toast)?.message).toBe('Salvo'));
+    expect(view.queryByRole('button', { name: 'Salvar alterações' })).not.toBeInTheDocument();
   });
 
   it('exclui o evento após confirmação e volta pro painel', async () => {

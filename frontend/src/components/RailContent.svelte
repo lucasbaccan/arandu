@@ -10,6 +10,9 @@
   export let title;
   export let pinCode;
   export let allowEdit;
+  export let allowEditBusy = false;
+  export let toggleAllowEdit;
+  export let settingsDirty = false;
   export let error = '';
   export let submitting = false;
   export let toggleAnswersOpen;
@@ -76,7 +79,8 @@
       <Switch
         aria-label="Permitir editar depois"
         checked={allowEdit}
-        on:change={() => (allowEdit = !allowEdit)}
+        disabled={allowEditBusy}
+        on:change={toggleAllowEdit}
       />
     </div>
 
@@ -84,9 +88,11 @@
       <p class="form-error">{error}</p>
     {/if}
 
-    <Button type="submit" variant="secondary" block disabled={submitting}>
-      {submitting ? 'Salvando…' : 'Salvar alterações'}
-    </Button>
+    {#if settingsDirty}
+      <Button type="submit" variant="secondary" block disabled={submitting}>
+        {submitting ? 'Salvando…' : 'Salvar alterações'}
+      </Button>
+    {/if}
   </form>
 </div>
 
