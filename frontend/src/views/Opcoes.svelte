@@ -1,6 +1,31 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
   import { navigate } from '../lib/router.js';
   import TopBar from '../components/TopBar.svelte';
+
+  // Página interna de comparação: usa dezenas de glifos do Material Symbols
+  // Rounded só como referência (não faz parte do fluxo do produto), então o
+  // resto do app usa um subconjunto estático bem menor (ver app.css). Aqui,
+  // só nesta página, carrega a fonte completa do Google sob demanda.
+  let msrFullLinks = [];
+  onMount(() => {
+    const preconnect1 = document.createElement('link');
+    preconnect1.rel = 'preconnect';
+    preconnect1.href = 'https://fonts.googleapis.com';
+    const preconnect2 = document.createElement('link');
+    preconnect2.rel = 'preconnect';
+    preconnect2.href = 'https://fonts.gstatic.com';
+    preconnect2.crossOrigin = 'anonymous';
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href =
+      'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block';
+    msrFullLinks = [preconnect1, preconnect2, stylesheet];
+    msrFullLinks.forEach((el) => document.head.appendChild(el));
+  });
+  onDestroy(() => {
+    msrFullLinks.forEach((el) => el.remove());
+  });
 
   const options = [
     {
