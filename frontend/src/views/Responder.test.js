@@ -10,7 +10,8 @@ vi.mock('../lib/api.js', () => ({
       eventos: {
         buscar: vi.fn(),
         enviar: vi.fn(),
-        buscarParticipante: vi.fn()
+        buscarParticipante: vi.fn(),
+        nomeExiste: vi.fn()
       }
     }
   }
@@ -57,6 +58,7 @@ describe('Tela de respostas do participante', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authConfig.set({ minPasswordLength: 3, registrationEnabled: true, emailEnabled: true });
+    api.publico.eventos.nomeExiste.mockResolvedValue({ exists: false });
   });
 
   it('com e-mail desativado pelo admin, não pergunta e-mail e envia vazio', async () => {
@@ -128,6 +130,33 @@ describe('Tela de respostas do participante', () => {
     await userEvent.type(screen.getByLabelText('E-mail'), 'não-é-email');
     await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument();
+  });
+
+  it('avisa (sem bloquear) quando o nome já existe no evento', async () => {
+    mockLoad();
+    api.publico.eventos.nomeExiste.mockResolvedValue({ exists: true });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    expect(screen.queryByText(/já existe/)).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Nome completo'), 'Ana');
+
+    await waitFor(
+      () => expect(api.publico.eventos.nomeExiste).toHaveBeenCalledWith('42', 'Ana'),
+      { timeout: 2000 }
+    );
+    expect(
+      await screen.findByText('Esse nome já existe — seria legal usar uma identificação única.', {}, { timeout: 2000 })
+    ).toBeInTheDocument();
+
+    // não é um erro: continua dando pra avançar normalmente.
+    await userEvent.type(screen.getByLabelText('E-mail'), 'ana@exemplo.com');
+    await fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continuar mesmo assim' }));
+    expect(
+      await screen.findByText('Qual sua linguagem favorita?', { selector: 'h1' })
+    ).toBeInTheDocument();
   });
 
   it('rejeita na identificação um e-mail que o backend também rejeitaria', async () => {

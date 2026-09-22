@@ -604,6 +604,74 @@ func TestSubmitAnswersValidation(t *testing.T) {
 	}
 }
 
+// TestNomeExiste cobre GET /nome-existe: usado pelo formulário de resposta
+// pra avisar (sem bloquear) quando o nome digitado já existe no evento.
+func TestNomeExiste(t *testing.T) {
+	h := newTestAPI(t).Handler()
+	_, eventID, groupQID, openQID, optAID, _ := setupPublicEvent(t, h)
+
+	// Sem ninguém ainda, nenhum nome existe.
+	rec := doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/nome-existe?nome=Ana", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Exists bool `json:"exists"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Exists {
+		t.Error("nome não deveria existir ainda")
+	}
+
+	// nome vazio (só espaços): sempre false, sem tocar o banco.
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/nome-existe?nome=%20%20", nil, nil)
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Exists {
+		t.Error("nome em branco deveria ser exists=false")
+	}
+
+	rec = doJSON(t, h, http.MethodPost, "/api/publico/eventos/"+eventID+"/enviar", map[string]any{
+		"email": "ana@exemplo.com",
+		"name":  "Ana",
+		"answers": []map[string]string{
+			{"questionId": groupQID, "optionId": optAID},
+			{"questionId": openQID, "text": "Pizza"},
+		},
+	}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enviar: status esperado 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Mesmo nome, com espaços em volta: o servidor faz o trim.
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/nome-existe?nome=%20Ana%20", nil, nil)
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if !resp.Exists {
+		t.Error("nome deveria existir (com trim) depois do envio")
+	}
+
+	// Maiúsculas/minúsculas diferentes: comparação é sensível a caixa.
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/nome-existe?nome=ana", nil, nil)
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Exists {
+		t.Error("comparação deveria ser sensível a maiúsculas/minúsculas")
+	}
+
+	// Nome de outra pessoa continua não existindo.
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/"+eventID+"/nome-existe?nome=Bia", nil, nil)
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Exists {
+		t.Error("nome de outra pessoa não deveria existir")
+	}
+
+	// Evento inexistente: 404.
+	rec = doJSON(t, h, http.MethodGet, "/api/publico/eventos/999999/nome-existe?nome=Ana", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status esperado 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 // TestSubmitAnswersSemEmail cobre o fluxo de /responder com o e-mail
 // desativado nas configurações (GET /api/conta/configuracao, emailEnabled):
 // o frontend simplesmente não manda o campo. Sem e-mail real pra comparar,

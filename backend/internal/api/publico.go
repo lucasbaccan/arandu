@@ -110,6 +110,46 @@ func (a *API) handlePublicoBuscarParticipante(w http.ResponseWriter, r *http.Req
 	})
 }
 
+// handlePublicoNomeExiste godoc
+//
+// @Summary     Verifica se um nome já foi usado neste evento
+// @Description Público, sem sessão. Não é uma restrição de fato — nomes duplicados continuam permitidos; só alimenta um aviso no formulário de resposta, incentivando uma identificação única (ex: nome + sobrenome, ou apelido do time).
+// @Tags        publico
+// @Produce     json
+// @Param       id   path  string true "ID do evento"
+// @Param       nome query string true "Nome a verificar (comparado após trim; vazio sempre responde exists=false)"
+// @Success     200 {object} nomeExisteResponse
+// @Failure     404 {object} errorResponse
+// @Router      /api/publico/eventos/{id}/nome-existe [get]
+func (a *API) handlePublicoNomeExiste(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseEventID(w, r)
+	if !ok {
+		return
+	}
+	if _, err := a.store.BuscarEventoPorID(r.Context(), id); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "Evento não encontrado.")
+			return
+		}
+		log.Printf("api: buscar evento para checar nome: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao verificar o nome.")
+		return
+	}
+
+	name := strings.TrimSpace(r.URL.Query().Get("nome"))
+	if name == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"exists": false})
+		return
+	}
+	exists, err := a.store.NomeExisteNoEvento(r.Context(), id, name)
+	if err != nil {
+		log.Printf("api: verificar nome existente: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao verificar o nome.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"exists": exists})
+}
+
 // handlePublicoResolverPIN acha o evento a partir só do PIN, pra tela inicial
 // (sem ID na URL) poder checar se o código existe antes de avançar pro
 // próximo passo. Não revela mais que o ID — status e detalhes do evento só

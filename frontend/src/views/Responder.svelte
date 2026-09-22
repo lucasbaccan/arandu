@@ -146,6 +146,35 @@
     return '';
   }
 
+  // Aviso (não bloqueia o envio) de que já existe alguém com esse nome exato
+  // neste evento — checa com o servidor, debounced, enquanto a pessoa digita
+  // na tela de identificação. nameCheckSeq descarta respostas de checagens
+  // antigas que voltam depois de o nome já ter mudado de novo.
+  let nameExists = false;
+  let nameCheckTimer = null;
+  let nameCheckSeq = 0;
+
+  function scheduleNameCheck(trimmed) {
+    clearTimeout(nameCheckTimer);
+    nameExists = false;
+    if (!trimmed) return;
+    const seq = ++nameCheckSeq;
+    nameCheckTimer = setTimeout(async () => {
+      try {
+        const { exists } = await api.publico.eventos.nomeExiste(id, trimmed);
+        if (seq === nameCheckSeq) nameExists = exists;
+      } catch {
+        // aviso não-bloqueante: falha de rede aqui não deve incomodar o fluxo
+      }
+    }, 500);
+  }
+
+  $: if (step === 'identify') {
+    scheduleNameCheck(name.trim());
+  } else {
+    clearTimeout(nameCheckTimer);
+  }
+
   function validateEmail() {
     if (!$authConfig.emailEnabled) return '';
     const trimmed = email.trim();
@@ -348,6 +377,7 @@
           label="Nome completo"
           bind:value={name}
           error={nameError}
+          hint={nameExists ? 'Esse nome já existe — seria legal usar uma identificação única.' : ''}
           placeholder="Seu nome"
           autocomplete="name"
           required

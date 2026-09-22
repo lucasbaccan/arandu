@@ -147,6 +147,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/publico/eventos/por-pin", a.handlePublicoResolverPIN)
 	mux.HandleFunc("GET /api/publico/eventos/{id}", a.handlePublicoBuscarEvento)
 	mux.HandleFunc("GET /api/publico/eventos/{id}/participante", a.handlePublicoBuscarParticipante)
+	mux.HandleFunc("GET /api/publico/eventos/{id}/nome-existe", a.handlePublicoNomeExiste)
 	mux.HandleFunc("POST /api/publico/eventos/{id}/enviar", a.handleEnviarRespostas)
 	mux.HandleFunc("POST /api/publico/eventos/{id}/ao-vivo/entrar", a.handleAoVivoEntrar)
 	mux.HandleFunc("GET /api/publico/eventos/{id}/ao-vivo/estado", a.handleAoVivoEstado)

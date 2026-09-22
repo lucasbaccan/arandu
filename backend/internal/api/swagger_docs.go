@@ -80,6 +80,10 @@ type pinResolvidoResponse struct {
 	ID string `json:"id"`
 }
 
+type nomeExisteResponse struct {
+	Exists bool `json:"exists"`
+}
+
 type publicoEventoResponse struct {
 	Event     publicEventDTO      `json:"event"`
 	Questions []publicQuestionDTO `json:"questions"`
