@@ -201,8 +201,12 @@ describe('Tela de respostas do participante', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
     expect(await screen.findByText('Confira antes de enviar')).toBeInTheDocument();
 
-    // sem todas as respostas, o envio fica bloqueado
+    // sem todas as respostas, o envio fica bloqueado — e o hover explica o motivo
     expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).toHaveAttribute(
+      'title',
+      'Faltam 2 de 2 perguntas'
+    );
     expect(api.publico.eventos.enviar).not.toHaveBeenCalled();
 
     // volta pela lista de revisão e responde o que faltou
@@ -227,6 +231,7 @@ describe('Tela de respostas do participante', () => {
     expect(screen.getByText('Go')).toBeInTheDocument();
     expect(screen.getByText('Pizza')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Enviar respostas' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Enviar respostas' })).not.toHaveAttribute('title');
 
     await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
 
@@ -462,5 +467,21 @@ describe('Tela de respostas do participante', () => {
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
 
     window.history.pushState({}, '', '/responder/42');
+  });
+
+  it('mostra a dica de rolagem na revisão quando a lista de perguntas não cabe na tela', async () => {
+    mockLoad();
+    Object.defineProperty(document.documentElement, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true });
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await identifyAndContinue('Ana', 'ana@exemplo.com');
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+
+    expect(await screen.findByText('Mais perguntas abaixo')).toBeInTheDocument();
   });
 });

@@ -225,10 +225,11 @@
   }
 
   // Com a barra de progresso e o rodapé de ações fixos (position: sticky), a
-  // única pista de que dá pra rolar pra ver mais opções é o próprio conteúdo
-  // cortado na borda da tela — daí o indicador abaixo, calculado a partir da
-  // posição de scroll real da página (não há um contêiner interno com
-  // overflow: a rolagem é da página toda, como no resto do app).
+  // única pista de que dá pra rolar pra ver mais opções (ou, na revisão, mais
+  // perguntas da lista) é o próprio conteúdo cortado na borda da tela — daí o
+  // indicador abaixo, calculado a partir da posição de scroll real da página
+  // (não há um contêiner interno com overflow: a rolagem é da página toda,
+  // como no resto do app).
   let hasMoreBelow = false;
 
   function checkScroll() {
@@ -240,7 +241,7 @@
   // Reagenda a checagem sempre que a pergunta atual ou as respostas mudam —
   // selecionar "Outro" ou digitar num campo aberto muda a altura do
   // conteúdo sem disparar um evento de scroll.
-  $: if (step === 'question') {
+  $: if (step === 'question' || step === 'review') {
     currentIndex;
     answers;
     tick().then(checkScroll);
@@ -590,6 +591,13 @@
         </div>
       </div>
 
+      {#if hasMoreBelow}
+        <div class="scroll-hint" aria-hidden="true">
+          <span class="scroll-hint-chevron">⌄</span>
+          Mais perguntas abaixo
+        </div>
+      {/if}
+
       <div class="dock">
         <div class="dock-col">
           <Button variant="secondary" type="button" on:click={backToLast} disabled={submitting}>
@@ -600,6 +608,9 @@
             type="button"
             on:click={finish}
             disabled={submitting || answeredCount < questions.length}
+            title={answeredCount < questions.length
+              ? `Faltam ${questions.length - answeredCount} de ${questions.length} perguntas`
+              : undefined}
           >
             {submitting ? 'Enviando…' : 'Enviar respostas'}
           </Button>
