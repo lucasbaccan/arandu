@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/lucasbaccan/arandu/compare/v1.2.0...v1.3.0) (2026-09-22)
+
+
+### Features
+
+* opcao outro e ajustes palco ([#15](https://github.com/lucasbaccan/arandu/issues/15)) ([693fc17](https://github.com/lucasbaccan/arandu/commit/693fc173ac303fdfc1ff86560ce2960613032ab4))
+
 # [1.2.0](https://github.com/lucasbaccan/arandu/compare/v1.1.1...v1.2.0) (2026-09-14)
 
 
