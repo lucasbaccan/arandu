@@ -246,6 +246,41 @@ describe('Tela de respostas do participante', () => {
     expect(await screen.findByText('Prontinho, Ana!')).toBeInTheDocument();
   });
 
+  it('com allowEdit, mostra o link de edição depois de enviar', async () => {
+    mockLoad({ allowEdit: true });
+    api.publico.eventos.enviar.mockResolvedValue({ editToken: 'tok-1' });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await identifyAndContinue('Ana', 'ana@exemplo.com');
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
+
+    await screen.findByText('Prontinho, Ana!');
+    expect(screen.getByText(/Guarde este link para editar/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/\/responder\/42\?edit=tok-1/)).toBeInTheDocument();
+  });
+
+  it('sem allowEdit, não mostra o link de edição depois de enviar', async () => {
+    mockLoad({ allowEdit: false });
+    api.publico.eventos.enviar.mockResolvedValue({ editToken: 'tok-1' });
+    render(Responder, { props: { id: '42' } });
+    await screen.findByText('Dinâmica de Testes');
+
+    await identifyAndContinue('Ana', 'ana@exemplo.com');
+    await fireEvent.click(screen.getByLabelText('Go'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+    await userEvent.type(screen.getByPlaceholderText('Escreva sua resposta'), 'Pizza');
+    await fireEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Enviar respostas' }));
+
+    await screen.findByText('Prontinho, Ana!');
+    expect(screen.queryByText(/Guarde este link para editar/)).not.toBeInTheDocument();
+  });
+
   it('mantém a resposta ao voltar para a pergunta anterior', async () => {
     mockLoad();
     render(Responder, { props: { id: '42' } });

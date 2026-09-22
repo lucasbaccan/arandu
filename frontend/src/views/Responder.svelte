@@ -616,7 +616,7 @@
         <p class="text-muted done-sub">
           Suas respostas ficam escondidas até o organizador revelar você no telão, no dia do evento.
         </p>
-        {#if linkEdicao}
+        {#if linkEdicao && event.allowEdit}
           <div class="edit-link-box">
             <p class="edit-link-label">
               Guarde este link para editar ou atualizar suas respostas depois:
