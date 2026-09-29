@@ -127,6 +127,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/eventos/{id}/respostas", a.requireAuth(a.handleListarRespostas))
 	mux.HandleFunc("PATCH /api/eventos/{id}/respostas/{participantId}/resposta/{questionId}", a.requireAuth(a.handleAtualizarResposta))
 	mux.HandleFunc("PATCH /api/eventos/{id}/respostas/{participantId}/foto", a.requireAuth(a.handleAtualizarFotoParticipante))
+	mux.HandleFunc("PATCH /api/eventos/{id}/respostas/{participantId}/nome", a.requireAuth(a.handleAtualizarNomeParticipante))
 	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/pergunta", a.requireAuth(a.handleAoVivoDefinirPergunta))
 	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/revelar", a.requireAuth(a.handleAoVivoRevelar))
 	mux.HandleFunc("POST /api/eventos/{id}/ao-vivo/ocultar", a.requireAuth(a.handleAoVivoOcultar))

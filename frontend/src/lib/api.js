@@ -90,7 +90,9 @@ export const api = {
           body
         }),
       atualizarFoto: (id, participantId, body) =>
-        request(`/api/eventos/${id}/respostas/${participantId}/foto`, { method: 'PATCH', body })
+        request(`/api/eventos/${id}/respostas/${participantId}/foto`, { method: 'PATCH', body }),
+      atualizarNome: (id, participantId, body) =>
+        request(`/api/eventos/${id}/respostas/${participantId}/nome`, { method: 'PATCH', body })
     },
     aoVivo: {
       definirPergunta: (id, questionId) =>
