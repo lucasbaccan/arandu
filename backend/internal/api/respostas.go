@@ -253,6 +253,81 @@ func (a *API) handleAtualizarResposta(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+type updateParticipantNameRequest struct {
+	Name string `json:"name"`
+}
+
+// handleAtualizarNomeParticipante permite ao organizador corrigir o nome de
+// um participante (ex: erro de digitação no formulário público).
+// handleAtualizarNomeParticipante godoc
+//
+// @Summary     Corrige o nome de um participante
+// @Description Feito pelo organizador.
+// @Tags        respostas
+// @Accept      json
+// @Produce     json
+// @Param       id            path string                       true "ID do evento"
+// @Param       participantId path string                       true "ID do participante"
+// @Param       body          body updateParticipantNameRequest true "Novo nome"
+// @Success     200 {object} okResponse
+// @Failure     400 {object} errorResponse
+// @Failure     404 {object} errorResponse
+// @Security    cookieAuth
+// @Router      /api/eventos/{id}/respostas/{participantId}/nome [patch]
+func (a *API) handleAtualizarNomeParticipante(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := a.resolveEventOwner(w, r)
+	if !ok {
+		return
+	}
+
+	participantID, err := strconv.ParseInt(r.PathValue("participantId"), 10, 64)
+	if err != nil || participantID <= 0 {
+		writeError(w, http.StatusBadRequest, "ID de participante inválido.")
+		return
+	}
+
+	participant, err := a.store.BuscarParticipantePorID(r.Context(), participantID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Participante não encontrado.")
+		return
+	}
+	if err != nil {
+		log.Printf("api: buscar participante: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar o nome.")
+		return
+	}
+	if participant.EventID != eventID {
+		writeError(w, http.StatusNotFound, "Participante não encontrado.")
+		return
+	}
+
+	var req updateParticipantNameRequest
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "Informe o nome.")
+		return
+	}
+	if len(req.Name) > maxNameLength {
+		writeError(w, http.StatusBadRequest, "Nome muito longo.")
+		return
+	}
+
+	if err := a.store.AtualizarNomeDoParticipante(r.Context(), participantID, req.Name); errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Participante não encontrado.")
+		return
+	} else if err != nil {
+		log.Printf("api: atualizar nome do participante: %v", err)
+		writeError(w, http.StatusInternalServerError, "Erro interno ao atualizar o nome.")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 type updateParticipantPhotoRequest struct {
 	Photo string `json:"photo"`
 }

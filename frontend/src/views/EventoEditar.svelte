@@ -1,6 +1,7 @@
 <script>
   export let id = '';
 
+  import { tick } from 'svelte';
   import { flip } from 'svelte/animate';
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.js';
@@ -104,6 +105,10 @@
   let photoDraft = '';
   let savingPhoto = false;
   let savingAnswerKey = '';
+  let editingName = false;
+  let nameDraft = '';
+  let savingName = false;
+  let nameInputEl;
 
   // Coluna de pessoas: arrastável, mas nunca menor que o tamanho de base —
   // o valor que já era o padrão da tela antes de existir o redimensionamento.
@@ -519,6 +524,7 @@
 
   function selectPerson(pid) {
     selectedParticipantId = pid;
+    editingName = false;
   }
 
   function questionOptionsFor(questionId) {
@@ -589,6 +595,49 @@
       showToast(e.message, 'error');
     } finally {
       savingAnswerKey = '';
+    }
+  }
+
+  async function startEditName() {
+    if (!selectedParticipant) return;
+    nameDraft = selectedParticipant.name || '';
+    editingName = true;
+    await tick();
+    nameInputEl?.focus();
+  }
+
+  function cancelEditName() {
+    editingName = false;
+    nameDraft = '';
+  }
+
+  function handleNameKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveName();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEditName();
+    }
+  }
+
+  async function saveName() {
+    if (!selectedParticipant) return;
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      showToast('Informe o nome.', 'error');
+      return;
+    }
+    savingName = true;
+    try {
+      await api.eventos.respostas.atualizarNome(id, selectedParticipant.id, { name: trimmed });
+      showToast('Nome atualizado!');
+      editingName = false;
+      await loadResponses();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      savingName = false;
     }
   }
 
@@ -806,7 +855,47 @@
                         <span class="detail-avatar-edit" aria-hidden="true">✎</span>
                       </button>
                       <div class="detail-identity">
-                        <strong class="detail-name" title={selectedParticipant.name || selectedParticipant.email}>{selectedParticipant.name || selectedParticipant.email}</strong>
+                        {#if editingName}
+                          <div class="detail-name-edit">
+                            <input
+                              class="detail-name-input"
+                              type="text"
+                              bind:this={nameInputEl}
+                              bind:value={nameDraft}
+                              maxlength="100"
+                              disabled={savingName}
+                              placeholder="Nome do participante"
+                              on:keydown={handleNameKeydown}
+                            />
+                            <button
+                              type="button"
+                              class="icon-btn detail-name-btn"
+                              title="Salvar nome"
+                              aria-label="Salvar nome"
+                              disabled={savingName}
+                              on:click={saveName}
+                            ><span class="msr detail-name-btn-glyph">check</span></button>
+                            <button
+                              type="button"
+                              class="icon-btn detail-name-btn"
+                              title="Cancelar"
+                              aria-label="Cancelar edição do nome"
+                              disabled={savingName}
+                              on:click={cancelEditName}
+                            ><span class="msr detail-name-btn-glyph">close</span></button>
+                          </div>
+                        {:else}
+                          <div class="detail-name-row">
+                            <strong class="detail-name" title={selectedParticipant.name || selectedParticipant.email}>{selectedParticipant.name || selectedParticipant.email}</strong>
+                            <button
+                              type="button"
+                              class="icon-btn detail-name-btn"
+                              title="Editar nome"
+                              aria-label={`Editar nome de ${selectedParticipant.name || selectedParticipant.email}`}
+                              on:click={startEditName}
+                            ><span class="msr detail-name-btn-glyph">edit_square</span></button>
+                          </div>
+                        {/if}
                         <div class="detail-meta">
                           {#if selectedParticipant.name && $authConfig.emailEnabled}
                             <span>{selectedParticipant.email}</span>
@@ -1805,6 +1894,48 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .detail-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .detail-name-row .detail-name {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .detail-name-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .detail-name-input {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-strong);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 0.9375rem;
+    font-family: inherit;
+  }
+
+  .detail-name-btn {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+
+  .detail-name-btn-glyph {
+    font-size: 16px;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
   }
 
   .detail-meta {

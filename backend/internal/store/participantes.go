@@ -147,6 +147,23 @@ func (s *Store) AtualizarFotoDoParticipante(ctx context.Context, participantID i
 	return nil
 }
 
+// AtualizarNomeDoParticipante permite ao organizador corrigir o nome de um
+// participante (ex: erro de digitação no formulário público).
+func (s *Store) AtualizarNomeDoParticipante(ctx context.Context, participantID int64, name string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE participants SET name = ? WHERE id = ?`, name, participantID)
+	if err != nil {
+		return fmt.Errorf("store: atualizar nome do participante: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("store: atualizar nome do participante: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ListarParticipantesPorEvento retorna os participantes de um evento, do mais antigo ao mais recente.
 func (s *Store) ListarParticipantesPorEvento(ctx context.Context, eventID int64) ([]Participant, error) {
 	rows, err := s.db.QueryContext(ctx,
