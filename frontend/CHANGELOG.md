@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/lucasbaccan/arandu/compare/v1.3.0...v1.4.0) (2026-09-29)
+
+
+### Features
+
+* **respostas:** permite editar o nome do participante ([#16](https://github.com/lucasbaccan/arandu/issues/16)) ([9f3e1fc](https://github.com/lucasbaccan/arandu/commit/9f3e1fc1c3dd69d574c6032c9f4dec95bdf8b363))
+
 # [1.3.0](https://github.com/lucasbaccan/arandu/compare/v1.2.0...v1.3.0) (2026-09-22)
 
 
