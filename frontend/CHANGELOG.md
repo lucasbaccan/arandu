@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/lucasbaccan/arandu/compare/v1.4.0...v1.4.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* **apresentar:** ordena respostas em ordem alfabetica e mantem tooltip aberto no refresh ([#17](https://github.com/lucasbaccan/arandu/issues/17)) ([6934599](https://github.com/lucasbaccan/arandu/commit/693459926ad881d2bd42c7ce797e7c9c0b249837))
+
 # [1.4.0](https://github.com/lucasbaccan/arandu/compare/v1.3.0...v1.4.0) (2026-09-29)
 
 
