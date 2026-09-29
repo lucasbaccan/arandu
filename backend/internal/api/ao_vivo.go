@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1190,13 +1191,13 @@ type liveQAMessageDTO struct {
 }
 
 type liveAdminSnapshotDTO struct {
-	Blanked             bool                `json:"blanked"`
-	Message             string              `json:"message"`
-	InteractionsEnabled bool                `json:"interactionsEnabled"`
-	AnswersHidden       bool                `json:"answersHidden"`
-	NamesHidden         bool                `json:"namesHidden"`
-	PresentDensityMode  string              `json:"presentDensityMode"`
-	CurrentQuestionID   string              `json:"currentQuestionId"`
+	Blanked             bool   `json:"blanked"`
+	Message             string `json:"message"`
+	InteractionsEnabled bool   `json:"interactionsEnabled"`
+	AnswersHidden       bool   `json:"answersHidden"`
+	NamesHidden         bool   `json:"namesHidden"`
+	PresentDensityMode  string `json:"presentDensityMode"`
+	CurrentQuestionID   string `json:"currentQuestionId"`
 	// Revealed mapeia questionID (string) -> participantIDs (string) já
 	// revelados nessa pergunta — deixa o painel do organizador retomar de
 	// onde parou depois de um F5 ou ao reabrir /stage, em vez de sempre
@@ -1288,6 +1289,12 @@ func (a *API) buildLiveSnapshot(ctx context.Context, eventID int64) (liveSnapsho
 	if err != nil {
 		return liveSnapshotDTO{}, fmt.Errorf("listar participantes: %w", err)
 	}
+
+	// Ordem alfabética (nome, ou e-mail se não tiver nome) — mesma do painel
+	// do palco — em vez da ordem de resposta.
+	sort.SliceStable(participants, func(i, j int) bool {
+		return alphaLess(participantSortName(participants[i]), participantSortName(participants[j]))
+	})
 
 	qDTOs := make([]liveQuestionDTO, 0, len(questions))
 	var current *store.QuestionWithOptions
@@ -1418,6 +1425,7 @@ func (a *API) buildTextGroups(allTexts []string, revealed []revealedLiveAnswer) 
 	for _, label := range order {
 		groups = append(groups, *byLabel[label])
 	}
+	sort.SliceStable(groups, func(i, j int) bool { return alphaLess(groups[i].Label, groups[j].Label) })
 	return groups
 }
 
@@ -1467,6 +1475,7 @@ func (a *API) buildLiveGroups(q *store.QuestionWithOptions, revealed []revealedL
 	for _, id := range order {
 		groups = append(groups, *byOption[id])
 	}
+	sort.SliceStable(groups, func(i, j int) bool { return alphaLess(groups[i].Label, groups[j].Label) })
 	if otherOptionID != 0 {
 		groups = append(groups, a.buildTextGroups(allOtherTexts, otherRevealed)...)
 	}
@@ -1483,4 +1492,30 @@ func normalizeOpenText(text string) string {
 	}
 	r := []rune(trimmed)
 	return strings.ToUpper(string(r[0])) + string(r[1:])
+}
+
+func participantSortName(p store.Participant) string {
+	if p.Name != "" {
+		return p.Name
+	}
+	return p.Email
+}
+
+var accentFold = strings.NewReplacer(
+	"á", "a", "à", "a", "â", "a", "ã", "a", "ä", "a",
+	"é", "e", "è", "e", "ê", "e", "ë", "e",
+	"í", "i", "ì", "i", "î", "i", "ï", "i",
+	"ó", "o", "ò", "o", "ô", "o", "õ", "o", "ö", "o",
+	"ú", "u", "ù", "u", "û", "u", "ü", "u",
+	"ç", "c", "ñ", "n",
+)
+
+// alphaLess compara ignorando maiúsculas e acentos (aproxima o localeCompare
+// do frontend), desempatando pela string original.
+func alphaLess(a, b string) bool {
+	ka, kb := accentFold.Replace(strings.ToLower(a)), accentFold.Replace(strings.ToLower(b))
+	if ka != kb {
+		return ka < kb
+	}
+	return a < b
 }
