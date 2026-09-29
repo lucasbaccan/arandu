@@ -629,10 +629,18 @@
   // Trocar de pergunta troca o Map zoneAll por inteiro — o tooltip de zona
   // aponta pra lista antiga e ficaria órfão; nesse caso fecha em vez de
   // reancorar num rótulo que nem existe mais.
+  // O refresh periódico reconstrói o Map (arrays novos, mesmo conteúdo): se a
+  // resposta ainda existe, só atualiza a lista do tooltip aberto; e se sumiu
+  // mas o mouse está por cima do tooltip, ele não fecha na cara do usuário.
   $: if (
     hover && hover.kind === 'zone' && zoneAll && zoneAll.get(hover.label) !== hover.participants
   ) {
-    clearHover();
+    const fresh = zoneAll.get(hover.label);
+    if (fresh) {
+      hover = { ...hover, participants: fresh };
+    } else if (!tipHovered) {
+      clearHover();
+    }
   }
 
   // Desligar as dicas ("💡 Dicas" no CrumbBar) fecha qualquer tooltip aberto.
